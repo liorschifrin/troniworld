@@ -10,7 +10,7 @@
   {% endif %}
 {% endwith %}
 
-<form method="post">
+<form method="POST" action="{{ url_for('new_post') }}">
   <label>
     Title
     <input type="text" name="title" required>
@@ -23,10 +23,15 @@
   <br>
   <label>
     Content
-    <textarea name="content" rows="6" required></textarea>
+    <textarea id="content-editor" name="content" rows="6"></textarea>
   </label>
   <br>
   <button type="submit">Create</button>
 </form>
+
+<script src="https://cdn.ckeditor.com/ckeditor5/40.2.0/classic/ckeditor.js"></script>
+<script>
+  ClassicEditor.create(document.querySelector('#content-editor'));
+</script>
 
 <a href="{{ url_for('index') }}">Back</a>
