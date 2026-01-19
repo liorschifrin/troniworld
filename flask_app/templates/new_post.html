@@ -1,14 +1,9 @@
-<h2>Create Post</h2>
+{% extends "base.html" %}
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul>
-      {% for message in messages %}
-        <li>{{ message }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+{% block title %}Create Post - Troniworld{% endblock %}
+
+{% block content %}
+<h2>Create Post</h2>
 
 <form method="POST" action="{{ url_for('new_post') }}">
   <label>
@@ -29,6 +24,9 @@
   <button type="submit">Create</button>
 </form>
 
-{% include "editor.html" %}
-
 <a href="{{ url_for('index') }}">Back</a>
+{% endblock %}
+
+{% block extra_scripts %}
+{% include "editor.html" %}
+{% endblock %}
