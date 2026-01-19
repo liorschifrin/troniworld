@@ -1,0 +1,32 @@
+<h2>Create Post</h2>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+      {% for message in messages %}
+        <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+<form method="post">
+  <label>
+    Title
+    <input type="text" name="title" required>
+  </label>
+  <br>
+  <label>
+    Author
+    <input type="text" name="author" required>
+  </label>
+  <br>
+  <label>
+    Content
+    <textarea name="content" rows="6" required></textarea>
+  </label>
+  <br>
+  <button type="submit">Create</button>
+</form>
+
+<a href="{{ url_for('index') }}">Back</a>
