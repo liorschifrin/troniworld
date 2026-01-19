@@ -1,1 +1,20 @@
 <h2>Welcome to Troniworld</h2>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+      {% for message in messages %}
+        <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+{% if session.get('user_id') %}
+  <p>You are logged in.</p>
+  <form method="post" action="{{ url_for('logout') }}">
+    <button type="submit">Log out</button>
+  </form>
+{% else %}
+  <a href="{{ url_for('login') }}">Log in</a>
+{% endif %}
