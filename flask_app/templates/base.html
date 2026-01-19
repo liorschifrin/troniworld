@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Troniworld{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <nav class="main-menu">
+            <div class="main-menu__top">
+                <div class="main-menu__left">
+                    <span class="promo-menu">
+                        <a href="#">News, tips, & rumors: tips@troniworld.com</a>
+                    </span>
+                    <ul class="inline-list social-menu">
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank">
+                                <i class="fab fa-twitter"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank">
+                                <i class="fab fa-facebook"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank">
+                                <i class="fab fa-twitch"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank">
+                                <i class="fab fa-youtube"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#">
+                                <i class="fas fa-rss"></i>
+                            </a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="social-menu__link iconify iconify--before" href="#">
+                                <i class="fas fa-envelope"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="main-menu__right">
+                    <ul class="inline-list action-menu">
+                        <li class="inline-list__item">
+                            <a class="action-menu__link" href="#">About</a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="action-menu__link" href="#">Discord</a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="action-menu__link" href="#">Disc Golf</a>
+                        </li>
+                        {% if current_user %}
+                        <li class="inline-list__item">
+                            <a class="action-menu__link" href="#">My Settings</a>
+                        </li>
+                        <li class="inline-list__item">
+                            <a class="action-menu__link" href="{{ url_for('logout') }}">Log Out</a>
+                        </li>
+                        {% else %}
+                        <li class="inline-list__item action-menu__support-login">
+                            <a class="action-menu__link action-menu__link--teal" href="#">Support our coverage</a>
+                            <span class="action-menu__separator">|</span>
+                            <a class="action-menu__link action-menu__link--teal" href="{{ url_for('login') }}">Log in</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <div class="clearfix"></div>
+            </div>
+            
+            <div class="main-menu__bottom">
+                <div class="main-menu__left">
+                    <ul class="column-list column-list--justify">
+                        <li class="column-list__item">
+                            <a href="#">Semi-Pro</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Club</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">College</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Youth</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Europe</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="main-menu__right">
+                    <ul class="column-list column-list--justify">
+                        <li class="column-list__item">
+                            <a href="#">News</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Rankings</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Podcasts</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Videos</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">Subs Only</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#" class="search-link">
+                                <i class="fas fa-search"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="clearfix"></div>
+            </div>
+
+            <div class="central-branding">
+                <a href="{{ url_for('index') }}">
+                    <img class="central-branding__logo skip-lazy" src="{{ url_for('static', filename='images/logo.png') }}" alt="Troniworld Logo" />
+                    <!-- <h1 class="central-branding__name">TRONIWORLD</h1> -->
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul class="flash-messages">
+                    {% for message in messages %}
+                        <li>{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
