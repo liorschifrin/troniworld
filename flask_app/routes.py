@@ -78,7 +78,34 @@ def login():
 @app.route('/post/<int:post_id>', methods=['GET'])
 def post(post_id):
     post = Post.query.get_or_404(post_id)
-    return render_template('post.html', post=post)
+    current_user = get_current_user()
+    return render_template('post.html', post=post, current_user=current_user)
+
+
+@app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
+def edit_post(post_id):
+    current_user = get_current_user()
+    if not current_user or not current_user.is_admin:
+        return redirect(url_for('index'))
+
+    post = Post.query.get_or_404(post_id)
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        author = request.form.get('author', '').strip()
+        content = request.form.get('content', '').strip()
+
+        if not title or not author or not content:
+            flash('Title, author, and content are required.')
+            return redirect(url_for('edit_post', post_id=post_id))
+
+        post.title = title
+        post.author = author
+        post.content = content
+        db.session.commit()
+        flash('Post updated.')
+        return redirect(url_for('post', post_id=post_id))
+
+    return render_template('edit_post.html', post=post)
 
 @app.route('/new_post', methods=['GET', 'POST'])
 def new_post():
