@@ -10,8 +10,19 @@
   {% endif %}
 {% endwith %}
 
-{% if session.get('user_id') %}
+
+<h3>Posts</h3>
+ <ul>
+  {% for post in posts %}
+    <li><a href="{{ url_for('post', post_id=post.id) }}">{{ post.title }} - {{ post.author }}</a></li>
+  {% endfor %}
+ </ul>
+
+{% if current_user %}
   <p>You are logged in.</p>
+  {% if current_user.is_admin %}
+    <a href="{{ url_for('new_post') }}">Create a post</a>
+  {% endif %}
   <form method="post" action="{{ url_for('logout') }}">
     <button type="submit">Log out</button>
   </form>
