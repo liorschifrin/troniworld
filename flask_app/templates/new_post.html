@@ -29,9 +29,6 @@
   <button type="submit">Create</button>
 </form>
 
-<script src="https://cdn.ckeditor.com/ckeditor5/40.2.0/classic/ckeditor.js"></script>
-<script>
-  ClassicEditor.create(document.querySelector('#content-editor'));
-</script>
+{% include "editor.html" %}
 
 <a href="{{ url_for('index') }}">Back</a>

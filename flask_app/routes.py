@@ -1,5 +1,8 @@
-from flask import flash, redirect, render_template, request, session, url_for
+from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
+import os
+import uuid
 
 from . import app, db
 from .models import Post, User
@@ -10,6 +13,13 @@ def get_current_user() -> User | None:
     if not user_id:
         return None
     return User.query.get(user_id)
+
+
+def is_allowed_image(filename: str) -> bool:
+    if not filename or '.' not in filename:
+        return False
+    ext = filename.rsplit('.', 1)[1].lower()
+    return ext in app.config['ALLOWED_IMAGE_EXTENSIONS']
 
 @app.route('/')
 def index():
@@ -111,12 +121,18 @@ def edit_post(post_id):
 def new_post():
     current_user = get_current_user()
     if not current_user or not current_user.is_admin:
+        print("not admin")
         return redirect(url_for('index'))
 
+    print("admin")
+
+    print(request.method)
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
         content = request.form.get('content', '').strip()
+
+        print(title, author, content)
 
         if not title or not author or not content:
             flash('Title, author, and content are required.')
@@ -129,6 +145,28 @@ def new_post():
         return redirect(url_for('index'))
 
     return render_template('new_post.html', current_user=current_user)
+
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    current_user = get_current_user()
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if 'upload' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    image = request.files['upload']
+    if image.filename == '' or not is_allowed_image(image.filename):
+        return jsonify({'error': 'Invalid image type'}), 400
+
+    original_name = secure_filename(image.filename)
+    unique_name = f"{uuid.uuid4().hex}_{original_name}"
+    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
+    image.save(save_path)
+
+    public_url = f"/static/uploads/{unique_name}"
+    return jsonify({'url': public_url}), 201
 
 
 @app.route('/logout', methods=['POST'])
