@@ -1,14 +1,9 @@
-<h2>Log in</h2>
+{% extends "base.html" %}
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul>
-      {% for message in messages %}
-        <li>{{ message }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+{% block title %}Log in - Troniworld{% endblock %}
+
+{% block content %}
+<h2>Log in</h2>
 
 <form method="post">
   <label>
@@ -23,3 +18,4 @@
   <br>
   <button type="submit">Log in</button>
 </form>
+{% endblock %}

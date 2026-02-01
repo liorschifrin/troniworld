@@ -1,31 +1,66 @@
-<h2>Welcome to Troniworld</h2>
+{% extends "base.html" %}
 
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul>
-      {% for message in messages %}
-        <li>{{ message }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+{% block title %}Home - Troniworld{% endblock %}
 
+{% block content %}
+<div class="content">
+    <div class="homepage">
+        <section class="hero-section">
+            <h1 class="hero-title">Welcome to Troniworld</h1>
+            <p class="hero-subtitle">Your source for ultimate frisbee news and insights</p>
+        </section>
 
-<h3>Posts</h3>
- <ul>
-  {% for post in posts %}
-    <li><a href="{{ url_for('post', post_id=post.id) }}">{{ post.title }} - {{ post.author }}</a></li>
-  {% endfor %}
- </ul>
+        {% if current_user and current_user.is_admin %}
+        <div class="admin-actions">
+            <a href="{{ url_for('new_post') }}" class="btn btn-primary">
+                <i class="fa fa-plus"></i> Create New Post
+            </a>
+        </div>
+        {% endif %}
 
-{% if current_user %}
-  <p>You are logged in.</p>
-  {% if current_user.is_admin %}
-    <a href="{{ url_for('new_post') }}">Create a post</a>
-  {% endif %}
-  <form method="post" action="{{ url_for('logout') }}">
-    <button type="submit">Log out</button>
-  </form>
-{% else %}
-  <a href="{{ url_for('login') }}">Log in</a>
-{% endif %}
+        {% if posts %}
+        <section class="posts-section">
+            <h2 class="section-title">Latest Articles</h2>
+            <div class="posts-grid">
+                {% for post in posts %}
+                <article class="post-card">
+                    <a href="{{ url_for('post', post_id=post.id) }}" class="post-card__link">
+                        <div class="post-card__header">
+                            <h3 class="post-card__title">{{ post.title }}</h3>
+                        </div>
+                        <div class="post-card__content">
+                            <p class="post-card__excerpt">
+                                {{ post.content[:150] }}{% if post.content|length > 150 %}...{% endif %}
+                            </p>
+                        </div>
+                        <div class="post-card__footer">
+                            <span class="post-card__author">
+                                <i class="fa fa-user"></i> {{ post.author }}
+                            </span>
+                            <span class="post-card__read-more">
+                                Read More <i class="fa fa-angle-right"></i>
+                            </span>
+                        </div>
+                    </a>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa fa-newspaper-o"></i>
+            <p>No posts yet. Check back soon!</p>
+            {% if current_user and current_user.is_admin %}
+            <a href="{{ url_for('new_post') }}" class="btn btn-primary">Create First Post</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if not current_user %}
+        <section class="auth-section">
+            <p>Want to contribute? <a href="{{ url_for('login') }}" class="link-primary">Log in</a> to get started.</p>
+        </section>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
