@@ -169,7 +169,7 @@ def upload_image():
     return jsonify({'url': public_url}), 201
 
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.pop('user_id', None)
     flash('Logged out.')
