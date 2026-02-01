@@ -48,3 +48,9 @@ with app.app_context():
     db.create_all()
 
 from . import routes
+
+# Context processor to make current_user available in all templates
+@app.context_processor
+def inject_current_user():
+    from .routes import get_current_user
+    return dict(current_user=get_current_user())
