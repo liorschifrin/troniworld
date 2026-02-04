@@ -5,7 +5,7 @@
 {% block content %}
 <h2>Edit Post</h2>
 
-<form method="post" action="{{ url_for('edit_post', post_id=post.id) }}">
+<form id="post-form" method="post" action="{{ url_for('edit_post', post_id=post.id) }}">
   <label>
     Title
     <input type="text" name="title" value="{{ post.title }}" required>
@@ -17,6 +17,11 @@
   </label>
   <br>
   <label>
+    Date Created
+    <input type="date" name="created_at" value="{{ post.created_at.strftime('%Y-%m-%d') }}" required>
+  </label>
+  <br>
+  <label>
     Content
     <textarea id="content-editor" name="content" rows="6">{{ post.content }}</textarea>
   </label>
@@ -24,9 +29,73 @@
   <button type="submit">Save</button>
 </form>
 
-<a href="{{ url_for('post', post_id=post.id) }}">Back</a>
+<div style="margin-top: 2rem; display: flex; gap: 1rem; align-items: center;">
+  <a href="{{ url_for('post', post_id=post.id) }}" id="back-link">Back</a>
+  
+  <form id="delete-form" method="post" action="{{ url_for('delete_post', post_id=post.id) }}" style="display: inline;">
+    <button type="button" onclick="confirmDelete()" style="background-color: #dc3545; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+      <i class="fa fa-trash"></i> Delete Post
+    </button>
+  </form>
+</div>
+
+<script>
+function confirmDelete() {
+  if (confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+    hasUnsavedChanges = false; // Allow deletion without unsaved changes warning
+    document.getElementById('delete-form').submit();
+  }
+}
+</script>
 {% endblock %}
 
 {% block extra_scripts %}
 {% include "editor.html" %}
+
+<script>
+  let hasUnsavedChanges = false;
+  let editorInstance = null;
+
+  // Track changes in form inputs
+  document.querySelectorAll('#post-form input, #post-form textarea').forEach(function(input) {
+    input.addEventListener('input', function() {
+      hasUnsavedChanges = true;
+    });
+  });
+
+  // Track changes in CKEditor when it's ready
+  ClassicEditor.create(document.querySelector('#content-editor'), {
+    extraPlugins: [UploadAdapterPlugin]
+  }).then(function(editor) {
+    editorInstance = editor;
+    editor.model.document.on('change:data', function() {
+      hasUnsavedChanges = true;
+    });
+  }).catch(function (error) {
+    console.error(error);
+  });
+
+  // Warn before leaving page
+  window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Warn when clicking back button
+  document.getElementById('back-link').addEventListener('click', function(e) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        e.preventDefault();
+      }
+    }
+  });
+
+  // Reset flag on form submit
+  document.getElementById('post-form').addEventListener('submit', function() {
+    hasUnsavedChanges = false;
+  });
+</script>
 {% endblock %}

@@ -28,10 +28,7 @@
       return new UploadAdapter(loader);
     };
   }
-
-  ClassicEditor.create(document.querySelector('#content-editor'), {
-    extraPlugins: [UploadAdapterPlugin]
-  }).catch(function (error) {
-    console.error(error);
-  });
+  
+  // Note: CKEditor initialization is now handled in individual templates
+  // to allow for change tracking integration
 </script>
