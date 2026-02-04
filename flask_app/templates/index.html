@@ -29,9 +29,9 @@
                             <h3 class="post-card__title">{{ post.title }}</h3>
                         </div>
                         <div class="post-card__content">
-                            <p class="post-card__excerpt">
-                                {{ post.content[:150] }}{% if post.content|length > 150 %}...{% endif %}
-                            </p>
+                            <div class="post-card__excerpt">
+                                {{ (post.content | strip_html)[:200] }}{% if (post.content | strip_html)|length > 200 %}...{% endif %}
+                            </div>
                         </div>
                         <div class="post-card__footer">
                             <span class="post-card__author">
@@ -54,12 +54,6 @@
             <a href="{{ url_for('new_post') }}" class="btn btn-primary">Create First Post</a>
             {% endif %}
         </div>
-        {% endif %}
-
-        {% if not current_user %}
-        <section class="auth-section">
-            <p>Want to contribute? <a href="{{ url_for('login') }}" class="link-primary">Log in</a> to get started.</p>
-        </section>
         {% endif %}
     </div>
 </div>

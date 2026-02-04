@@ -49,6 +49,23 @@ with app.app_context():
 
 from . import routes
 
+# Add custom Jinja2 filters
+import re
+from html import unescape
+
+@app.template_filter('strip_html')
+def strip_html_filter(text):
+    """Remove HTML tags and decode entities from text"""
+    if not text:
+        return ''
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Decode HTML entities
+    text = unescape(text)
+    # Remove extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
 # Context processor to make current_user available in all templates
 @app.context_processor
 def inject_current_user():

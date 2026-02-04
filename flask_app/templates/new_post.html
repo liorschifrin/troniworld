@@ -5,7 +5,7 @@
 {% block content %}
 <h2>Create Post</h2>
 
-<form method="POST" action="{{ url_for('new_post') }}">
+<form id="post-form" method="POST" action="{{ url_for('new_post') }}">
   <label>
     Title
     <input type="text" name="title" required>
@@ -24,9 +24,56 @@
   <button type="submit">Create</button>
 </form>
 
-<a href="{{ url_for('index') }}">Back</a>
+<a href="{{ url_for('index') }}" id="back-link">Back</a>
 {% endblock %}
 
 {% block extra_scripts %}
 {% include "editor.html" %}
+
+<script>
+  let hasUnsavedChanges = false;
+  let editorInstance = null;
+
+  // Track changes in form inputs
+  document.querySelectorAll('#post-form input, #post-form textarea').forEach(function(input) {
+    input.addEventListener('input', function() {
+      hasUnsavedChanges = true;
+    });
+  });
+
+  // Track changes in CKEditor when it's ready
+  ClassicEditor.create(document.querySelector('#content-editor'), {
+    extraPlugins: [UploadAdapterPlugin]
+  }).then(function(editor) {
+    editorInstance = editor;
+    editor.model.document.on('change:data', function() {
+      hasUnsavedChanges = true;
+    });
+  }).catch(function (error) {
+    console.error(error);
+  });
+
+  // Warn before leaving page
+  window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Warn when clicking back button
+  document.getElementById('back-link').addEventListener('click', function(e) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        e.preventDefault();
+      }
+    }
+  });
+
+  // Reset flag on form submit
+  document.getElementById('post-form').addEventListener('submit', function() {
+    hasUnsavedChanges = false;
+  });
+</script>
 {% endblock %}
