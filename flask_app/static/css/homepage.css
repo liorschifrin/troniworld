@@ -81,6 +81,9 @@
     overflow: hidden;
     transition: all 0.3s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .post-card:hover {
@@ -90,7 +93,8 @@
 }
 
 .post-card__link {
-    display: block;
+    display: flex;
+    flex-direction: column;
     text-decoration: none;
     color: inherit;
     height: 100%;
@@ -112,6 +116,9 @@
 
 .post-card__content {
     padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .post-card__excerpt {
@@ -119,6 +126,11 @@
     font-size: 1em;
     line-height: 1.6;
     margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .post-card__footer {
@@ -244,11 +256,103 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* Form and Editor Styles */
+form label {
+    font-size: 1em;
+    font-weight: 600;
+    line-height: 1.5;
+    text-transform: none;
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+form input[type="text"],
+form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-family: inherit;
+}
+
+form input[type="text"]:focus,
+form textarea:focus {
+    outline: none;
+    border-color: #008392;
+    box-shadow: 0 0 0 2px rgba(0, 131, 146, 0.1);
+}
+
+form button[type="submit"] {
+    background-color: #C8252C;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-size: 1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+form button[type="submit"]:hover {
+    background-color: #008392;
+}
+
+/* CKEditor wrapper */
+.ck-editor {
+    margin-bottom: 1rem;
+}
+
+.ck-editor__editable {
+    min-height: 400px;
+}
+
+/* Article Content (Individual Post Page) */
+.article-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: white;
+}
+
+.article-content h2 {
+    font-size: 2.5em;
+    font-weight: 700;
+    color: #212121;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.article-content p {
+    margin-bottom: 1rem;
+    color: #606060;
+}
+
+.article-content a {
+    display: inline-block;
+    margin-top: 1rem;
+    margin-right: 1rem;
+    color: #008392;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.article-content a:hover {
+    color: #C8252C;
+}
+
+.article-content a i {
+    margin-right: 0.5em;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
     .content {
         width: 100%;
-        padding: 0 1rem;
+        /* padding: 0 1rem; */
     }
 }
 
@@ -259,5 +363,13 @@
     
     .post-card__title {
         font-size: 1.2em;
+    }
+    
+    .article-content {
+        padding: 1.5rem;
+    }
+    
+    .article-content h2 {
+        font-size: 1.8em;
     }
 }

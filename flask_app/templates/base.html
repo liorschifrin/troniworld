@@ -119,7 +119,6 @@
             <div class="central-branding">
                 <a href="{{ url_for('index') }}">
                     <img class="central-branding__logo skip-lazy" src="{{ url_for('static', filename='images/logo.png') }}" alt="Troniworld">
-                    {# <h1 class="central-branding__name">Troniworld</h1> #}
                 </a>
             </div>
         </nav>
@@ -204,7 +203,6 @@
             <div class="central-branding">
                 <a href="{{ url_for('index') }}">
                     <img class="central-branding__logo skip-lazy" src="{{ url_for('static', filename='images/logo.png') }}" alt="Troniworld">
-                    <h1 class="central-branding__name">Troniworld</h1>
                 </a>
             </div>
         </nav>
@@ -228,27 +226,12 @@
     <script>
     /* Dynamic user menu logic */
     (function() {
-        var isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+        var isAuthenticated = {{ 'true' if current_user else 'false' }};
         
         var menuLoggedIn = '\
-            <ul class="reveal-list reveal-list--blue">\
-                <li class="reveal-list__item">\
-                    <a href="#">My Settings</a><i class="fa fa-angle-down reveal-list__icon"></i>\
-                </li>\
-                <li class="reveal-list__item">\
-                    <a href="#">Subscribe</a>\
-                </li>\
-                <li class="reveal-list__item">\
-                    <a href="#">FAQ</a>\
-                </li>\
-                <li class="reveal-list__item">\
-                    <a href="#">Support</a>\
-                </li>\
-                <li class="reveal-list__item">\
-                    <a href="{{ url_for('logout') }}">Log Out</a>\
-                </li>\
-            </ul>\
-            <div class="clearfix"></div>';
+            <li class="inline-list__item" style="color:#008392;font-weight:600;">\
+                <a class="action-menu__link" href="{{ url_for('logout') }}" style="margin-left:0.5em;">Log out</a>\
+            </li>';
         
         var menuLoggedOut = '\
             <li class="inline-list__item" style="color:#008392;font-weight:600;">\
