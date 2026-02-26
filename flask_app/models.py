@@ -28,7 +28,15 @@ class Post(db.Model):
 # Association table for Point <-> Player link (many-to-many)
 point_players = db.Table('point_players',
     db.Column('point_id', db.Integer, db.ForeignKey('points.id', ondelete='CASCADE'), primary_key=True),
-    db.Column('player_id', db.Integer, db.ForeignKey('players.id', ondelete='CASCADE'), primary_key=True)
+    db.Column('player_id', db.Integer, db.ForeignKey('players.id', ondelete='CASCADE'), primary_key=True, index=True),
+    db.Index('idx_point_players_player_id', 'player_id')
+)
+
+# Association table for Game <-> Player roster (many-to-many)
+game_roster = db.Table('game_roster',
+    db.Column('game_id', db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('player_id', db.Integer, db.ForeignKey('players.id', ondelete='CASCADE'), primary_key=True, index=True),
+    db.Index('idx_game_roster_player_id', 'player_id')
 )
 
 
@@ -46,6 +54,7 @@ class Player(db.Model):
     
     # Relationships
     points = db.relationship('Point', secondary=point_players, backref='players')
+    games = db.relationship('Game', secondary='game_roster', backref='roster')
 
     def __repr__(self) -> str:
         return f"<Player {self.name}>"
@@ -63,7 +72,10 @@ class Game(db.Model):
     final_score_opponent = db.Column(db.Integer)
     
     # Relationships
+    # roster is defined as backref in Player model (many-to-many through game_roster table)
     points = db.relationship('Point', backref='game', lazy='dynamic', cascade='all, delete-orphan')
+    events = db.relationship('Event', backref='game', lazy='dynamic', cascade='all, delete-orphan')
+    comments = db.relationship('Comment', backref='game', lazy='dynamic', cascade='all, delete-orphan')
 
     def __repr__(self) -> str:
         return f"<Game {self.title} vs {self.opponent}>"
@@ -73,7 +85,7 @@ class Point(db.Model):
     __tablename__ = 'points'
     
     id = db.Column(db.Integer, primary_key=True)
-    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
     point_index = db.Column(db.Integer, nullable=False)  # 1, 2, 3...
     timestamp_start = db.Column(db.Integer)  # seconds in video (nullable)
     tron_o = db.Column(db.Boolean)  # True if Tron is on offense
@@ -82,10 +94,62 @@ class Point(db.Model):
     defense_type = db.Column(db.String(50))
     offense_faced = db.Column(db.String(50))
     
+    # Relationships
+    events = db.relationship('Event', backref='point', lazy='dynamic', cascade='all, delete-orphan')
+    comments = db.relationship('Comment', backref='point', lazy='dynamic', cascade='all, delete-orphan')
+    
     # Ensure unique point_index per game
     __table_args__ = (
         db.UniqueConstraint('game_id', 'point_index', name='_game_point_uc'),
+        db.Index('idx_points_game_id', 'game_id'),
     )
 
     def __repr__(self) -> str:
         return f"<Point {self.point_index} in Game {self.game_id}>"
+
+
+class Event(db.Model):
+    __tablename__ = 'events'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
+    point_id = db.Column(db.Integer, db.ForeignKey('points.id', ondelete='CASCADE'))  # nullable for global events
+    
+    event_type = db.Column(db.String(20), nullable=False)  # 'Turnover', 'Goal', 'Timeout'
+    team = db.Column(db.String(20))  # 'Tron', 'Opponent' (nullable for neutral events)
+    timestamp = db.Column(db.Integer)  # seconds in video (nullable)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_events_game_id', 'game_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Event {self.event_type} in Game {self.game_id}>"
+
+
+class Comment(db.Model):
+    __tablename__ = 'comments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
+    point_id = db.Column(db.Integer, db.ForeignKey('points.id', ondelete='SET NULL'))  # nullable if general game comment
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id', ondelete='CASCADE'), index=True)  # self-reference for threading
+    
+    comment_type = db.Column(db.String(20), nullable=False)  # 'Comment', 'Question', 'Highlight', 'Event'
+    author_name = db.Column(db.String(100), nullable=False)
+    timestamp = db.Column(db.Integer)  # seconds in video (nullable)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]), lazy='dynamic', cascade='all, delete-orphan')
+    
+    __table_args__ = (
+        db.CheckConstraint("comment_type IN ('Comment', 'Question', 'Highlight', 'Event')", name='comment_type_check'),
+        db.Index('idx_comments_game_id', 'game_id'),
+        db.Index('idx_comments_parent_id', 'parent_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Comment by {self.author_name} on Game {self.game_id}>"

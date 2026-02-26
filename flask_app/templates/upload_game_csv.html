@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload Game CSV - Troniworld</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --grass: #1a3a1a;
+    --field: #0f2410;
+    --lime: #c8f135;
+    --disc: #ffffff;
+    --sky: #7ecfff;
+    --warm: #ff6b2b;
+    --text: #e8f5d0;
+    --muted: #6a8a5a;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(200,241,53,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--field);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
+  }
+
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  nav {
+    padding: 12px 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  nav a {
+    color: var(--lime);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  nav a:hover { color: var(--disc); }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 32px 64px;
+  }
+
+  .game-info {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .game-info h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    color: var(--lime);
+    margin-bottom: 8px;
+  }
+
+  .game-info p {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+  }
+
+  .form-card h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    color: var(--disc);
+    margin-bottom: 24px;
+  }
+
+  .instructions {
+    background: rgba(126, 207, 255, 0.05);
+    border: 1px solid rgba(126, 207, 255, 0.2);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .instructions h4 {
+    color: var(--sky);
+    margin-bottom: 8px;
+    font-size: 1rem;
+  }
+
+  .instructions ul {
+    margin-left: 20px;
+    margin-top: 8px;
+  }
+
+  .instructions li {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .instructions code {
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--lime);
+  }
+
+  .form-group {
+    margin-bottom: 24px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--lime);
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+
+  .file-input-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+  }
+
+  .file-input-wrapper input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .file-input-wrapper input[type="file"]::file-selector-button {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: 12px;
+  }
+
+  .file-input-wrapper input[type="file"]::file-selector-button:hover {
+    background: var(--disc);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+  }
+
+  .btn:hover {
+    background: var(--disc);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    background: var(--card);
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  .flash-messages {
+    margin-bottom: 24px;
+  }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
+
+  .flash.error {
+    background: rgba(255, 107, 43, 0.1);
+    border: 1px solid rgba(255, 107, 43, 0.3);
+    color: var(--warm);
+  }
+
+  .flash.success {
+    background: rgba(200, 241, 53, 0.1);
+    border: 1px solid rgba(200, 241, 53, 0.3);
+    color: var(--lime);
+  }
+
+  .warning-box {
+    background: rgba(255, 107, 43, 0.05);
+    border: 1px solid rgba(255, 107, 43, 0.2);
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+
+  .warning-box strong {
+    color: var(--warm);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .warning-box p {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TRONIWORLD</h1>
+  <span>// Upload Game Data</span>
+</header>
+
+<nav>
+  <a href="{{ url_for('view_game', game_id=game.id) }}">← Back to Game</a>
+</nav>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="game-info">
+    <h2>{{ game.title }}</h2>
+    <p>vs {{ game.opponent }} {% if game.game_date %}({{ game.game_date }}){% endif %}</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Upload Game CSV</h3>
+
+    <div class="instructions">
+      <h4>CSV Format Instructions:</h4>
+      <ul>
+        <li><strong>Row 1 (from column 2):</strong> O/D indicator - <code>O</code> means Tron on offense, <code>X</code> means Tron on defense</li>
+        <li><strong>Row 2:</strong> TRON point numbers - if a column has a value, Tron scored that point</li>
+        <li><strong>Row 3:</strong> Enemy point numbers - if a column has a value, the opponent scored that point</li>
+        <li><strong>Subsequent rows:</strong> Player names in the first column, with values in point columns indicating that player participated in that point (always 7 per point)</li>
+        <li><strong>End marker:</strong> Add a row with <code>END PLAYERS</code> in the first column to stop reading player data</li>
+      </ul>
+    </div>
+
+    <div class="warning-box">
+      <strong>⚠️ Warning:</strong>
+      <p>Uploading this CSV will replace all existing points and player data for this game. This action cannot be undone.</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+      <div class="form-group">
+        <label for="csv_file">Select CSV File</label>
+        <div class="file-input-wrapper">
+          <input type="file" name="csv_file" id="csv_file" accept=".csv" required>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Upload and Process</button>
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="btn btn-secondary" id="back-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let hasSelectedFile = false;
+
+  // Track file selection
+  document.getElementById('csv_file').addEventListener('change', function() {
+    hasSelectedFile = this.files.length > 0;
+  });
+
+  // Warn before leaving page if file is selected
+  window.addEventListener('beforeunload', function(e) {
+    if (hasSelectedFile) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Warn when clicking back button if file is selected
+  document.getElementById('back-link').addEventListener('click', function(e) {
+    if (hasSelectedFile) {
+      if (!confirm('You have selected a file. Are you sure you want to leave without uploading?')) {
+        e.preventDefault();
+      }
+    }
+  });
+
+  // Reset flag on form submit
+  document.getElementById('upload-form').addEventListener('submit', function() {
+    hasSelectedFile = false;
+  });
+</script>
+
+</body>
+</html>

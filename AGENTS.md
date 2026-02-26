@@ -1,0 +1,1 @@
+After a feature is implemented suggest to git commit
