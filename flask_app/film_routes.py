@@ -50,9 +50,16 @@ def view_game(game_id):
     points = game.points.order_by(Point.point_index).all()
     
     if points:
-        # Get all unique players across all points, maintaining roster order if available
+        # Get all players in order from player_order_data if available
         all_players = []
-        if game.roster:
+        separator_index = None
+        
+        if game.player_order_data and 'players' in game.player_order_data:
+            # Use the stored player order
+            all_players = game.player_order_data['players']
+            separator_index = game.player_order_data.get('separator_index')
+        elif game.roster:
+            # Fallback to roster order
             all_players = [p.name for p in game.roster]
         else:
             # Fallback: collect players from points
@@ -67,6 +74,7 @@ def view_game(game_id):
         player_sheet_data = {
             'points': points,
             'players': all_players,
+            'separator_index': separator_index,
             'point_players': {}  # Map of point_index -> [player_names]
         }
         
@@ -344,11 +352,27 @@ def upload_game_csv(game_id):
                 player_start_idx = 4
             
             # Get player rows, stopping at "END PLAYERS" marker
+            # Also track player order and section separator
             player_rows = []
-            for row in rows[player_start_idx:]:
+            player_names_ordered = []
+            separator_index = None
+            
+            for idx, row in enumerate(rows[player_start_idx:]):
                 if row and row[0].strip().upper() == 'END PLAYERS':
                     break
-                player_rows.append(row)
+                
+                # Check if this is an empty row (potential separator)
+                if all(cell.strip() == '' for cell in row):
+                    if player_names_ordered and separator_index is None:
+                        # This is the first empty row after players started
+                        separator_index = len(player_names_ordered)
+                    continue
+                
+                # Valid player row
+                player_name = row[0].strip() if row else ''
+                if player_name:
+                    player_rows.append(row)
+                    player_names_ordered.append(player_name)
             
             # Find the number of point columns (starting from column 1, index 1)
             num_points = len(od_row) - 1  # Subtract first column (label)
@@ -435,6 +459,12 @@ def upload_game_csv(game_id):
             # Update game roster (already cleared at the start)
             for player in roster_players:
                 game.roster.append(player)
+            
+            # Store player order data
+            game.player_order_data = {
+                'players': player_names_ordered,
+                'separator_index': separator_index
+            }
             
             db.session.commit()
             flash(f'Successfully uploaded game data! Created {num_points} points with player assignments.', 'success')

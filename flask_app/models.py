@@ -70,6 +70,7 @@ class Game(db.Model):
     game_date = db.Column(db.String(10))  # ISO format: YYYY-MM-DD
     final_score_tron = db.Column(db.Integer)
     final_score_opponent = db.Column(db.Integer)
+    player_order_data = db.Column(db.JSON)  # Stores player order and section info: {"players": [names], "separator_index": int}
     
     # Relationships
     # roster is defined as backref in Player model (many-to-many through game_roster table)
