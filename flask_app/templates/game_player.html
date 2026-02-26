@@ -458,6 +458,55 @@
     background: rgba(255,255,255,0.12);
   }
 
+  .point-detail-dropdown {
+    position: fixed;
+    background: var(--field);
+    border: 1px solid var(--lime);
+    border-radius: 3px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 10000;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    min-width: 150px;
+  }
+
+  .point-detail-dropdown::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .point-detail-dropdown::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+  }
+
+  .point-detail-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(200,241,53,0.3);
+    border-radius: 3px;
+  }
+
+  .point-detail-dropdown-item {
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .point-detail-dropdown-item:hover,
+  .point-detail-dropdown-item.selected {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+  }
+
+  .point-detail-dropdown-empty {
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    font-style: italic;
+    text-align: center;
+  }
+
   #player {
     width: 100%;
     height: 100%;
@@ -855,37 +904,37 @@
               {% if point.tron_o %}O{% else %}D{% endif %}
             </span>
             <span class="point-score-badge {% if point.tron_point %}tron{% else %}opponent{% endif %}">
-              {% if point.tron_point %}T{% else %}O{% endif %}
+              {% if point.tron_point %}Tron{% else %}{{ game.opponent }}{% endif %}
             </span>
           </div>
           <div class="point-details">
             {% if point.tron_o %}
             <!-- Offense fields -->
             <div class="point-detail-item">
-              <span class="point-detail-label">Pull</span>
+              <span class="point-detail-label">Pull Play</span>
               <div class="point-detail-value {% if not point.pull_play %}empty{% endif %}" 
                    onclick="editPointField({{ point.id }}, 'pull_play', this)">
                 {{ point.pull_play if point.pull_play else 'Add...' }}
               </div>
             </div>
             <div class="point-detail-item">
-              <span class="point-detail-label">Off Style</span>
-              <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
-                   onclick="editPointField({{ point.id }}, 'offense_faced', this)">
-                {{ point.offense_faced if point.offense_faced else 'Add...' }}
+              <span class="point-detail-label">Defense Faced</span>
+              <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
+                   onclick="editPointField({{ point.id }}, 'defense_type', this)">
+                {{ point.defense_type if point.defense_type else 'Add...' }}
               </div>
             </div>
             {% else %}
             <!-- Defense fields -->
             <div class="point-detail-item">
-              <span class="point-detail-label">Def Style</span>
+              <span class="point-detail-label">Defensive Style</span>
               <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
                    onclick="editPointField({{ point.id }}, 'defense_type', this)">
                 {{ point.defense_type if point.defense_type else 'Add...' }}
               </div>
             </div>
             <div class="point-detail-item">
-              <span class="point-detail-label">Opp Off</span>
+              <span class="point-detail-label">Offense Faced</span>
               <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
                    onclick="editPointField({{ point.id }}, 'offense_faced', this)">
                 {{ point.offense_faced if point.offense_faced else 'Add...' }}
@@ -926,6 +975,13 @@
   let currentVideoId = {% if game.youtube_id %}'{{ game.youtube_id }}'{% else %}null{% endif %};
   const currentUserName = {% if current_user %}'{{ current_user.username }}'{% else %}null{% endif %};
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
+
+  // Build arrays of existing field values from ALL games
+  const existingValues = {
+    pull_play: new Set({{ point_field_options.pull_play|tojson }}),
+    defense_type: new Set({{ point_field_options.defense_type|tojson }}),
+    offense_faced: new Set({{ point_field_options.offense_faced|tojson }})
+  };
 
   // Toggle player sheet visibility
   function togglePlayerSheet() {
@@ -1179,17 +1235,77 @@
     {% endif %}
 
     const currentValue = element.classList.contains('empty') ? '' : element.textContent.trim();
+    const parent = element.parentElement;
     
     // Create input field
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'point-detail-input';
     input.value = currentValue;
+    input.autocomplete = 'off';
     
-    // Replace the element with input
-    const parent = element.parentElement;
+    // Create custom dropdown
+    const dropdown = document.createElement('div');
+    dropdown.className = 'point-detail-dropdown';
+    
+    // Function to position dropdown below input
+    const positionDropdown = () => {
+      const rect = input.getBoundingClientRect();
+      dropdown.style.top = `${rect.bottom + 2}px`;
+      dropdown.style.left = `${rect.left}px`;
+      dropdown.style.width = `${Math.max(150, rect.width)}px`;
+    };
+    
+    // Function to update dropdown content
+    const updateDropdown = (filterText = '') => {
+      dropdown.innerHTML = '';
+      const values = existingValues[fieldName] ? Array.from(existingValues[fieldName]) : [];
+      const filtered = filterText ? 
+        values.filter(v => v.toLowerCase().includes(filterText.toLowerCase())) : 
+        values;
+      
+      if (filtered.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'point-detail-dropdown-empty';
+        emptyDiv.textContent = 'Type to add new value';
+        //emptyDiv.textContent = filterText ? 'No matches - type to add new' : 'Type to add new value';
+        dropdown.appendChild(emptyDiv);
+      } else {
+        filtered.forEach(value => {
+          const item = document.createElement('div');
+          item.className = 'point-detail-dropdown-item';
+          item.textContent = value;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = value;
+            saveEdit();
+          });
+          dropdown.appendChild(item);
+        });
+      }
+    };
+    
+    // Replace element with input and add dropdown to body
     parent.replaceChild(input, element);
+    document.body.appendChild(dropdown);
+    updateDropdown();
+    positionDropdown();
     input.focus();
+    
+    // Reposition dropdown on scroll
+    const scrollContainer = document.querySelector('.point-info-scroll');
+    const handleScroll = () => positionDropdown();
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+    }
+    
+    // Cleanup function
+    const cleanupDropdown = () => {
+      dropdown.remove();
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
     
     // Handle save on blur or Enter
     const saveEdit = async () => {
@@ -1203,31 +1319,47 @@
         });
         
         if (response.ok) {
+          // Add new value to existing values set
+          if (newValue && existingValues[fieldName]) {
+            existingValues[fieldName].add(newValue);
+          }
+          
           // Restore the display element
           const displayDiv = document.createElement('div');
           displayDiv.className = 'point-detail-value' + (newValue ? '' : ' empty');
-          displayDiv.textContent = newValue || 'Click to add...';
+          displayDiv.textContent = newValue || 'Add...';
           displayDiv.onclick = () => editPointField(pointId, fieldName, displayDiv);
           parent.replaceChild(displayDiv, input);
+          cleanupDropdown();
         } else {
           const error = await response.json();
           alert('Error updating point: ' + (error.error || 'Unknown error'));
           parent.replaceChild(element, input);
+          cleanupDropdown();
         }
       } catch (error) {
         console.error('Error updating point:', error);
         alert('Error updating point. Please try again.');
         parent.replaceChild(element, input);
+        cleanupDropdown();
       }
     };
     
-    input.addEventListener('blur', saveEdit);
+    // Update dropdown as user types
+    input.addEventListener('input', (e) => {
+      updateDropdown(e.target.value);
+    });
+    
+    input.addEventListener('blur', () => {
+      saveEdit();
+    });
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         e.preventDefault();
         saveEdit();
       } else if (e.key === 'Escape') {
         parent.replaceChild(element, input);
+        cleanupDropdown();
       }
     });
   }
