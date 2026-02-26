@@ -233,6 +233,11 @@
     padding: 20px 32px 32px;
   }
 
+  .main {
+    min-width: 0;
+    overflow: hidden;
+  }
+
   .sidebar {
     width: 320px;
   }
@@ -288,6 +293,169 @@
     overflow: hidden;
     aspect-ratio: 16/9;
     position: relative;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* Point Info Section - Horizontal Scroll */
+  .point-info-section {
+    margin-top: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .point-info-scroll {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .point-info-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .point-info-scroll::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.2);
+  }
+
+  .point-info-scroll::-webkit-scrollbar-thumb {
+    background: rgba(200,241,53,0.3);
+    border-radius: 3px;
+  }
+
+  .point-info-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(200,241,53,0.5);
+  }
+
+  .point-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(200,241,53,0.1);
+    border-radius: 4px;
+    padding: 8px 10px;
+    min-width: 200px;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .point-item:hover {
+    background: rgba(255,255,255,0.05);
+  }
+
+  .point-item-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+
+  .point-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    color: var(--lime);
+    letter-spacing: 1px;
+  }
+
+  .point-od-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 2px 5px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  .point-od-badge.offense {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+  }
+
+  .point-od-badge.defense {
+    background: rgba(126,207,255,0.15);
+    color: var(--sky);
+  }
+
+  .point-score-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 2px;
+  }
+
+  .point-score-badge.tron {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+  }
+
+  .point-score-badge.opponent {
+    background: rgba(255,107,43,0.15);
+    color: var(--warm);
+  }
+
+  .point-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+  }
+
+  .point-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .point-detail-label {
+    color: var(--muted);
+    font-size: 0.6rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .point-detail-value {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+    padding: 3px 6px;
+    border-radius: 2px;
+    border: 1px solid rgba(200,241,53,0.08);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .point-detail-value:hover {
+    background: rgba(255,255,255,0.06);
+  }
+
+  .point-detail-value.empty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.6rem;
+  }
+
+  .point-detail-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    border: 1px solid var(--lime);
+    border-radius: 2px;
+    padding: 3px 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+  }
+
+  .point-detail-input:focus {
+    outline: none;
+    background: rgba(255,255,255,0.12);
   }
 
   #player {
@@ -462,7 +630,7 @@
 
   .comment-video-timestamp {
     font-family: 'DM Mono', monospace;
-    font-size: 0.85rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--lime);
   }
@@ -487,7 +655,7 @@
     border: none;
     color: var(--text);
     cursor: pointer;
-    font-size: 1.3rem;
+    font-size: 1rem;
     padding: 4px 8px;
     opacity: 0.5;
     transition: opacity 0.2s;
@@ -674,6 +842,62 @@
       {% endif %}
       <div id="player"></div>
     </div>
+
+    <!-- Point Information Section -->
+    {% if player_sheet_data %}
+    <div class="point-info-section">
+      <div class="point-info-scroll">
+        {% for point in player_sheet_data['points'] %}
+        <div class="point-item" data-point-id="{{ point.id }}">
+          <div class="point-item-header">
+            <span class="point-number">P{{ point.point_index }}</span>
+            <span class="point-od-badge {% if point.tron_o %}offense{% else %}defense{% endif %}">
+              {% if point.tron_o %}O{% else %}D{% endif %}
+            </span>
+            <span class="point-score-badge {% if point.tron_point %}tron{% else %}opponent{% endif %}">
+              {% if point.tron_point %}T{% else %}O{% endif %}
+            </span>
+          </div>
+          <div class="point-details">
+            {% if point.tron_o %}
+            <!-- Offense fields -->
+            <div class="point-detail-item">
+              <span class="point-detail-label">Pull</span>
+              <div class="point-detail-value {% if not point.pull_play %}empty{% endif %}" 
+                   onclick="editPointField({{ point.id }}, 'pull_play', this)">
+                {{ point.pull_play if point.pull_play else 'Add...' }}
+              </div>
+            </div>
+            <div class="point-detail-item">
+              <span class="point-detail-label">Off Style</span>
+              <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
+                   onclick="editPointField({{ point.id }}, 'offense_faced', this)">
+                {{ point.offense_faced if point.offense_faced else 'Add...' }}
+              </div>
+            </div>
+            {% else %}
+            <!-- Defense fields -->
+            <div class="point-detail-item">
+              <span class="point-detail-label">Def Style</span>
+              <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
+                   onclick="editPointField({{ point.id }}, 'defense_type', this)">
+                {{ point.defense_type if point.defense_type else 'Add...' }}
+              </div>
+            </div>
+            <div class="point-detail-item">
+              <span class="point-detail-label">Opp Off</span>
+              <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
+                   onclick="editPointField({{ point.id }}, 'offense_faced', this)">
+                {{ point.offense_faced if point.offense_faced else 'Add...' }}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="sidebar">
@@ -821,7 +1045,7 @@
   function seekToTime(seconds) {
     if (player && playerReady) {
       player.seekTo(seconds, true);
-      player.playVideo();
+      // player.playVideo();
     }
   }
 
@@ -946,6 +1170,66 @@
       console.error('Error deleting comment:', error);
       alert('Error deleting comment. Please try again.');
     }
+  }
+
+  // Point field editing
+  function editPointField(pointId, fieldName, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    const currentValue = element.classList.contains('empty') ? '' : element.textContent.trim();
+    
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'point-detail-input';
+    input.value = currentValue;
+    
+    // Replace the element with input
+    const parent = element.parentElement;
+    parent.replaceChild(input, element);
+    input.focus();
+    
+    // Handle save on blur or Enter
+    const saveEdit = async () => {
+      const newValue = input.value.trim();
+      
+      try {
+        const response = await fetch(`/api/games/{{ game.id }}/points/${pointId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [fieldName]: newValue || null })
+        });
+        
+        if (response.ok) {
+          // Restore the display element
+          const displayDiv = document.createElement('div');
+          displayDiv.className = 'point-detail-value' + (newValue ? '' : ' empty');
+          displayDiv.textContent = newValue || 'Click to add...';
+          displayDiv.onclick = () => editPointField(pointId, fieldName, displayDiv);
+          parent.replaceChild(displayDiv, input);
+        } else {
+          const error = await response.json();
+          alert('Error updating point: ' + (error.error || 'Unknown error'));
+          parent.replaceChild(element, input);
+        }
+      } catch (error) {
+        console.error('Error updating point:', error);
+        alert('Error updating point. Please try again.');
+        parent.replaceChild(element, input);
+      }
+    };
+    
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveEdit();
+      } else if (e.key === 'Escape') {
+        parent.replaceChild(element, input);
+      }
+    });
   }
 
   // Load comments when page loads
