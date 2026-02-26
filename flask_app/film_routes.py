@@ -479,7 +479,7 @@ def delete_player_sheet(game_id):
 
 @app.route('/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
 def update_point(game_id, point_id):
-    """Update point information (pull_play, defense_type, offense_faced)"""
+    """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""
     current_user = get_current_user()
     
     # Check if user is admin
@@ -498,6 +498,8 @@ def update_point(game_id, point_id):
             point.defense_type = data['defense_type']
         if 'offense_faced' in data:
             point.offense_faced = data['offense_faced']
+        if 'timestamp_start' in data:
+            point.timestamp_start = data['timestamp_start']
         
         db.session.commit()
         return jsonify({'success': True, 'message': 'Point updated successfully'})
