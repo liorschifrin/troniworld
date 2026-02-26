@@ -25,6 +25,26 @@ def view_game(game_id):
     current_user = get_current_user()
     game = Game.query.get_or_404(game_id)
     
+    # Get all unique point detail field values across ALL games
+    all_pull_plays = set()
+    all_defense_types = set()
+    all_offense_faced = set()
+    
+    all_points = Point.query.all()
+    for point in all_points:
+        if point.pull_play:
+            all_pull_plays.add(point.pull_play)
+        if point.defense_type:
+            all_defense_types.add(point.defense_type)
+        if point.offense_faced:
+            all_offense_faced.add(point.offense_faced)
+    
+    point_field_options = {
+        'pull_play': sorted(list(all_pull_plays)),
+        'defense_type': sorted(list(all_defense_types)),
+        'offense_faced': sorted(list(all_offense_faced))
+    }
+    
     # Prepare player sheet data if points exist
     player_sheet_data = None
     points = game.points.order_by(Point.point_index).all()
@@ -53,7 +73,7 @@ def view_game(game_id):
         for point in points:
             player_sheet_data['point_players'][point.point_index] = [p.name for p in point.players]
     
-    return render_template('game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data)
+    return render_template('game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options)
 
 
 @app.route('/film/games/new_game', methods=['GET', 'POST'])
