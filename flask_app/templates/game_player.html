@@ -297,6 +297,84 @@
     width: 100%;
   }
 
+  .player-timestamp {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.75);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    z-index: 10;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+
+  .custom-video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding: 12px 16px 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .video-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    pointer-events: auto;
+    position: relative;
+  }
+
+  .video-progress-bar:hover {
+    height: 6px;
+    margin-bottom: 5px;
+  }
+
+  .video-progress-fill {
+    height: 100%;
+    background: var(--lime);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+    position: relative;
+  }
+
+  .video-progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: var(--lime);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .video-progress-bar:hover .video-progress-fill::after {
+    opacity: 1;
+  }
+
+  .video-time-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+
   /* Point Info Section - Horizontal Scroll */
   .point-info-section {
     margin-top: 12px;
@@ -340,10 +418,89 @@
     min-width: 200px;
     flex-shrink: 0;
     transition: background 0.2s;
+    position: relative;
   }
 
   .point-item:hover {
     background: rgba(255,255,255,0.05);
+  }
+
+  .point-item.has-timestamp {
+    cursor: pointer;
+  }
+
+  .point-item.has-timestamp:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(200,241,53,0.2);
+  }
+
+  .point-item.active {
+    background: rgba(200,241,53,0.08);
+    border-color: rgba(200,241,53,0.3);
+  }
+
+  .point-item.active:hover {
+    background: rgba(200,241,53,0.12);
+  }
+
+  .point-timestamp {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .point-timestamp-delete {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--warm);
+    background: rgba(255,107,43,0.2);
+    padding: 0px 3px;
+    border-radius: 2px;
+    cursor: pointer;
+    display: none;
+    border: 1px solid rgba(255,107,43,0.3);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .point-timestamp:hover .point-timestamp-delete {
+    display: block;
+  }
+
+  .point-timestamp-delete:hover {
+    background: rgba(255,107,43,0.35);
+    border-color: var(--warm);
+  }
+
+  .point-timestamp-add {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    background: rgba(255,255,255,0.03);
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(200,241,53,0.1);
+  }
+
+  .point-timestamp-add:hover {
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    border-color: var(--lime);
   }
 
   .point-item-header {
@@ -890,6 +1047,13 @@
       </div>
       {% endif %}
       <div id="player"></div>
+      <div class="player-timestamp" id="playerTimestamp">0:00</div>
+      {# <div class="custom-video-controls" id="customControls">
+        <div class="video-time-display" id="timeDisplay">0:00 / 0:00</div>
+        <div class="video-progress-bar" id="progressBar" onclick="seekToProgress(event)">
+          <div class="video-progress-fill" id="progressFill"></div>
+        </div>
+      </div> #}
     </div>
 
     <!-- Point Information Section -->
@@ -897,7 +1061,17 @@
     <div class="point-info-section">
       <div class="point-info-scroll">
         {% for point in player_sheet_data['points'] %}
-        <div class="point-item" data-point-id="{{ point.id }}">
+        <div class="point-item {% if point.timestamp_start is not none %}has-timestamp{% endif %}" 
+             data-point-id="{{ point.id }}" 
+             {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
+          {% if point.timestamp_start is not none %}
+          <div class="point-timestamp" title="Click to seek to this point">
+            <span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp({{ point.id }}, this)" title="Delete timestamp">✕</span>
+            {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}
+          </div>
+          {% else %}
+          <div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp({{ point.id }}, this)" title="Set timestamp to current video time">+ Time</div>
+          {% endif %}
           <div class="point-item-header">
             <span class="point-number">P{{ point.point_index }}</span>
             <span class="point-od-badge {% if point.tron_o %}offense{% else %}defense{% endif %}">
@@ -975,6 +1149,7 @@
   let currentVideoId = {% if game.youtube_id %}'{{ game.youtube_id }}'{% else %}null{% endif %};
   const currentUserName = {% if current_user %}'{{ current_user.username }}'{% else %}null{% endif %};
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
+  let currentActivePointId = null;
 
   // Build arrays of existing field values from ALL games
   const existingValues = {
@@ -1063,10 +1238,122 @@
         events: {
           onReady: () => {
             playerReady = true;
+            startVideoControlsUpdate();
           }
         }
       });
     }
+  }
+
+  // Custom video controls
+  function formatTime(seconds) {
+    if (!seconds || seconds < 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function updateVideoControls() {
+    if (!player || !playerReady) return;
+
+    try {
+      const currentTime = player.getCurrentTime();
+      const duration = player.getDuration();
+      const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+      const progressFill = document.getElementById('progressFill');
+      const timeDisplay = document.getElementById('timeDisplay');
+      const playerTimestamp = document.getElementById('playerTimestamp');
+
+      if (progressFill) {
+        progressFill.style.width = `${progressPercent}%`;
+      }
+
+      if (timeDisplay) {
+        timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      if (playerTimestamp) {
+        playerTimestamp.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      // Update active point based on timestamp
+      updateActivePoint(currentTime);
+    } catch (e) {
+      // Ignore errors if player not fully loaded
+    }
+  }
+
+  function updateActivePoint(currentTime) {
+    // Find all point items with timestamps
+    const pointItems = document.querySelectorAll('.point-item[data-timestamp]');
+    if (pointItems.length === 0) return;
+
+    // Find the most recent point that has been passed
+    let activePoint = null;
+    let closestTimestamp = -1;
+
+    pointItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activePoint = item;
+      }
+    });
+
+    // If we found an active point and it's different from current
+    if (activePoint) {
+      const activePointId = activePoint.getAttribute('data-point-id');
+      
+      if (activePointId !== currentActivePointId) {
+        // Remove active class from all points
+        pointItems.forEach(item => item.classList.remove('active'));
+        
+        // Add active class to new point
+        activePoint.classList.add('active');
+        
+        // Scroll to show the active point on the left
+        const scrollContainer = document.querySelector('.point-info-scroll');
+        if (scrollContainer) {
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const pointRect = activePoint.getBoundingClientRect();
+          const relativeLeft = pointRect.left - containerRect.left;
+          
+          // Scroll so the point appears on the left with some padding
+          scrollContainer.scrollBy({
+            left: relativeLeft - 10,
+            behavior: 'smooth'
+          });
+        }
+        
+        currentActivePointId = activePointId;
+      }
+    } else if (currentActivePointId !== null) {
+      // No active point, remove all highlights
+      pointItems.forEach(item => item.classList.remove('active'));
+      currentActivePointId = null;
+    }
+  }
+
+  function seekToProgress(event) {
+    if (!player || !playerReady) return;
+
+    const progressBar = event.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percent = clickX / rect.width;
+    const duration = player.getDuration();
+    const seekTime = duration * percent;
+
+    player.seekTo(seekTime, true);
+  }
+
+  let controlsUpdateInterval = null;
+  function startVideoControlsUpdate() {
+    if (controlsUpdateInterval) {
+      clearInterval(controlsUpdateInterval);
+    }
+    controlsUpdateInterval = setInterval(updateVideoControls, 100);
   }
 
   function togglePlayPause() {
@@ -1225,6 +1512,94 @@
     } catch (error) {
       console.error('Error deleting comment:', error);
       alert('Error deleting comment. Please try again.');
+    }
+  }
+
+  // Point timestamp functions
+  function seekToPointTimestamp(timestamp) {
+    if (timestamp == null || timestamp == undefined) {
+      return;
+    }
+    if (player && playerReady) {
+      player.seekTo(timestamp, true);
+    }
+  }
+
+  async function setPointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    if (!player || !playerReady) {
+      alert('Video player is not ready');
+      return;
+    }
+
+    const currentTime = Math.floor(player.getCurrentTime());
+    
+    try {
+      const response = await fetch(`/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp_start: currentTime })
+      });
+      
+      if (response.ok) {
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.add('has-timestamp');
+        pointCard.setAttribute('data-timestamp', currentTime);
+        pointCard.onclick = () => seekToPointTimestamp(currentTime);
+        
+        // Replace "+ Time" button with timestamp display and delete button
+        const mins = Math.floor(currentTime / 60);
+        const secs = currentTime % 60;
+        const deleteBtn = `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>`;
+        const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
+        element.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
+      } else {
+        const error = await response.json();
+        alert('Error setting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error setting timestamp:', error);
+      alert('Error setting timestamp. Please try again.');
+    }
+  }
+
+  async function deletePointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    try {
+      const response = await fetch(`/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp_start: null })
+      });
+      
+      if (response.ok) {
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.remove('has-timestamp');
+        pointCard.removeAttribute('data-timestamp');
+        pointCard.onclick = null;
+        
+        // Replace timestamp and delete button with "+ Time" button
+        const addBtn = `<div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp(${pointId}, this)" title="Set timestamp to current video time">+ Time</div>`;
+        // Find and replace the entire timestamp element
+        const timestamp = pointCard.querySelector('.point-timestamp');
+        if (timestamp) {
+          timestamp.outerHTML = addBtn;
+        }
+      } else {
+        const error = await response.json();
+        alert('Error deleting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting timestamp:', error);
+      alert('Error deleting timestamp. Please try again.');
     }
   }
 
