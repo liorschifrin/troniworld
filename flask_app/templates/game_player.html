@@ -1000,7 +1000,6 @@
         <thead>
           <tr>
             <th>O/D</th>
-            <th></th>
             {% for point in player_sheet_data['points'] %}
             <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}">{{ point.point_index }}</th>
             {% endfor %}
@@ -1010,7 +1009,6 @@
           <!-- O/D Row -->
           <tr>
             <td class="row-label">O/D</td>
-            <td></td>
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
               {% if point.tron_o %}O{% else %}X{% endif %}
@@ -1021,7 +1019,6 @@
           <!-- TRON Row -->
           <tr>
             <td class="row-label">TRON</td>
-            <td></td>
             {% set ns = namespace(tron_score=0) %}
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
@@ -1036,7 +1033,6 @@
           <!-- Enemy Row -->
           <tr>
             <td class="row-label">Enemy</td>
-            <td></td>
             {% set ns = namespace(enemy_score=0) %}
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
@@ -1050,13 +1046,13 @@
           
           <!-- Empty separator row -->
           <tr>
-            <td colspan="{{ player_sheet_data['points']|length + 2 }}" style="background: transparent; border: none; padding: 4px;"></td>
+            <td colspan="{{ player_sheet_data['points']|length + 1 }}" style="background: transparent; border: none; padding: 4px;"></td>
           </tr>
           
           <!-- Player Rows -->
           {% for player_name in player_sheet_data['players'] %}
           <tr>
-            <td class="player-name" colspan="2">{{ player_name }}</td>
+            <td class="player-name">{{ player_name }}</td>
             {% set ns = namespace(player_count=0) %}
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
@@ -1070,7 +1066,7 @@
           {% if player_sheet_data.get('separator_index') and loop.index0 + 1 == player_sheet_data['separator_index'] %}
           <!-- Section separator row -->
           <tr>
-            <td colspan="{{ player_sheet_data['points']|length + 2 }}" style="background: transparent; border: none; padding: 8px;"></td>
+            <td colspan="{{ player_sheet_data['points']|length + 1 }}" style="background: transparent; border: none; padding: 8px;"></td>
           </tr>
           {% endif %}
           {% endfor %}
