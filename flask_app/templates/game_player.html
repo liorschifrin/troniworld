@@ -111,7 +111,7 @@
 
   .player-sheet-section {
     max-width: 100%;
-    margin: 0 32px 24px;
+    margin: 0 32px;
   }
 
   .player-sheet-toggle {
@@ -285,6 +285,51 @@
 
   .url-bar button:hover, .btn:hover { opacity: 0.85; }
   .url-bar button:active, .btn:active { transform: scale(0.97); }
+
+  /* Current Players Display */
+  .current-players {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .current-players-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .current-players-list {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .player-badge {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid rgba(200,241,53,0.15);
+  }
+
+  .current-players.empty .player-badge {
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    border-color: rgba(255,255,255,0.05);
+    font-style: italic;
+  }
 
   /* Player */
   .player-wrap {
@@ -1039,6 +1084,15 @@
     </div>
     {% endif %}
 
+    {% if player_sheet_data %}
+    <div class="current-players empty" id="currentPlayers">
+      <span class="current-players-label">On Field:</span>
+      <div class="current-players-list" id="currentPlayersList">
+        <span class="player-badge">Waiting for first point...</span>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="player-wrap">
       {% if not game.youtube_id %}
       <div class="player-placeholder" id="placeholder">
@@ -1063,6 +1117,7 @@
         {% for point in player_sheet_data['points'] %}
         <div class="point-item {% if point.timestamp_start is not none %}has-timestamp{% endif %}" 
              data-point-id="{{ point.id }}" 
+             data-point-index="{{ point.point_index }}"
              {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
           {% if point.timestamp_start is not none %}
           <div class="point-timestamp" title="Click to seek to this point">
@@ -1157,6 +1212,13 @@
     defense_type: new Set({{ point_field_options.defense_type|tojson }}),
     offense_faced: new Set({{ point_field_options.offense_faced|tojson }})
   };
+
+  // Point players data
+  {% if player_sheet_data %}
+  const pointPlayersData = {{ player_sheet_data['point_players']|tojson }};
+  {% else %}
+  const pointPlayersData = {};
+  {% endif %}
 
   // Toggle player sheet visibility
   function togglePlayerSheet() {
@@ -1312,6 +1374,10 @@
         // Add active class to new point
         activePoint.classList.add('active');
         
+        // Update current players display
+        const pointIndex = parseInt(activePoint.getAttribute('data-point-index'));
+        updateCurrentPlayers(pointIndex);
+        
         // Scroll to show the active point on the left
         const scrollContainer = document.querySelector('.point-info-scroll');
         if (scrollContainer) {
@@ -1332,6 +1398,25 @@
       // No active point, remove all highlights
       pointItems.forEach(item => item.classList.remove('active'));
       currentActivePointId = null;
+    }
+  }
+
+  function updateCurrentPlayers(pointIndex) {
+    const playersContainer = document.getElementById('currentPlayers');
+    const playersList = document.getElementById('currentPlayersList');
+    
+    if (!playersContainer || !playersList) return;
+    
+    const players = pointPlayersData[pointIndex];
+    
+    if (players && players.length > 0) {
+      playersContainer.classList.remove('empty');
+      playersList.innerHTML = players.map(name => 
+        `<span class="player-badge">${escHtml(name)}</span>`
+      ).join('');
+    } else {
+      playersContainer.classList.add('empty');
+      playersList.innerHTML = '<span class="player-badge">No players listed</span>';
     }
   }
 
