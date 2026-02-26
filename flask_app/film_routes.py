@@ -193,7 +193,11 @@ def edit_game(game_id):
 def get_comments(game_id):
     """Get all comments for a game"""
     game = Game.query.get_or_404(game_id)
-    comments = Comment.query.filter_by(game_id=game_id, parent_id=None).order_by(Comment.created_at.desc()).all()
+    # Sort by timestamp (nulls last), then by created_at for comments without timestamps
+    comments = Comment.query.filter_by(game_id=game_id, parent_id=None).order_by(
+        Comment.timestamp.asc().nullslast(),
+        Comment.created_at.asc()
+    ).all()
     
     comments_list = []
     for comment in comments:

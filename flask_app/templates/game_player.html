@@ -879,6 +879,28 @@
     border-color: rgba(255,107,43,0.3);
   }
 
+  .comment-item.active {
+    background: rgba(200,241,53,0.08);
+    border-color: rgba(200,241,53,0.4);
+  }
+
+  .comment-item.active-pulse {
+    animation: commentPulse 1s ease-out;
+  }
+
+  @keyframes commentPulse {
+    0% {
+      background: rgba(200,241,53,0.25);
+      border-color: rgba(200,241,53,0.8);
+      box-shadow: 0 0 20px rgba(200,241,53,0.4);
+    }
+    100% {
+      background: rgba(200,241,53,0.08);
+      border-color: rgba(200,241,53,0.4);
+      box-shadow: none;
+    }
+  }
+
   .comment-video-timestamp {
     font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
@@ -1207,6 +1229,7 @@
   const currentUserName = {% if current_user %}'{{ current_user.username }}'{% else %}null{% endif %};
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
   let currentActivePointId = null;
+  let currentActiveCommentId = null;
 
   // Build arrays of existing field values from ALL games
   const existingValues = {
@@ -1343,6 +1366,9 @@
 
       // Update active point based on timestamp
       updateActivePoint(currentTime);
+      
+      // Update active comment based on timestamp
+      updateActiveComment(currentTime);
     } catch (e) {
       // Ignore errors if player not fully loaded
     }
@@ -1419,6 +1445,69 @@
     } else {
       playersContainer.classList.add('empty');
       playersList.innerHTML = '<span class="player-badge">No players listed</span>';
+    }
+  }
+
+  function updateActiveComment(currentTime) {
+    // Find all comment items with timestamps
+    const commentItems = document.querySelectorAll('.comment-item[data-timestamp]');
+    if (commentItems.length === 0) return;
+
+    // Find the most recent comment that has been passed
+    let activeComment = null;
+    let closestTimestamp = -1;
+
+    commentItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activeComment = item;
+      }
+    });
+
+    // If we found an active comment and it's different from current
+    if (activeComment) {
+      const activeCommentId = activeComment.getAttribute('data-comment-id');
+      
+      if (activeCommentId !== currentActiveCommentId) {
+        // Remove active classes from all comments
+        commentItems.forEach(item => {
+          item.classList.remove('active');
+          item.classList.remove('active-pulse');
+        });
+        
+        // Add active class to new comment
+        activeComment.classList.add('active');
+        activeComment.classList.add('active-pulse');
+        
+        // Scroll to show the active comment at the top of the container
+        const scrollContainer = document.querySelector('.comments-list');
+        if (scrollContainer) {
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const commentRect = activeComment.getBoundingClientRect();
+          const relativeTop = commentRect.top - containerRect.top;
+          
+          // Scroll so the comment appears at the top with some padding
+          scrollContainer.scrollBy({
+            top: relativeTop - 10,
+            behavior: 'smooth'
+          });
+        }
+        
+        // Remove pulse animation after it completes (1s)
+        setTimeout(() => {
+          activeComment.classList.remove('active-pulse');
+        }, 1000);
+        
+        currentActiveCommentId = activeCommentId;
+      }
+    } else if (currentActiveCommentId !== null) {
+      // No active comment, remove all highlights
+      commentItems.forEach(item => {
+        item.classList.remove('active');
+        item.classList.remove('active-pulse');
+      });
+      currentActiveCommentId = null;
     }
   }
 
@@ -1556,6 +1645,7 @@
       const clickable = c.timestamp !== null && c.timestamp !== undefined;
       const cursorStyle = clickable ? 'cursor:pointer;' : '';
       const onclickAttr = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
+      const dataAttrs = clickable ? `data-timestamp="${c.timestamp}" data-comment-id="${c.id}"` : '';
       
       // Show delete button only for admins (until we implement proper user tracking)
       const canDelete = isAdmin;
@@ -1568,7 +1658,7 @@
         '';
       
       return `
-        <div class="comment-item" ${onclickAttr} style="${cursorStyle}">
+        <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
           <div class="comment-content-wrapper">
             <div class="comment-author">${escHtml(c.author_name)}</div>
             <div class="comment-text">${timestampPrefix}${escHtml(c.content)}</div>
