@@ -455,3 +455,33 @@ def delete_player_sheet(game_id):
         flash(f'Error deleting player sheet: {str(e)}', 'error')
     
     return redirect(url_for('view_game', game_id=game.id))
+
+
+@app.route('/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
+def update_point(game_id, point_id):
+    """Update point information (pull_play, defense_type, offense_faced)"""
+    current_user = get_current_user()
+    
+    # Check if user is admin
+    if not current_user or not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    point = Point.query.filter_by(id=point_id, game_id=game_id).first_or_404()
+    
+    try:
+        data = request.get_json()
+        
+        # Update allowed fields
+        if 'pull_play' in data:
+            point.pull_play = data['pull_play']
+        if 'defense_type' in data:
+            point.defense_type = data['defense_type']
+        if 'offense_faced' in data:
+            point.offense_faced = data['offense_faced']
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Point updated successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
