@@ -1067,6 +1067,12 @@
             </td>
             {% endfor %}
           </tr>
+          {% if player_sheet_data.get('separator_index') and loop.index0 + 1 == player_sheet_data['separator_index'] %}
+          <!-- Section separator row -->
+          <tr>
+            <td colspan="{{ player_sheet_data['points']|length + 2 }}" style="background: transparent; border: none; padding: 8px;"></td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
