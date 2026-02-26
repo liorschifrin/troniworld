@@ -442,10 +442,11 @@
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(200,241,53,0.1);
     border-radius: 6px;
-    padding: 10px;
+    padding: 12px 16px;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
     transition: background 0.2s, border-color 0.2s;
     position: relative;
   }
@@ -459,24 +460,44 @@
     border-color: rgba(255,107,43,0.3);
   }
 
+  .comment-video-timestamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--lime);
+  }
+
+  .comment-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .comment-author {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--warm);
+    font-weight: 500;
+  }
+
   .comment-delete-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
     background: transparent;
     border: none;
-    color: var(--muted);
+    color: var(--text);
     cursor: pointer;
-    font-size: 0.85rem;
-    padding: 4px;
-    opacity: 0.6;
-    transition: opacity 0.2s, color 0.2s;
+    font-size: 1.3rem;
+    padding: 4px 8px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
     z-index: 10;
+    flex-shrink: 0;
+    line-height: 1;
   }
 
   .comment-delete-btn:hover {
     opacity: 1;
-    color: var(--warm);
   }
 
   .comment-text {
@@ -878,9 +899,6 @@
 
     list.innerHTML = comments.map((c, i) => {
       const timestampFormatted = formatTimestamp(c.timestamp);
-      const timestampHtml = timestampFormatted ? 
-        `<span class="video-timestamp" style="color:var(--warm);font-weight:600;">${escHtml(timestampFormatted)}</span> ` : 
-        '';
       const clickable = c.timestamp !== null && c.timestamp !== undefined;
       const cursorStyle = clickable ? 'cursor:pointer;' : '';
       const onclickAttr = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
@@ -888,15 +906,21 @@
       // Show delete button only for admins (until we implement proper user tracking)
       const canDelete = isAdmin;
       const deleteBtn = canDelete ? 
-        `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete comment">🗑️</button>` : 
+        `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete comment">✕</button>` : 
+        '';
+      
+      const timestampPrefix = timestampFormatted ? 
+        `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : 
         '';
       
       return `
         <div class="comment-item" ${onclickAttr} style="${cursorStyle}">
+          <div class="comment-content-wrapper">
+            <div class="comment-author">${escHtml(c.author_name)}</div>
+            <div class="comment-text">${timestampPrefix}${escHtml(c.content)}</div>
+            <div class="comment-timestamp">${escHtml(c.created_at)}</div>
+          </div>
           ${deleteBtn}
-          <div class="comment-author" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--lime);margin-bottom:4px;">${escHtml(c.author_name)}</div>
-          <div class="comment-text">${timestampHtml}${escHtml(c.content)}</div>
-          <div class="comment-timestamp">${escHtml(c.created_at)}</div>
         </div>
       `;
     }).join('');
