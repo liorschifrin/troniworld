@@ -48,6 +48,7 @@ with app.app_context():
     db.create_all()
 
 from . import routes
+from . import film_routes
 
 # Add custom Jinja2 filters
 import re

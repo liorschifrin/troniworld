@@ -7,13 +7,7 @@ import uuid
 from . import app, db
 from .models import Post, User
 
-
-def get_current_user() -> User | None:
-    user_id = session.get('user_id')
-    if not user_id:
-        return None
-    return User.query.get(user_id)
-
+from .utils import get_current_user
 
 def is_allowed_image(filename: str) -> bool:
     if not filename or '.' not in filename:
@@ -196,9 +190,3 @@ def logout():
     session.pop('user_id', None)
     flash('Logged out.')
     return redirect(url_for('index'))
-
-
-@app.route('/player')
-def player():
-    current_user = get_current_user()
-    return render_template('player.html', current_user=current_user)
