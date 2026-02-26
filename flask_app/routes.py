@@ -196,3 +196,9 @@ def logout():
     session.pop('user_id', None)
     flash('Logged out.')
     return redirect(url_for('index'))
+
+
+@app.route('/player')
+def player():
+    current_user = get_current_user()
+    return render_template('player.html', current_user=current_user)
