@@ -56,39 +56,13 @@
 
   .layout {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: 1fr 380px;
     gap: 24px;
     padding: 20px 32px 32px;
-    max-width: 1300px;
-    transition: all 0.3s ease;
   }
 
-  /* Theater Mode */
-  body.theater-mode .layout {
-    max-width: none;
-    grid-template-columns: 1fr 300px;
-    padding: 20px 40px 32px;
-  }
-
-  body.theater-mode header {
-    padding: 16px 40px 0;
-  }
-
-  body.theater-mode .sidebar {
-    position: fixed;
-    right: 0;
-    top: 0;
-    height: 100vh;
-    width: 300px;
-    padding: 20px 16px;
-    background: var(--field);
-    overflow-y: auto;
-    z-index: 100;
-    border-left: 1px solid var(--border);
-  }
-
-  body.theater-mode .main {
-    margin-right: 0;
+  .sidebar {
+    width: 340px;
   }
 
   /* URL input bar */
@@ -140,31 +114,7 @@
     position: relative;
   }
 
-  .theater-toggle {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    background: rgba(0,0,0,0.7);
-    border: 1px solid rgba(200,241,53,0.3);
-    color: var(--lime);
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    z-index: 10;
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
 
-  .theater-toggle:hover {
-    background: rgba(0,0,0,0.85);
-    border-color: var(--lime);
-    transform: translateY(-1px);
-  }
 
   #player {
     width: 100%;
@@ -490,22 +440,14 @@
   }
 
   /* Responsive */
-  @media (max-width: 768px) {
-    .layout { grid-template-columns: 1fr; }
-    header h1 { font-size: 2rem; }
-    .layout { padding: 16px; }
-    
-    body.theater-mode .layout {
+  @media (max-width: 930px) {
+    .layout { 
       grid-template-columns: 1fr;
+      padding: 16px;
     }
-    
-    body.theater-mode .sidebar {
-      position: static;
+    header h1 { font-size: 2rem; }
+    .sidebar {
       width: 100%;
-      height: auto;
-      border-left: none;
-      border-top: 1px solid var(--border);
-      margin-top: 16px;
     }
   }
 </style>
@@ -530,10 +472,6 @@
         <p style="font-family:'DM Mono',monospace;font-size:0.8rem;letter-spacing:1px;">PASTE A YOUTUBE URL ABOVE</p>
       </div>
       <div id="player"></div>
-      <!-- <button class="theater-toggle" onclick="toggleTheaterMode()" title="Toggle theater mode (T)">
-        <span id="theaterIcon">⛶</span>
-        <span id="theaterText">Theater</span>
-      </button> -->
     </div>
 
     <!-- <div class="highlight-controls">
@@ -688,21 +626,6 @@
     player.seekTo(current + seconds, true);
   }
 
-  function toggleTheaterMode() {
-    document.body.classList.toggle('theater-mode');
-    const isTheater = document.body.classList.contains('theater-mode');
-    const icon = document.getElementById('theaterIcon');
-    const text = document.getElementById('theaterText');
-    
-    if (isTheater) {
-      icon.textContent = '⇱';
-      text.textContent = 'Exit Theater';
-    } else {
-      icon.textContent = '⛶';
-      text.textContent = 'Theater';
-    }
-  }
-
   function deleteHighlight(index) {
     highlights.splice(index, 1);
     renderHighlights();
@@ -823,7 +746,7 @@
     
     // Prevent default for keys we're handling
     const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 
-                            'k', 'K', 'j', 'J', 'l', 'L', ',', '.', 'h', 'H', 't', 'T', 'f', 'F'];
+                            'k', 'K', 'j', 'J', 'l', 'L', ',', '.', 'h', 'H', 'f', 'F'];
     if (keysToPrevent.includes(e.key)) {
       e.preventDefault();
     }
@@ -860,11 +783,6 @@
     // Mark highlight: H
     else if (e.key === 'h' || e.key === 'H') {
       markHighlight();
-    }
-    
-    // Theater mode: T
-    else if (e.key === 't' || e.key === 'T') {
-      toggleTheaterMode();
     }
     
     // Fullscreen: F
