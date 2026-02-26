@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Game - Troniworld</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --grass: #1a3a1a;
+    --field: #0f2410;
+    --lime: #c8f135;
+    --disc: #ffffff;
+    --sky: #7ecfff;
+    --warm: #ff6b2b;
+    --text: #e8f5d0;
+    --muted: #6a8a5a;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(200,241,53,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--field);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
+  }
+
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .container {
+    padding: 20px 32px 32px;
+    max-width: 700px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+  }
+
+  .form-content {
+    padding: 24px 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--lime);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .form-group label .required {
+    color: var(--warm);
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input::placeholder {
+    color: var(--muted);
+  }
+
+  .form-group input:focus {
+    border-color: var(--lime);
+  }
+
+  .form-group input[type="date"] {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+  }
+
+  .form-group input[type="number"] {
+    font-family: 'DM Mono', monospace;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 24px;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(200,241,53,0.2);
+    opacity: 1;
+  }
+
+  .flash-messages {
+    margin: 0 0 20px 0;
+  }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    border: 1px solid;
+  }
+
+  .flash.success {
+    background: rgba(200,241,53,0.1);
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  .flash.error {
+    background: rgba(255,107,43,0.1);
+    border-color: var(--warm);
+    color: var(--warm);
+  }
+
+  @media (max-width: 768px) {
+    header h1 { font-size: 2rem; }
+    .container { padding: 16px; }
+    .form-actions { flex-direction: column; }
+    .btn, .btn-secondary { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>New Game</h1>
+  <span>Film Room Management</span>
+</header>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Game Details</h2>
+    </div>
+    
+    <form id="game-form" method="POST" action="{{ url_for('new_game') }}">
+      <div class="form-content">
+        <div class="form-group">
+          <label>Title <span class="required">*</span></label>
+          <input type="text" name="title" placeholder="e.g., Tron vs. Polar Bears - Week 1" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Opponent <span class="required">*</span></label>
+          <input type="text" name="opponent" placeholder="e.g., Polar Bears" required>
+        </div>
+        
+        <div class="form-group">
+          <label>YouTube Video ID</label>
+          <input type="text" name="youtube_id" placeholder="e.g., dQw4w9WgXcQ">
+        </div>
+        
+        <div class="form-group">
+          <label>Game Date</label>
+          <input type="date" name="game_date">
+        </div>
+        
+        <div class="form-group">
+          <label>Final Score - Tron</label>
+          <input type="number" name="final_score_tron" min="0" placeholder="0">
+        </div>
+        
+        <div class="form-group">
+          <label>Final Score - Opponent</label>
+          <input type="number" name="final_score_opponent" min="0" placeholder="0">
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Create Game</button>
+        <a href="{{ url_for('player') }}" class="btn btn-secondary" id="back-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let hasUnsavedChanges = false;
+
+  // Track changes in form inputs
+  document.querySelectorAll('#game-form input').forEach(function(input) {
+    input.addEventListener('input', function() {
+      hasUnsavedChanges = true;
+    });
+  });
+
+  // Warn before leaving page
+  window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Warn when clicking back button
+  document.getElementById('back-link').addEventListener('click', function(e) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        e.preventDefault();
+      }
+    }
+  });
+
+  // Reset flag on form submit
+  document.getElementById('game-form').addEventListener('submit', function() {
+    hasUnsavedChanges = false;
+  });
+</script>
+
+</body>
+</html>
