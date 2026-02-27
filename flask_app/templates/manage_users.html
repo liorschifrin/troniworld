@@ -359,16 +359,7 @@
     <h1 class="page-title">Manage Users</h1>
     <p class="page-subtitle">Film Room Administration</p>
   </div>
-  
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="flash-message {{ category }}">
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
+
 
   <!-- Create New User Form -->
   <div class="card">
