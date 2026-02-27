@@ -167,6 +167,33 @@ class Comment(db.Model):
 # ANALYTICS/TRACKING MODELS
 # =========================
 
+class ArticleComment(db.Model):
+    __tablename__ = 'article_comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete='CASCADE'), nullable=False, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('article_comments.id', ondelete='CASCADE'), index=True)
+
+    author_name = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    replies = db.relationship(
+        'ArticleComment',
+        backref=db.backref('parent', remote_side=[id]),
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+
+    __table_args__ = (
+        db.Index('idx_article_comments_post_id', 'post_id'),
+        db.Index('idx_article_comments_parent_id', 'parent_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ArticleComment by {self.author_name} on Post {self.post_id}>"
+
+
 class LoginEvent(db.Model):
     __tablename__ = 'login_events'
     

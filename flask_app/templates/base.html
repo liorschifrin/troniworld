@@ -136,7 +136,7 @@
                 <div class="alt-menu__right">
                     <ul class="inline-list inline-list--rtl">
                         <li class="inline-list__item js-alt-sign-in">
-                            <a href="{{ url_for('login') }}"><i class="fa fa-fw fa-user-circle"></i> Sign In</a>
+                            <a href="{{ url_for('login', next=request.path) }}"><i class="fa fa-fw fa-user-circle"></i> Sign In</a>
                         </li>
                         <li class="inline-list__item">
                             <a href="https://docs.google.com/forms/d/e/1FAIpQLScyI90G6MT2JOh4771IHaJI9Nx8keZOPcv4NbZGKkdi2nzMvg/viewform?pli=1" target="_blank"><i class="fa fa-fw fa-comment-o"></i> Feedback</a>
@@ -208,7 +208,7 @@
         
         var menuLoggedOut = '\
             <li class="inline-list__item" style="color:#008392;font-weight:600;">\
-                <a class="action-menu__link" href="{{ url_for('login') }}" style="margin-left:0.5em;">Log in</a>\
+                <a class="action-menu__link" href="{{ url_for('login', next=request.path) }}" style="margin-left:0.5em;">Log in</a>\
             </li>';
         
         /* Replace the logged out menu with the logged in if user is authenticated */
