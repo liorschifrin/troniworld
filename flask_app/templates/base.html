@@ -69,6 +69,9 @@
                 <div class="main-menu__left">
                     <ul class="column-list column-list--justify">
                         <li class="column-list__item">
+                            <a href="{{ url_for('index') }}">Read the Articles</a>
+                        </li> 
+                        <!-- <li class="column-list__item">
                             <a href="#">Semi-Pro</a>
                         </li>
                         <li class="column-list__item">
@@ -82,12 +85,18 @@
                         </li>
                         <li class="column-list__item">
                             <a href="#">Europe</a>
-                        </li>
+                        </li> -->
                     </ul>
                 </div>
                 <div class="main-menu__right">
                     <ul class="column-list column-list--justify">
                         <li class="column-list__item">
+                            <a href="{{ url_for('games_list') }}">Tron Film Room</a>
+                        </li>
+                        <li class="column-list__item">
+                            <a href="#">My Games</a>
+                        </li>
+                        {# <li class="column-list__item">
                             <a href="#">News</a>
                         </li>
                         <li class="column-list__item">
@@ -101,7 +110,7 @@
                         </li>
                         <li class="column-list__item">
                             <a href="#">Subs Only</a>
-                        </li>
+                        </li> #}
                         <li class="column-list__item">
                             <div id="search-container" class="">
                                 <a id="search-button" class="button button--no-background cursor-pointer" title="Search">

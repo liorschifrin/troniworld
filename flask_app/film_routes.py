@@ -239,14 +239,14 @@ def create_users_for_all_players():
 # FILM ROUTES
 # =========================
 
-@app.route('/player')
+@app.route('/film/my-games')
 @login_required
-def player():
+def my_games():
     current_user = get_current_user()
-    return render_template('player.html', current_user=current_user)
+    return render_template('my_games.html', current_user=current_user)
 
 
-@app.route('/games')
+@app.route('/film/games')
 @login_required
 def games_list():
     current_user = get_current_user()
@@ -254,7 +254,7 @@ def games_list():
     return render_template('games_list.html', current_user=current_user, games=games)
 
 
-@app.route('/games/<int:game_id>')
+@app.route('/film/games/<int:game_id>')
 @login_required
 def view_game(game_id):
     current_user = get_current_user()
@@ -319,7 +319,7 @@ def view_game(game_id):
     return render_template('game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options)
 
 
-@app.route('/film/games/new_game', methods=['GET', 'POST'])
+@app.route('/film/games/new', methods=['GET', 'POST'])
 @admin_required
 def new_game():
     current_user = get_current_user()
@@ -366,7 +366,7 @@ def new_game():
     return render_template('new_game.html', current_user=current_user)
 
 
-@app.route('/games/<int:game_id>/edit', methods=['GET', 'POST'])
+@app.route('/film/games/<int:game_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_game(game_id):
     current_user = get_current_user()
@@ -416,7 +416,7 @@ def edit_game(game_id):
 # COMMENTS API
 # =========================
 
-@app.route('/api/games/<int:game_id>/comments', methods=['GET'])
+@app.route('/film/api/games/<int:game_id>/comments', methods=['GET'])
 @login_required
 def get_comments(game_id):
     """Get all comments for a game"""
@@ -454,7 +454,7 @@ def get_comments(game_id):
     return jsonify({'comments': comments_list})
 
 
-@app.route('/api/games/<int:game_id>/comments', methods=['POST'])
+@app.route('/film/api/games/<int:game_id>/comments', methods=['POST'])
 @login_required
 def create_comment(game_id):
     """Create a new comment for a game"""
@@ -508,7 +508,7 @@ def create_comment(game_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'])
+@app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'])
 @admin_required
 def delete_comment(game_id, comment_id):
     """Delete a comment"""
@@ -532,7 +532,7 @@ def delete_comment(game_id, comment_id):
 # CSV UPLOAD FOR GAME DATA
 # =========================
 
-@app.route('/games/<int:game_id>/upload_csv', methods=['GET', 'POST'])
+@app.route('/film/games/<int:game_id>/upload_csv', methods=['GET', 'POST'])
 @admin_required
 def upload_game_csv(game_id):
     """Upload CSV to populate game points and player data"""
@@ -705,7 +705,7 @@ def upload_game_csv(game_id):
     return render_template('upload_game_csv.html', current_user=current_user, game=game)
 
 
-@app.route('/games/<int:game_id>/delete_player_sheet', methods=['POST'])
+@app.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'])
 @admin_required
 def delete_player_sheet(game_id):
     """Delete all points and player associations for a game"""
@@ -729,7 +729,7 @@ def delete_player_sheet(game_id):
     return redirect(url_for('view_game', game_id=game.id))
 
 
-@app.route('/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
+@app.route('/film/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
 @admin_required
 def update_point(game_id, point_id):
     """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""

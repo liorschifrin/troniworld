@@ -1,36 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Upload Game CSV - Troniworld</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --grass: #1a3a1a;
-    --field: #0f2410;
-    --lime: #c8f135;
-    --disc: #ffffff;
-    --sky: #7ecfff;
-    --warm: #ff6b2b;
-    --text: #e8f5d0;
-    --muted: #6a8a5a;
-    --card: rgba(255,255,255,0.04);
-    --border: rgba(200,241,53,0.15);
-  }
+{% extends "film_base.html" %}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+{% block title %}Upload Game CSV - Troniworld{% endblock %}
 
-  body {
-    background: var(--field);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
-      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
-  }
-
+{% block extra_style %}
   header {
     padding: 24px 32px 0;
     display: flex;
@@ -268,10 +240,9 @@
     color: var(--text);
     line-height: 1.5;
   }
-</style>
-</head>
-<body>
+{% endblock %}
 
+{% block content %}
 <header>
   <h1>TRONIWORLD</h1>
   <span>// Upload Game Data</span>
@@ -363,6 +334,4 @@
     hasSelectedFile = false;
   });
 </script>
-
-</body>
-</html>
+{% endblock %}
