@@ -308,6 +308,42 @@
     }
   }
 
+  /* Flash messages */
+  .film-flash-messages {
+    max-width: 1400px;
+    margin: 16px auto;
+    padding: 0 24px;
+  }
+
+  .film-flash {
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border-left: 4px solid var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+  }
+
+  .film-flash--error {
+    border-left-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    color: #ffb3b3;
+  }
+
+  .film-flash--success {
+    border-left-color: var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-flash--warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffd666;
+  }
+
   {% block extra_style %}{% endblock %}
 </style>
 {% block extra_head %}{% endblock %}
@@ -372,6 +408,18 @@
 </div>
 
 <!-- Main Content -->
+{% block flash_messages %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="film-flash-messages">
+      {% for category, message in messages %}
+        <div class="film-flash film-flash--{{ category or 'info' }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+{% endblock %}
+
 {% block content %}{% endblock %}
 
 <script>

@@ -253,16 +253,6 @@
 </nav>
 
 <div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-messages">
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
   <div class="game-info">
     <h2>{{ game.title }}</h2>
     <p>vs {{ game.opponent }} {% if game.game_date %}({{ game.game_date }}){% endif %}</p>
