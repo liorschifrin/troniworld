@@ -6,7 +6,7 @@ import os
 import uuid
 
 from . import app, db
-from .models import Post, User, LoginEvent
+from .models import Post, User, LoginEvent, ArticleComment
 
 from .utils import get_current_user
 
@@ -112,8 +112,12 @@ def login():
         
         flash('Logged in.')
         
-        # Redirect to original page or default to index
-        next_url = request.args.get('next') or url_for('games_list')
+        # Redirect back to the page they came from, or games_list
+        raw_next = request.args.get('next', '')
+        # Safety: only allow relative paths (no scheme/netloc)
+        from urllib.parse import urlparse
+        parsed = urlparse(raw_next)
+        next_url = raw_next if (raw_next and not parsed.scheme and not parsed.netloc) else url_for('games_list')
         return redirect(next_url)
 
     return render_template('login.html')
@@ -173,8 +177,94 @@ def delete_post(post_id):
     flash('Post deleted successfully.')
     return redirect(url_for('index'))
 
+
+# ── Article Comments API ────────────────────────────────────────────────────
+
+from zoneinfo import ZoneInfo as _ZI
+from datetime import timezone as _tz
+_EST = _ZI('America/New_York')
+
+def _fmt_est(dt):
+    if not dt:
+        return ''
+    return dt.replace(tzinfo=_tz.utc).astimezone(_EST).strftime('%b %d, %Y %I:%M %p')
+
+def _serialize_article_comment(c):
+    replies = [{
+        'id': r.id,
+        'author_name': r.author_name,
+        'content': r.content,
+        'created_at': _fmt_est(r.created_at),
+        'parent_id': r.parent_id,
+    } for r in c.replies.order_by(ArticleComment.created_at).all()]
+    return {
+        'id': c.id,
+        'author_name': c.author_name,
+        'content': c.content,
+        'created_at': _fmt_est(c.created_at),
+        'parent_id': c.parent_id,
+        'replies': replies,
+    }
+
+@app.route('/post/<int:post_id>/comments', methods=['GET'])
+def get_article_comments(post_id):
+    Post.query.get_or_404(post_id)
+    top_level = ArticleComment.query.filter_by(post_id=post_id, parent_id=None)\
+        .order_by(ArticleComment.created_at).all()
+    return jsonify({'comments': [_serialize_article_comment(c) for c in top_level]})
+
+@app.route('/post/<int:post_id>/comments', methods=['POST'])
+def create_article_comment(post_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    Post.query.get_or_404(post_id)
+    data = request.get_json() or {}
+    content = data.get('content', '').strip()
+    parent_id = data.get('parent_id')
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+    c = ArticleComment(
+        post_id=post_id,
+        parent_id=parent_id,
+        author_name=current_user.username,
+        content=content,
+    )
+    db.session.add(c)
+    db.session.commit()
+    return jsonify({'success': True, 'comment': _serialize_article_comment(c)}), 201
+
+@app.route('/post/<int:post_id>/comments/<int:comment_id>', methods=['DELETE'])
+def delete_article_comment(post_id, comment_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    c = ArticleComment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
+    if not current_user.is_admin and c.author_name != current_user.username:
+        return jsonify({'error': 'Unauthorized'}), 403
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/post/<int:post_id>/comments/<int:comment_id>', methods=['PATCH'])
+def edit_article_comment(post_id, comment_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    c = ArticleComment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
+    if c.author_name != current_user.username:
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json() or {}
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+    c.content = content
+    db.session.commit()
+    return jsonify({'success': True, 'comment': _serialize_article_comment(c)})
+
+
 @app.route('/new_post', methods=['GET', 'POST'])
-def new_post():
+def new_post():    
     current_user = get_current_user()
     if not current_user or not current_user.is_admin:
         print("not admin")
