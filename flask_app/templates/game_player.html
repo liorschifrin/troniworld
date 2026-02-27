@@ -825,12 +825,20 @@
     font-family: 'DM Sans', sans-serif;
     font-size: 0.85rem;
     outline: none;
-    resize: vertical;
     min-height: 60px;
     transition: border-color 0.2s;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    line-height: 1.5;
   }
 
   .comment-input::placeholder { color: var(--muted); }
+  .comment-input[contenteditable][data-empty="true"]::before {
+    content: attr(data-placeholder);
+    color: var(--muted);
+    pointer-events: none;
+    display: block;
+  }
   .comment-input:focus { border-color: var(--lime); }
 
   .comment-controls {
@@ -1296,12 +1304,20 @@
     font-family: 'DM Sans', sans-serif;
     font-size: 0.82rem;
     outline: none;
-    resize: none;
     min-height: 50px;
     transition: border-color 0.2s;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    line-height: 1.5;
   }
 
   .reply-input::placeholder { color: var(--muted); }
+  .reply-input[contenteditable][data-empty="true"]::before {
+    content: attr(data-placeholder);
+    color: var(--muted);
+    pointer-events: none;
+    display: block;
+  }
   .reply-input:focus { border-color: var(--lime); }
 
   .reply-actions {
@@ -1340,6 +1356,138 @@
   }
 
   .reply-cancel-btn:hover { opacity: 0.85; }
+
+  /* =================== MENTION STYLES =================== */
+
+  .mention-token {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+    border: 1px solid rgba(200,241,53,0.35);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: default;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.6;
+    vertical-align: baseline;
+  }
+  .mention-token-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 0 1px;
+    opacity: 0.55;
+    line-height: 1;
+    transition: opacity 0.15s;
+  }
+  .mention-token-remove:hover { opacity: 1; }
+
+  .mention-suggestion {
+    background: rgba(200,241,53,0.07);
+    color: var(--lime);
+    border-bottom: 1px dashed rgba(200,241,53,0.5);
+    cursor: pointer;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+  .mention-suggestion:hover { background: rgba(200,241,53,0.16); }
+
+  .mention-dropdown {
+    position: fixed;
+    background: var(--field);
+    border: 1px solid rgba(200,241,53,0.4);
+    border-radius: 6px;
+    z-index: 99999;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+    min-width: 160px;
+  }
+  .mention-dropdown::-webkit-scrollbar { width: 4px; }
+  .mention-dropdown::-webkit-scrollbar-thumb { background: rgba(200,241,53,0.3); border-radius: 2px; }
+
+  .mention-dropdown-item {
+    padding: 7px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.1s;
+  }
+  .mention-dropdown-item:hover,
+  .mention-dropdown-item.selected {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+  }
+  .mention-dropdown-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(200,241,53,0.2);
+    color: var(--lime);
+    font-size: 0.62rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .mention-dropdown-empty {
+    padding: 10px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .mention-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: var(--lime);
+    background: rgba(200,241,53,0.12);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+  .mention-tag-self {
+    color: #0a0a0a;
+    background: rgba(200,241,53,0.85);
+    border: 1px solid rgba(200,241,53,0.9);
+  }
+  .mention-tag-enemy {
+    color: var(--warm);
+    background: rgba(255,107,43,0.12);
+    border: 1px solid rgba(255,107,43,0.3);
+  }
+
+  /* enemy token inside the input */
+  .mention-token-enemy {
+    background: rgba(255,107,43,0.15);
+    color: var(--warm);
+    border-color: rgba(255,107,43,0.4);
+  }
+
+  /* enemy avatar in dropdown */
+  .mention-dropdown-avatar-enemy {
+    background: rgba(255,107,43,0.2);
+    color: var(--warm);
+  }
+  .mention-dropdown-item-enemy:hover,
+  .mention-dropdown-item-enemy.selected {
+    background: rgba(255,107,43,0.12);
+    color: var(--warm);
+  }
 
   /* Responsive */
   @media (max-width: 1300px) {
@@ -1606,7 +1754,7 @@
       </div>
       <div class="comments-area">
         <div class="comment-input-wrap">
-          <textarea class="comment-input" id="commentInput" placeholder="Share your thoughts about this game..."></textarea>
+          <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
           <div class="comment-controls">
             <div class="comment-type-selector">
               <button class="comment-type-btn active" data-type="Comment" onclick="selectCommentType('Comment')" title="Comment">💬</button>
@@ -1650,6 +1798,310 @@
   const expandedThreads = new Set();   // comment IDs whose replies are shown
   let activeReplyInputId = null;        // comment ID currently being replied to
   let activeEditReplyId  = null;        // reply ID currently being edited
+  const allUsers = {{ users | tojson }};
+  const opponentName = {{ game.opponent | tojson }};
+  const allMentionables = [...allUsers, opponentName];
+
+  // ========================
+  // MENTION ENGINE
+  // ========================
+  const mentionDropdownEl = (() => {
+    const el = document.createElement('div');
+    el.className = 'mention-dropdown';
+    el.style.display = 'none';
+    el.id = 'globalMentionDropdown';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  let mentionState = {
+    active: false, inputEl: null, node: null,
+    atOffset: 0, caretOffset: 0,
+    selectedIndex: 0, filteredUsers: []
+  };
+
+  function updatePlaceholder(el) {
+    const h = el.innerHTML;
+    const noContent = (h === '' || h === '<br>' || h === '<div><br></div>');
+    const hasToken  = !!el.querySelector('.mention-token');
+    if (noContent && !hasToken) {
+      if (h !== '') el.innerHTML = '';
+      el.setAttribute('data-empty', 'true');
+    } else {
+      el.setAttribute('data-empty', 'false');
+    }
+  }
+
+  function makeMentionTokenEl(username) {
+    const isEnemy = username === opponentName;
+    const span = document.createElement('span');
+    span.className = 'mention-token' + (isEnemy ? ' mention-token-enemy' : '');
+    span.contentEditable = 'false';
+    span.dataset.username = username;
+    span.appendChild(document.createTextNode(username));
+    const btn = document.createElement('button');
+    btn.className = 'mention-token-remove';
+    btn.type = 'button';
+    btn.textContent = '×';
+    btn.title = 'Remove mention';
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const plain = document.createTextNode(username);
+      span.parentNode.replaceChild(plain, span);
+      const r = document.createRange();
+      r.setStartAfter(plain);
+      r.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      const inputEl = plain.parentNode && plain.parentNode.closest && plain.parentNode.closest('[contenteditable]');
+      if (inputEl) updatePlaceholder(inputEl);
+    });
+    span.appendChild(btn);
+    return span;
+  }
+
+  function parseMentions(rawText) {
+    const parts = rawText.split(/(@\[[^\]]+\])/g);
+    return parts.map(part => {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) {
+        const username = m[1];
+        const isSelf  = username === currentUserName;
+        const isEnemy = username === opponentName;
+        const cls = isSelf ? 'mention-tag mention-tag-self'
+                  : isEnemy ? 'mention-tag mention-tag-enemy'
+                  : 'mention-tag';
+        return `<span class="${cls}">${escHtml(username)}</span>`;
+      }
+      return escHtml(part);
+    }).join('');
+  }
+
+  function extractContent(inputEl) {
+    let result = '';
+    function walk(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        result += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.classList && node.classList.contains('mention-token')) {
+          result += `@[${node.dataset.username}]`;
+        } else if (node.classList && node.classList.contains('mention-suggestion')) {
+          result += node.textContent;
+        } else if (node.tagName === 'BR') {
+          result += '\n';
+        } else if ((node.tagName === 'DIV' || node.tagName === 'P') && result.length > 0 && !result.endsWith('\n')) {
+          result += '\n';
+          node.childNodes.forEach(walk);
+        } else {
+          node.childNodes.forEach(walk);
+        }
+      }
+    }
+    inputEl.childNodes.forEach(walk);
+    return result.trim();
+  }
+
+  function loadContentWithMentions(inputEl, rawText) {
+    inputEl.innerHTML = '';
+    const parts = rawText.split(/(@\[[^\]]+\])/g);
+    for (const part of parts) {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) {
+        inputEl.appendChild(makeMentionTokenEl(m[1]));
+      } else if (part) {
+        inputEl.appendChild(document.createTextNode(part));
+      }
+    }
+    updatePlaceholder(inputEl);
+  }
+
+  function getMentionQuery(inputEl) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (!inputEl.contains(range.startContainer) || !range.collapsed) return null;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    if (node.parentElement && node.parentElement.closest('.mention-token')) return null;
+    const text = node.textContent;
+    const offset = range.startOffset;
+    for (let i = offset - 1; i >= 0; i--) {
+      if (text[i] === '@') {
+        const query = text.slice(i + 1, offset);
+        if (query.includes(' ')) return null;
+        return { query, node, atOffset: i, caretOffset: offset };
+      }
+      if (/\s/.test(text[i])) return null;
+    }
+    return null;
+  }
+
+  function showMentionDropdown(inputEl, q) {
+    mentionState.active   = true;
+    mentionState.inputEl  = inputEl;
+    mentionState.node     = q.node;
+    mentionState.atOffset = q.atOffset;
+    mentionState.caretOffset = q.caretOffset;
+    mentionState.selectedIndex = 0;
+    mentionState.filteredUsers = allMentionables.filter(u => u.toLowerCase().startsWith(q.query.toLowerCase()));
+    renderMentionDropdown(inputEl);
+  }
+
+  function hideMentionDropdown() {
+    mentionDropdownEl.style.display = 'none';
+    mentionState.active  = false;
+    mentionState.inputEl = null;
+  }
+
+  function renderMentionDropdown(inputEl) {
+    const users = mentionState.filteredUsers;
+    if (users.length === 0) {
+      mentionDropdownEl.innerHTML = `<div class="mention-dropdown-empty">No users found</div>`;
+    } else {
+      mentionDropdownEl.innerHTML = users.map((u, i) => {
+        const isEnemy   = u === opponentName;
+        const itemCls   = 'mention-dropdown-item' + (isEnemy ? ' mention-dropdown-item-enemy' : '') + (i === mentionState.selectedIndex ? ' selected' : '');
+        const avatarCls = 'mention-dropdown-avatar' + (isEnemy ? ' mention-dropdown-avatar-enemy' : '');
+        const label     = isEnemy ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` : escHtml(u);
+        return `<div class="${itemCls}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')"><div class="${avatarCls}">${escHtml(u[0].toUpperCase())}</div>${label}</div>`;
+      }).join('');
+    }
+    const sel = window.getSelection();
+    let top, left;
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0).cloneRange();
+      r.collapse(true);
+      const rect = r.getBoundingClientRect();
+      if (rect.width !== 0 || rect.height !== 0) {
+        top  = rect.bottom + window.scrollY + 4;
+        left = rect.left   + window.scrollX;
+      }
+    }
+    if (!top) {
+      const rect = inputEl.getBoundingClientRect();
+      top  = rect.bottom + window.scrollY + 4;
+      left = rect.left   + window.scrollX;
+    }
+    mentionDropdownEl.style.display = 'block';
+    mentionDropdownEl.style.top  = `${top}px`;
+    mentionDropdownEl.style.left = `${Math.max(4, left - 8)}px`;
+
+    // Scroll the selected item into view
+    const selectedItem = mentionDropdownEl.querySelector('.mention-dropdown-item.selected');
+    if (selectedItem) selectedItem.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectMention(username) {
+    if (!mentionState.inputEl) return;
+    const range = document.createRange();
+    range.setStart(mentionState.node, mentionState.atOffset);
+    range.setEnd(mentionState.node, mentionState.caretOffset);
+    range.deleteContents();
+    const token = makeMentionTokenEl(username);
+    range.insertNode(token);
+    const nr = document.createRange();
+    nr.setStartAfter(token);
+    nr.collapse(true);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(nr);
+    document.execCommand('insertText', false, ' ');
+    updatePlaceholder(mentionState.inputEl);
+    hideMentionDropdown();
+  }
+
+  function handleMentionInput(e) {
+    const inputEl = e.currentTarget;
+    updatePlaceholder(inputEl);
+    const q = getMentionQuery(inputEl);
+    if (q) {
+      showMentionDropdown(inputEl, q);
+    } else if (mentionState.active && mentionState.inputEl === inputEl) {
+      hideMentionDropdown();
+    }
+  }
+
+  function handleMentionKeydown(e) {
+    if (!mentionState.active || mentionState.inputEl !== e.currentTarget) return;
+    const users = mentionState.filteredUsers;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      mentionState.selectedIndex = Math.min(mentionState.selectedIndex + 1, users.length - 1);
+      renderMentionDropdown(mentionState.inputEl);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      mentionState.selectedIndex = Math.max(mentionState.selectedIndex - 1, 0);
+      renderMentionDropdown(mentionState.inputEl);
+    } else if (e.key === 'Enter' && users.length > 0) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      selectMention(users[mentionState.selectedIndex]);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      hideMentionDropdown();
+    }
+  }
+
+  function handleMentionKeyup(e) {
+    if (e.key === ' ' || /^[.,!?;]$/.test(e.key)) {
+      checkWordAtCaret(e.currentTarget);
+    }
+  }
+
+  function checkWordAtCaret(inputEl) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    if (!inputEl.contains(range.startContainer) || !range.collapsed) return;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    if (node.parentElement && node.parentElement.closest('.mention-token,.mention-suggestion')) return;
+    const text   = node.textContent;
+    const offset = range.startOffset;
+    if (offset < 2) return;
+    const beforeCursor = text.slice(0, offset - 1);
+    const wordMatch = beforeCursor.match(/([A-Za-z][A-Za-z0-9_-]{1,})$/);
+    if (!wordMatch) return;
+    const word      = wordMatch[1];
+    const exactUser = allMentionables.find(u => u === word);
+    const caseUser  = !exactUser && allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
+    if (!exactUser && !caseUser) return;
+    const wordStart  = beforeCursor.length - word.length;
+    const after      = text.slice(wordStart + word.length); // includes the boundary char
+    const before     = text.slice(0, wordStart);
+    const parent = node.parentNode;
+    const ref    = node.nextSibling;
+    parent.removeChild(node);
+    if (before) parent.insertBefore(document.createTextNode(before), ref);
+    if (exactUser) {
+      parent.insertBefore(makeMentionTokenEl(exactUser), ref);
+    } else {
+      const sug = document.createElement('span');
+      sug.className = 'mention-suggestion';
+      sug.textContent = word;
+      sug.title = `Click to @mention ${caseUser}`;
+      sug.addEventListener('click', () => { parent.replaceChild(makeMentionTokenEl(caseUser), sug); });
+      parent.insertBefore(sug, ref);
+    }
+    const afterNode = document.createTextNode(after);
+    parent.insertBefore(afterNode, ref);
+    const r = document.createRange();
+    r.setStart(afterNode, Math.min(1, afterNode.length));
+    r.collapse(true);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    updatePlaceholder(inputEl);
+  }
+
+  function bindMentionInput(el) {
+    el.addEventListener('input',   handleMentionInput);
+    el.addEventListener('keydown', handleMentionKeydown);
+    el.addEventListener('keyup',   handleMentionKeyup);
+    el.addEventListener('blur',    () => setTimeout(hideMentionDropdown, 150));
+    updatePlaceholder(el);
+  }
 
   // Build arrays of existing field values from ALL games
   const existingValues = {
@@ -2104,7 +2556,43 @@
       'Highlight': 'Add a Highlight...',
       'Event': 'Add an Event...'
     };
-    input.placeholder = placeholders[type] || placeholders['Comment'];
+    input.setAttribute('data-placeholder', placeholders[type] || placeholders['Comment']);
+  }
+
+  // Auto-convert the trailing word of a contenteditable to a mention token
+  // if it exactly matches a mentionable name.
+  function autoTokenizeLastMention(el) {
+    // Walk text nodes that are NOT inside a contenteditable=false span (i.e. not inside tokens)
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        let p = node.parentNode;
+        while (p && p !== el) {
+          if (p.contentEditable === 'false') return NodeFilter.FILTER_REJECT;
+          p = p.parentNode;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let lastTextNode = null;
+    while (walker.nextNode()) { lastTextNode = walker.currentNode; }
+    if (!lastTextNode) return;
+
+    const text = lastTextNode.textContent;
+    // Find a trailing word (no spaces/@)
+    const m = text.trimEnd().match(/(?:^|[\s\n])([^\s@\n\[\]]+)$/);
+    if (!m) return;
+    const word = m[1];
+    const matchedUser = allMentionables.find(u => u === word);
+    if (!matchedUser) return;
+
+    // Replace the trailing word with a token chip
+    const wordStart = text.lastIndexOf(word);
+    lastTextNode.textContent = text.slice(0, wordStart);
+    const token = makeMentionTokenEl(matchedUser);
+    lastTextNode.parentNode.insertBefore(token, lastTextNode.nextSibling);
+    // Add a non-breaking space after the token so the cursor lands after it
+    const space = document.createTextNode('\u00a0');
+    token.parentNode.insertBefore(space, token.nextSibling);
   }
 
   // Comments functionality
@@ -2121,7 +2609,9 @@
 
   async function addComment() {
     const input = document.getElementById('commentInput');
-    const text = input.value.trim();
+    // Auto-tokenize the last word if it matches a mentionable name
+    autoTokenizeLastMention(input);
+    const text = extractContent(input);
     
     // Events don't require text, but other types do
     if (!text && selectedCommentType !== 'Event') return;
@@ -2163,8 +2653,15 @@
       });
       
       if (response.ok) {
-        input.value = '';
+        const newData = await response.json();
+        const newId = newData.comment && newData.comment.id;
+        input.innerHTML = '';
+        updatePlaceholder(input);
         await loadComments();  // Reload comments from server
+        if (newId) {
+          const newEl = document.querySelector(`[data-comment-id="${newId}"]`);
+          if (newEl) newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       } else {
         const error = await response.json();
         alert('Error posting comment: ' + (error.error || 'Unknown error'));
@@ -2193,27 +2690,39 @@
 
     list.innerHTML = comments.map(c => renderCommentThread(c)).join('');
 
-    // Re-focus reply textarea if one is active
+    // Re-focus reply input if one is active
     if (activeReplyInputId) {
       const ta = document.getElementById(`reply-textarea-${activeReplyInputId}`);
       if (ta) {
+        bindMentionInput(ta);
         ta.focus();
         ta.addEventListener('keydown', e => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitReply(activeReplyInputId); }
-          else if (e.key === 'Escape') { e.preventDefault(); cancelReply(); }
+          if (e.key === 'Enter' && !e.shiftKey && !mentionState.active) { e.preventDefault(); submitReply(activeReplyInputId); }
+          else if (e.key === 'Escape' && !mentionState.active) { e.preventDefault(); cancelReply(); }
         });
       }
     }
 
-    // Re-focus edit-reply textarea if one is active
+    // Re-focus edit-reply input if one is active
     if (activeEditReplyId) {
       const ta = document.getElementById(`edit-reply-textarea-${activeEditReplyId}`);
       if (ta) {
+        let replyContent = '';
+        for (const c of comments) {
+          if (c.replies) { const r = c.replies.find(r => r.id === activeEditReplyId); if (r) { replyContent = r.content; break; } }
+        }
+        loadContentWithMentions(ta, replyContent);
+        bindMentionInput(ta);
         ta.focus();
-        ta.setSelectionRange(ta.value.length, ta.value.length);
+        const selRange = document.createRange();
+        selRange.selectNodeContents(ta);
+        selRange.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(selRange);
         ta.addEventListener('keydown', e => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditReply(activeEditReplyId); }
-          else if (e.key === 'Escape') { e.preventDefault(); cancelEditReply(); }
+          if (e.key === 'Enter' && !e.shiftKey && !mentionState.active) { e.preventDefault(); saveEditReply(activeEditReplyId); }
+          else if (e.key === 'Escape' && !mentionState.active) { e.preventDefault(); cancelEditReply(); }
         });
       }
     }
@@ -2229,7 +2738,7 @@
     const clickable    = c.timestamp !== null && c.timestamp !== undefined;
     const cursorStyle  = clickable ? 'cursor:pointer;' : '';
     const onclickAttr  = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
-    const dataAttrs    = clickable ? `data-timestamp="${c.timestamp}" data-comment-id="${c.id}"` : '';
+    const dataAttrs    = `data-comment-id="${c.id}"` + (clickable ? ` data-timestamp="${c.timestamp}"` : '');
 
     const isOwnComment = currentUserName && c.author_name === currentUserName;
     const canEdit      = isOwnComment;
@@ -2271,7 +2780,7 @@
       <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
         <div class="comment-content-wrapper">
           ${authorLine}
-          <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
+          <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${parseMentions(c.content)}</div>
           ${timestampLine}
           ${commentFooter}
         </div>
@@ -2299,7 +2808,7 @@
     if (isReplying) {
       replyInputHtml = `
       <div class="reply-input-wrap" id="reply-input-${c.id}">
-        <textarea class="reply-input" id="reply-textarea-${c.id}" placeholder="Reply to ${escHtml(c.author_name)}..." rows="2"></textarea>
+        <div class="reply-input" id="reply-textarea-${c.id}" contenteditable="true" data-placeholder="Reply to ${escHtml(c.author_name)}..." data-empty="true" role="textbox"></div>
         <div class="reply-actions">
           <button class="reply-cancel-btn" onclick="cancelReply()">Cancel</button>
           <button class="reply-submit-btn" id="reply-submit-${c.id}" onclick="submitReply(${c.id})">Reply</button>
@@ -2323,7 +2832,7 @@
     if (isEditing) {
       return `
         <div class="thread-reply-item" id="reply-item-${reply.id}">
-          <textarea class="reply-input" id="edit-reply-textarea-${reply.id}" rows="2">${escHtml(reply.content)}</textarea>
+          <div class="reply-input" id="edit-reply-textarea-${reply.id}" contenteditable="true" data-empty="false" role="textbox"></div>
           <div class="reply-actions">
             <button class="reply-cancel-btn" onclick="cancelEditReply()">Cancel</button>
             <button class="reply-submit-btn" id="edit-reply-submit-${reply.id}" onclick="saveEditReply(${reply.id})">Save</button>
@@ -2340,7 +2849,7 @@
     return `
       <div class="thread-reply-item" id="reply-item-${reply.id}">
         <div class="reply-author">${escHtml(reply.author_name)}</div>
-        <div class="reply-text">${escHtml(reply.content)}</div>
+        <div class="reply-text">${parseMentions(reply.content)}</div>
         <div class="reply-timestamp">${escHtml(reply.created_at)}</div>
         ${editBtn}
         ${deleteBtn}
@@ -2366,7 +2875,7 @@
   async function saveEditReply(replyId) {
     const ta = document.getElementById(`edit-reply-textarea-${replyId}`);
     if (!ta) return;
-    const text = ta.value.trim();
+    const text = extractContent(ta);
     if (!text) return;
 
     const submitBtn = document.getElementById(`edit-reply-submit-${replyId}`);
@@ -2417,7 +2926,7 @@
   async function submitReply(parentId) {
     const ta = document.getElementById(`reply-textarea-${parentId}`);
     if (!ta) return;
-    const text = ta.value.trim();
+    const text = extractContent(ta);
     if (!text) return;
 
     const submitBtn = document.getElementById(`reply-submit-${parentId}`);
@@ -2502,7 +3011,7 @@
     // Create edit interface matching the original comment box
     const editHTML = `
       <div class="comment-edit-wrap">
-        <textarea class="comment-input" id="editCommentInput" placeholder="Edit your comment...">${escHtml(currentText)}</textarea>
+        <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
         <div class="comment-controls">
           <div class="comment-type-selector" id="editCommentTypeSelector">
             <button class="comment-type-btn ${editCommentType === 'Comment' ? 'active' : ''}" data-type="Comment" title="Comment">💬</button>
@@ -2533,9 +3042,16 @@
     const cancelBtn = document.getElementById('editCancelBtn');
     const typeButtons = commentWrapper.querySelectorAll('.comment-type-btn');
     const eventOptions = document.getElementById('editEventOptions');
-    
+
+    loadContentWithMentions(textarea, currentText);
+    bindMentionInput(textarea);
     textarea.focus();
-    textarea.select();
+    const editSelRange = document.createRange();
+    editSelRange.selectNodeContents(textarea);
+    editSelRange.collapse(false);
+    const editSel = window.getSelection();
+    editSel.removeAllRanges();
+    editSel.addRange(editSelRange);
     
     // Handle type selection
     typeButtons.forEach(btn => {
@@ -2573,7 +3089,7 @@
     
     // Save function
     const saveEdit = async () => {
-      let newText = textarea.value.trim();
+      let newText = extractContent(textarea);
       
       // For non-Event types, content is required
       if (!newText && editCommentType !== 'Event') {
@@ -2906,8 +3422,10 @@
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
+    const active = document.activeElement;
     const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
-    if (tagNamesToIgnore.includes(document.activeElement.tagName)) return;
+    if (tagNamesToIgnore.includes(active.tagName)) return;
+    if (active.isContentEditable) return;
     
     // Prevent default for keys we're handling
     const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', ',', '.', 'k', 'K', 'f', 'F'];
@@ -2959,8 +3477,12 @@
     }
   });
 
+  // Bind mention engine to the main comment input, then register submit shortcut
+  const _commentInputEl = document.getElementById('commentInput');
+  bindMentionInput(_commentInputEl);
+
   // Allow Enter to submit comment (Shift+Enter for new line)
-  document.getElementById('commentInput').addEventListener('keydown', e => {
+  _commentInputEl.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       addComment();
