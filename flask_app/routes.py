@@ -71,8 +71,27 @@ def register():
     return render_template('register.html')
 
 
+def _login_template(next_url):
+    """Pick the right login template based on where the user is coming from."""
+    from urllib.parse import urlparse
+    parsed = urlparse(next_url)
+    path = parsed.path if (next_url and not parsed.scheme and not parsed.netloc) else ''
+    # Film/admin pages → dark film-room login
+    if path.startswith('/film') or path.startswith('/admin'):
+        return 'login.html'
+    # Articles pages (index, /post/*, /new_post, /edit_post) → editorial login
+    return 'login_articles.html'
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    from urllib.parse import urlparse
+
+    # Determine next destination from query-string (GET) or hidden field (POST)
+    raw_next = request.args.get('next', '') or request.form.get('next_hidden', '')
+    parsed = urlparse(raw_next)
+    next_url = raw_next if (raw_next and not parsed.scheme and not parsed.netloc) else ''
+
     if request.method == 'POST':
 
         print("Login attempt with data:", request.form)
@@ -84,7 +103,7 @@ def login():
         if not user:
             print("Login failed - user not found:", username)
             flash('Invalid username or password.')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
         # Check password against shared passwords based on role
         if user.is_admin:
@@ -95,13 +114,13 @@ def login():
         if not expected_password:
             print("Shared passwords not configured in environment variables.")
             flash('Authentication system not configured properly.')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
         # Verify against hashed password (which was created from shared password)
         if not check_password_hash(user.hashed_password, password):
             print("Invalid username or password attempt for user:", username)
             flash('Invalid username or password.')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
 
         session['user_id'] = user.id
         
@@ -112,15 +131,17 @@ def login():
         
         flash('Logged in.')
         
-        # Redirect back to the page they came from, or games_list
-        raw_next = request.args.get('next', '')
-        # Safety: only allow relative paths (no scheme/netloc)
-        from urllib.parse import urlparse
-        parsed = urlparse(raw_next)
-        next_url = raw_next if (raw_next and not parsed.scheme and not parsed.netloc) else url_for('games_list')
-        return redirect(next_url)
+        # Redirect back to originating page, defaulting by context
+        if next_url:
+            return redirect(next_url)
+        parsed_next = urlparse(raw_next)
+        path = parsed_next.path if raw_next else ''
+        if path.startswith('/film') or path.startswith('/admin'):
+            return redirect(url_for('games_list'))
+        return redirect(url_for('index'))
 
-    return render_template('login.html')
+    template = _login_template(next_url)
+    return render_template(template, next=next_url)
 
 
 @app.route('/post/<int:post_id>', methods=['GET'])
