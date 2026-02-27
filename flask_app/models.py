@@ -161,3 +161,50 @@ class Comment(db.Model):
 
     def __repr__(self) -> str:
         return f"<Comment by {self.author_name} on Game {self.game_id}>"
+
+
+# =========================
+# ANALYTICS/TRACKING MODELS
+# =========================
+
+class LoginEvent(db.Model):
+    __tablename__ = 'login_events'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    login_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='login_events')
+    
+    __table_args__ = (
+        db.Index('idx_login_events_user_id', 'user_id'),
+        db.Index('idx_login_events_login_time', 'login_time'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LoginEvent user_id={self.user_id} at {self.login_time}>"
+
+
+class VideoWatchSession(db.Model):
+    __tablename__ = 'video_watch_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
+    watch_duration_seconds = db.Column(db.Integer, nullable=False, default=0)  # Total seconds watched
+    session_start = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='watch_sessions')
+    game = db.relationship('Game', backref='watch_sessions')
+    
+    __table_args__ = (
+        db.Index('idx_watch_sessions_user_id', 'user_id'),
+        db.Index('idx_watch_sessions_game_id', 'game_id'),
+        db.Index('idx_watch_sessions_user_game', 'user_id', 'game_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<VideoWatchSession user_id={self.user_id} game_id={self.game_id} duration={self.watch_duration_seconds}s>"

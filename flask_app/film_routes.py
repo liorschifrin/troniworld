@@ -1,12 +1,13 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
+from sqlalchemy import func
 import csv
 import io
 import os
 
 from . import app, db
-from .models import Player, Game, Point, Event, Comment, point_players, User
+from .models import Player, Game, Point, Event, Comment, point_players, User, VideoWatchSession, LoginEvent
 from .utils import get_current_user, login_required, admin_required
 
 
@@ -756,3 +757,139 @@ def update_point(game_id, point_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+# =========================
+# ANALYTICS TRACKING API
+# =========================
+
+@app.route('/film/api/games/<int:game_id>/track-watch-time', methods=['POST'])
+@login_required
+def track_watch_time(game_id):
+    """Track how much time a user has spent watching a game video"""
+    current_user = get_current_user()
+    
+    # Verify game exists
+    game = Game.query.get_or_404(game_id)
+    
+    try:
+        data = request.get_json()
+        seconds_watched = data.get('seconds_watched', 0)
+        
+        if seconds_watched <= 0:
+            return jsonify({'success': False, 'error': 'Invalid watch duration'}), 400
+        
+        # Find or create a watch session for this user and game
+        # We'll create a new session for each page load/visit
+        session_id = data.get('session_id')
+        
+        if session_id:
+            # Try to find existing session
+            watch_session = VideoWatchSession.query.filter_by(
+                id=session_id,
+                user_id=current_user.id,
+                game_id=game_id
+            ).first()
+        else:
+            watch_session = None
+        
+        if not watch_session:
+            # Create new watch session
+            watch_session = VideoWatchSession(
+                user_id=current_user.id,
+                game_id=game_id,
+                watch_duration_seconds=seconds_watched
+            )
+            db.session.add(watch_session)
+        else:
+            # Update existing session
+            watch_session.watch_duration_seconds += seconds_watched
+            watch_session.last_updated = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'session_id': watch_session.id,
+            'total_watched': watch_session.watch_duration_seconds
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/film/analytics')
+@admin_required
+def analytics_dashboard():
+    """Admin analytics dashboard showing user engagement metrics"""
+    current_user = get_current_user()
+    
+    # Get all users
+    users = User.query.all()
+    
+    # Build analytics data for each user
+    user_analytics = []
+    
+    for user in users:
+        # Count logins
+        login_count = LoginEvent.query.filter_by(user_id=user.id).count()
+        
+        # Get total watch time across all games
+        total_watch_time_result = db.session.query(
+            func.sum(VideoWatchSession.watch_duration_seconds)
+        ).filter_by(user_id=user.id).scalar()
+        total_watch_minutes = (total_watch_time_result or 0) / 60.0
+        
+        # Get watch time per game
+        game_watch_times = db.session.query(
+            Game.id,
+            Game.title,
+            Game.opponent,
+            func.sum(VideoWatchSession.watch_duration_seconds).label('total_seconds')
+        ).join(
+            VideoWatchSession, VideoWatchSession.game_id == Game.id
+        ).filter(
+            VideoWatchSession.user_id == user.id
+        ).group_by(
+            Game.id, Game.title, Game.opponent
+        ).all()
+        
+        game_breakdown = []
+        for game_id, title, opponent, total_seconds in game_watch_times:
+            game_breakdown.append({
+                'game_id': game_id,
+                'title': title,
+                'opponent': opponent,
+                'minutes_watched': (total_seconds or 0) / 60.0
+            })
+        
+        # Sort game breakdown by minutes watched (descending)
+        game_breakdown.sort(key=lambda x: x['minutes_watched'], reverse=True)
+        
+        # Count comments made by this user
+        # Comments store author_name, so we match by username
+        comment_count = Comment.query.filter_by(author_name=user.username).count()
+        
+        user_analytics.append({
+            'user': user,
+            'login_count': login_count,
+            'total_watch_minutes': round(total_watch_minutes, 1),
+            'game_breakdown': game_breakdown,
+            'comment_count': comment_count
+        })
+    
+    # Sort by total watch minutes (most engaged users first)
+    user_analytics.sort(key=lambda x: x['total_watch_minutes'], reverse=True)
+    
+    # Calculate totals
+    total_unique_users = len([u for u in user_analytics if u['login_count'] > 0])
+    total_watch_minutes = sum([u['total_watch_minutes'] for u in user_analytics])
+    total_comments = sum([u['comment_count'] for u in user_analytics])
+    
+    return render_template('analytics_dashboard.html', 
+                          current_user=current_user,
+                          user_analytics=user_analytics,
+                          total_unique_users=total_unique_users,
+                          total_watch_minutes=round(total_watch_minutes, 1),
+                          total_comments=total_comments)

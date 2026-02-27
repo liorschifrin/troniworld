@@ -1419,6 +1419,90 @@
     }
   }
 
+  // =========================
+  // VIDEO WATCH TIME TRACKING
+  // =========================
+  let watchSessionId = null;
+  let lastTrackTime = 0;
+  let accumulatedWatchSeconds = 0;
+  const TRACK_INTERVAL_SECONDS = 10; // Send tracking data every 10 seconds
+
+  function sendWatchTimeTracking() {
+    if (accumulatedWatchSeconds <= 0) return;
+
+    const data = {
+      seconds_watched: accumulatedWatchSeconds,
+      session_id: watchSessionId
+    };
+
+    fetch('/film/api/games/{{ game.id }}/track-watch-time', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        // Update session ID for future requests
+        watchSessionId = result.session_id;
+        // Reset accumulated time
+        accumulatedWatchSeconds = 0;
+      }
+    })
+    .catch(error => {
+      console.error('Error tracking watch time:', error);
+    });
+  }
+
+  function trackVideoWatchTime() {
+    if (!player || !playerReady) return;
+
+    try {
+      const state = player.getPlayerState();
+      const currentTime = Date.now() / 1000; // Current timestamp in seconds
+
+      // Only track time when video is actually playing
+      if (state === YT.PlayerState.PLAYING) {
+        if (lastTrackTime > 0) {
+          const elapsed = currentTime - lastTrackTime;
+          // Only add if elapsed time is reasonable (prevent tracking when tab was inactive)
+          if (elapsed < 2) {
+            accumulatedWatchSeconds += elapsed;
+            
+            // Send tracking data if we've accumulated enough time
+            if (accumulatedWatchSeconds >= TRACK_INTERVAL_SECONDS) {
+              sendWatchTimeTracking();
+            }
+          }
+        }
+        lastTrackTime = currentTime;
+      } else {
+        // Reset last track time when video is not playing
+        lastTrackTime = 0;
+        // Send any accumulated time when video is paused/stopped
+        if (accumulatedWatchSeconds > 0) {
+          sendWatchTimeTracking();
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  // Send watch time before user leaves the page
+  window.addEventListener('beforeunload', () => {
+    if (accumulatedWatchSeconds > 0) {
+      // Use sendBeacon for reliable tracking on page unload
+      const data = JSON.stringify({
+        seconds_watched: accumulatedWatchSeconds,
+        session_id: watchSessionId
+      });
+      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', data);
+    }
+  });
+
   // Load YouTube IFrame API
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
@@ -1516,6 +1600,9 @@
       
       // Update active comment based on timestamp
       updateActiveComment(currentTime);
+      
+      // Track video watch time
+      trackVideoWatchTime();
     } catch (e) {
       // Ignore errors if player not fully loaded
     }

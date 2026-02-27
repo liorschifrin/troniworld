@@ -5,7 +5,7 @@ import os
 import uuid
 
 from . import app, db
-from .models import Post, User
+from .models import Post, User, LoginEvent
 
 from .utils import get_current_user
 
@@ -97,6 +97,12 @@ def login():
             return redirect(url_for('login'))
 
         session['user_id'] = user.id
+        
+        # Track login event
+        login_event = LoginEvent(user_id=user.id)
+        db.session.add(login_event)
+        db.session.commit()
+        
         flash('Logged in.')
         
         # Redirect to original page or default to index
