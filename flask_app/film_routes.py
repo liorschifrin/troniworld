@@ -239,7 +239,8 @@ def create_comment(game_id):
     timestamp = data.get('timestamp')
     point_id = data.get('point_id')
     
-    if not content:
+    # Content is required for non-Event types
+    if not content and comment_type != 'Event':
         return jsonify({'error': 'Content is required'}), 400
     
     # Validate comment_type
