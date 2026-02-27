@@ -229,13 +229,13 @@
           <div class="game-title">{{ game.title }}</div>
           <div class="game-opponent">vs {{ game.opponent }}</div>
           <div class="game-meta">
-            {% if game.game_date %}
-            <span class="meta-item">{{ game.game_date }}</span>
-            {% endif %}
             {% if game.final_score_tron is not none and game.final_score_opponent is not none %}
             <span class="score {% if game.final_score_tron > game.final_score_opponent %}win{% elif game.final_score_tron < game.final_score_opponent %}loss{% endif %}">
               {{ game.final_score_tron }} - {{ game.final_score_opponent }}
             </span>
+            {% endif %}
+            {% if game.game_date %}
+            <span class="meta-item">{{ game.game_date }}</span>
             {% endif %}
           </div>
         </div>
