@@ -493,6 +493,27 @@
     background: rgba(200,241,53,0.12);
   }
 
+  .point-item.my-point {
+    border-bottom: 2px solid rgba(255,107,43,0.7);
+  }
+
+  .point-item.my-point.active {
+    border-bottom-color: var(--warm);
+  }
+
+  .my-point-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--warm);
+    background: rgba(255,107,43,0.15);
+    border: 1px solid rgba(255,107,43,0.4);
+    border-radius: 2px;
+    padding: 1px 4px;
+    line-height: 1.3;
+  }
+
   .point-timestamp {
     position: absolute;
     top: 8px;
@@ -1714,7 +1735,7 @@
     <div class="point-info-section">
       <div class="point-info-scroll">
         {% for point in player_sheet_data['points'] %}
-        <div class="point-item {% if point.timestamp_start is not none %}has-timestamp{% endif %}" 
+        <div class="point-item {% if point.timestamp_start is not none %}has-timestamp{% endif %}{% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %} my-point{% endif %}" 
              data-point-id="{{ point.id }}" 
              data-point-index="{{ point.point_index }}"
              {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
@@ -1738,6 +1759,9 @@
             <span class="point-score-badge {% if point.tron_point %}tron{% else %}opponent{% endif %}">
               {% if point.tron_point %}Tron{% else %}{{ game.opponent }}{% endif %}
             </span>
+            {% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %}
+            <span class="my-point-badge">YOU</span>
+            {% endif %}
           </div>
           <div class="point-details">
             {% if point.tron_o %}
