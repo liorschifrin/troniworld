@@ -307,6 +307,144 @@ def my_games():
                          total_break_pct=total_break_pct)
 
 
+@app.route('/film/data')
+@login_required
+def tron_data():
+    """Team-wide game data and statistics page."""
+    current_user = get_current_user()
+
+    games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+
+    # ── Per-game stats ──────────────────────────────────────────────
+    games_with_stats = []
+    total_o_points = total_o_scored = 0
+    total_d_points = total_d_scored = 0
+    wins = losses = ties = 0
+
+    for game in games:
+        pts = list(game.points)
+
+        o_pts   = [p for p in pts if p.tron_o]
+        d_pts   = [p for p in pts if not p.tron_o]
+
+        o_count   = len(o_pts)
+        o_scored  = len([p for p in o_pts if p.tron_point])
+        d_count   = len(d_pts)
+        d_scored  = len([p for p in d_pts if p.tron_point])
+        hold_pct  = (o_scored / o_count * 100) if o_count > 0 else None
+        break_pct = (d_scored / d_count * 100) if d_count > 0 else None
+
+        total_o_points += o_count;  total_o_scored += o_scored
+        total_d_points += d_count;  total_d_scored += d_scored
+
+        if game.final_score_tron is not None and game.final_score_opponent is not None:
+            if game.final_score_tron > game.final_score_opponent:
+                wins += 1
+            elif game.final_score_tron < game.final_score_opponent:
+                losses += 1
+            else:
+                ties += 1
+
+        games_with_stats.append({
+            'game': game,
+            'o_count': o_count, 'o_scored': o_scored, 'hold_pct': hold_pct,
+            'd_count': d_count, 'd_scored': d_scored, 'break_pct': break_pct,
+        })
+
+    total_hold_pct  = (total_o_scored / total_o_points * 100) if total_o_points > 0 else None
+    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else None
+
+    # ── Player leaderboard ──────────────────────────────────────────
+    players = Player.query.filter_by(active=True).order_by(Player.name).all()
+    player_stats = []
+    for player in players:
+        all_pts   = list(player.points)
+        if not all_pts:
+            continue
+        o_pts     = [p for p in all_pts if p.tron_o]
+        d_pts     = [p for p in all_pts if not p.tron_o]
+        o_count   = len(o_pts)
+        o_scored  = len([p for p in o_pts if p.tron_point])
+        d_count   = len(d_pts)
+        d_scored  = len([p for p in d_pts if p.tron_point])
+        player_stats.append({
+            'player': player,
+            'total_pts': len(all_pts),
+            'games_played': len(player.games),
+            'o_count': o_count, 'o_scored': o_scored,
+            'hold_pct': (o_scored / o_count * 100) if o_count > 0 else None,
+            'd_count': d_count, 'd_scored': d_scored,
+            'break_pct': (d_scored / d_count * 100) if d_count > 0 else None,
+        })
+    # Sort by total points played descending
+    player_stats.sort(key=lambda x: x['total_pts'], reverse=True)
+
+    # ── Tendency breakdowns (all games combined) ────────────────────
+    all_pts = Point.query.all()
+
+    pull_play_counts = {}
+    for p in all_pts:
+        if not p.tron_o and p.pull_play:
+            pull_play_counts[p.pull_play] = pull_play_counts.get(p.pull_play, 0) + 1
+
+    defense_counts = {}
+    defense_scored = {}
+    for p in all_pts:
+        if not p.tron_o and p.defense_type:
+            defense_counts[p.defense_type] = defense_counts.get(p.defense_type, 0) + 1
+            if p.tron_point:
+                defense_scored[p.defense_type] = defense_scored.get(p.defense_type, 0) + 1
+
+    offense_faced_counts = {}
+    offense_faced_scored = {}
+    for p in all_pts:
+        if not p.tron_o and p.offense_faced:
+            offense_faced_counts[p.offense_faced] = offense_faced_counts.get(p.offense_faced, 0) + 1
+            if p.tron_point:
+                offense_faced_scored[p.offense_faced] = offense_faced_scored.get(p.offense_faced, 0) + 1
+
+    defense_breakdown = [
+        {
+            'name': name,
+            'count': count,
+            'scored': defense_scored.get(name, 0),
+            'break_pct': (defense_scored.get(name, 0) / count * 100) if count > 0 else None,
+        }
+        for name, count in sorted(defense_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    offense_faced_breakdown = [
+        {
+            'name': name,
+            'count': count,
+            'scored': offense_faced_scored.get(name, 0),
+            'break_pct': (offense_faced_scored.get(name, 0) / count * 100) if count > 0 else None,
+        }
+        for name, count in sorted(offense_faced_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    pull_breakdown = [
+        {'name': name, 'count': count}
+        for name, count in sorted(pull_play_counts.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    return render_template(
+        'tron_data.html',
+        current_user=current_user,
+        games_with_stats=games_with_stats,
+        total_games=len(games),
+        wins=wins, losses=losses, ties=ties,
+        total_o_points=total_o_points, total_o_scored=total_o_scored,
+        total_hold_pct=total_hold_pct,
+        total_d_points=total_d_points, total_d_scored=total_d_scored,
+        total_break_pct=total_break_pct,
+        player_stats=player_stats,
+        defense_breakdown=defense_breakdown,
+        offense_faced_breakdown=offense_faced_breakdown,
+        pull_breakdown=pull_breakdown,
+    )
+
+
 @app.route('/film/games')
 @login_required
 def games_list():

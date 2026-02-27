@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Film Users - Troniworld{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 20px auto; padding: 20px;">
+  <h1>Manage Film Users</h1>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash-message {{ category }}" style="padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: {% if category == 'error' %}#fee; color: #c33{% else %}#efe; color: #3a3{% endif %};">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Create New User Form -->
+  <div style="background: #f9f9f9; padding: 20px; margin-bottom: 30px; border-radius: 8px;">
+    <h2 style="margin-top: 0;">Create New Film User</h2>
+    <form method="post">
+      <input type="hidden" name="action" value="create">
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+        <div>
+          <label for="username" style="display: block; margin-bottom: 5px; font-weight: bold;">
+            Username *
+          </label>
+          <input 
+            type="text" 
+            id="username"
+            name="username" 
+            required 
+            style="width: 100%; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;"
+          >
+        </div>
+        
+        <div>
+          <label for="player_name" style="display: block; margin-bottom: 5px; font-weight: bold;">
+            Associated Player (optional)
+          </label>
+          <select 
+            id="player_name"
+            name="player_name"
+            style="width: 100%; padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px;"
+          >
+            <option value="">-- No Player --</option>
+            {% for player in all_players %}
+              <option value="{{ player.name }}">{{ player.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: inline-flex; align-items: center; margin-right: 20px;">
+          <input type="checkbox" name="is_admin" style="margin-right: 5px;">
+          <strong>Admin</strong> (can create/edit games, manage users)
+        </label>
+        
+        <label style="display: inline-flex; align-items: center;">
+          <input type="checkbox" name="is_leadership" style="margin-right: 5px;">
+          <strong>Leadership</strong> (future access level)
+        </label>
+      </div>
+      
+      <button 
+        type="submit"
+        style="padding: 10px 20px; font-size: 14px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"
+      >
+        Create User
+      </button>
+    </form>
+  </div>
+
+  <!-- Bulk Create for All Players -->
+  <div style="margin-bottom: 30px;">
+    <form method="post" action="{{ url_for('create_users_for_all_players') }}" onsubmit="return confirm('This will create film users for all players that don\'t have users yet. Continue?');">
+      <button 
+        type="submit"
+        style="padding: 10px 20px; font-size: 14px; background-color: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;"
+      >
+        Create Users for All Players Without Users
+      </button>
+    </form>
+  </div>
+
+  <!-- Existing Users List -->
+  <h2>Existing Film Users ({{ film_users|length }})</h2>
+  
+  {% if film_users %}
+    <table style="width: 100%; border-collapse: collapse; background: white;">
+      <thead>
+        <tr style="background: #f0f0f0; border-bottom: 2px solid #ddd;">
+          <th style="padding: 12px; text-align: left;">Username</th>
+          <th style="padding: 12px; text-align: left;">Associated Player</th>
+          <th style="padding: 12px; text-align: center;">Admin</th>
+          <th style="padding: 12px; text-align: center;">Leadership</th>
+          <th style="padding: 12px; text-align: center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in film_users %}
+          <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 12px;">
+              <strong>{{ user.username }}</strong>
+              {% if user.id == current_user.id %}
+                <span style="color: #007bff; font-size: 12px;">(You)</span>
+              {% endif %}
+            </td>
+            <td style="padding: 12px;">
+              {% if user.player %}
+                {{ user.player.name }}
+                {% if user.player.jersey_number %}
+                  (#{{ user.player.jersey_number }})
+                {% endif %}
+              {% else %}
+                <span style="color: #999;">No player</span>
+              {% endif %}
+            </td>
+            <td style="padding: 12px; text-align: center;">
+              {% if user.is_admin %}
+                <span style="color: #28a745;">✓</span>
+              {% else %}
+                <span style="color: #ddd;">✗</span>
+              {% endif %}
+            </td>
+            <td style="padding: 12px; text-align: center;">
+              {% if user.is_leadership %}
+                <span style="color: #28a745;">✓</span>
+              {% else %}
+                <span style="color: #ddd;">✗</span>
+              {% endif %}
+            </td>
+            <td style="padding: 12px; text-align: center;">
+              {% if user.id != current_user.id %}
+                <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete user {{ user.username }}?');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="user_id" value="{{ user.id }}">
+                  <button 
+                    type="submit"
+                    style="padding: 6px 12px; font-size: 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                  >
+                    Delete
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color: #999;">No film users yet. Create one above.</p>
+  {% endif %}
+
+  <div style="margin-top: 30px;">
+    <a href="{{ url_for('games_list') }}" style="color: #007bff; text-decoration: none;">← Back to Film Room</a>
+  </div>
+
+  <!-- Info Box -->
+  <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-left: 4px solid #007bff; border-radius: 4px;">
+    <h3 style="margin-top: 0;">Password Information</h3>
+    <p style="margin-bottom: 5px;">All film users share passwords based on their role:</p>
+    <ul style="margin-top: 5px;">
+      <li><strong>Regular Users:</strong> Use FILM_USER_PASSWORD from .env</li>
+      <li><strong>Admin Users:</strong> Use FILM_ADMIN_PASSWORD from .env</li>
+    </ul>
+    <p style="margin-bottom: 0; font-size: 14px; color: #666;">Users login with their username and the appropriate shared password. Passwords are configured in the .env file.</p>
+  </div>
+</div>
+{% endblock %}
