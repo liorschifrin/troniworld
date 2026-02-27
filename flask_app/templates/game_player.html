@@ -226,6 +226,21 @@
     font-weight: 600;
   }
 
+  .player-sheet-table td.clickable,
+  .player-sheet-table th.clickable {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .player-sheet-table td.column-hover,
+  .player-sheet-table th.column-hover {
+    background: rgba(255,107,43,0.15) !important;
+  }
+
+  .player-sheet-table th.column-hover {
+    background: rgba(255,107,43,0.2) !important;
+  }
+
   .layout {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -762,7 +777,9 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 200px);
   }
 
   .panel-header {
@@ -771,6 +788,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
   }
 
   .panel-header h2 {
@@ -803,12 +821,16 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .comment-input-wrap {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .comment-input {
@@ -827,6 +849,130 @@
 
   .comment-input::placeholder { color: var(--muted); }
   .comment-input:focus { border-color: var(--lime); }
+
+  .comment-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .comment-type-selector {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    flex: 1;
+  }
+
+  .comment-type-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1;
+  }
+
+  .comment-type-btn:hover {
+    border-color: var(--lime);
+    background: rgba(200,241,53,0.1);
+  }
+
+  .comment-type-btn.active {
+    border-color: var(--lime);
+    font-weight: 500;
+    transform: scale(1.1);
+  }
+
+  .comment-type-btn[data-type="Comment"].active {
+    background: rgba(126,207,255,0.2);
+    color: var(--sky);
+    border-color: var(--sky);
+  }
+
+  .comment-type-btn[data-type="Question"].active {
+    background: rgba(200,241,53,0.2);
+    color: var(--lime);
+    border-color: var(--lime);
+  }
+
+  .comment-type-btn[data-type="Highlight"].active {
+    background: rgba(138,43,226,0.2);
+    color: #da70d6;
+    border-color: #da70d6;
+  }
+
+  .comment-type-btn[data-type="Event"].active {
+    background: rgba(255,107,43,0.2);
+    color: var(--warm);
+    border-color: var(--warm);
+  }
+
+  .event-options {
+    display: none;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .event-options.show {
+    display: flex;
+  }
+
+  .event-option-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .event-select {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .event-select:focus {
+    border-color: var(--lime);
+  }
+
+  .comment-type-indicator {
+    display: inline-block;
+    padding: 3px 5px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    line-height: 1;
+    margin-right: 6px;
+  }
+
+  .comment-type-indicator.comment-badge {
+    background: rgba(126,207,255,0.2);
+    color: var(--sky);
+  }
+
+  .comment-type-indicator.question-badge {
+    background: rgba(200,241,53,0.2);
+    color: var(--lime);
+  }
+
+  .comment-type-indicator.highlight-badge {
+    background: rgba(138,43,226,0.2);
+    color: #da70d6;
+  }
+
+  .comment-type-indicator.event-badge {
+    background: rgba(255,107,43,0.25);
+    color: var(--warm);
+  }
 
   .comment-btn {
     background: var(--lime);
@@ -851,6 +997,8 @@
     flex-direction: column;
     gap: 10px;
     margin-top: 6px;
+    flex: 1;
+    min-height: 0;
   }
 
   .comments-list::-webkit-scrollbar { width: 4px; }
@@ -1023,7 +1171,10 @@
           <tr>
             <th>O/D</th>
             {% for point in player_sheet_data['points'] %}
-            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}">{{ point.point_index }}</th>
+            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+              {{ point.point_index }}
+            </th>
             {% endfor %}
           </tr>
         </thead>
@@ -1032,7 +1183,8 @@
           <tr>
             <td class="row-label">O/D</td>
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_o %}O{% else %}X{% endif %}
             </td>
             {% endfor %}
@@ -1043,7 +1195,8 @@
             <td class="row-label">TRON</td>
             {% set ns = namespace(tron_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_point %}
               {% set ns.tron_score = ns.tron_score + 1 %}
               <span class="tron-point">{{ ns.tron_score }}</span>
@@ -1057,7 +1210,8 @@
             <td class="row-label">Enemy</td>
             {% set ns = namespace(enemy_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if not point.tron_point %}
               {% set ns.enemy_score = ns.enemy_score + 1 %}
               <span class="opponent-point">{{ ns.enemy_score }}</span>
@@ -1077,7 +1231,8 @@
             <td class="player-name">{{ player_name }}</td>
             {% set ns = namespace(player_count=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}">
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if player_name in player_sheet_data['point_players'][point.point_index] %}
               {% set ns.player_count = ns.player_count + 1 %}
               {{ ns.player_count }}
@@ -1166,14 +1321,14 @@
             <div class="point-detail-item">
               <span class="point-detail-label">Pull Play</span>
               <div class="point-detail-value {% if not point.pull_play %}empty{% endif %}" 
-                   onclick="editPointField({{ point.id }}, 'pull_play', this)">
+                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'pull_play', this)">
                 {{ point.pull_play if point.pull_play else 'Add...' }}
               </div>
             </div>
             <div class="point-detail-item">
               <span class="point-detail-label">Defense Faced</span>
               <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
-                   onclick="editPointField({{ point.id }}, 'defense_type', this)">
+                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
                 {{ point.defense_type if point.defense_type else 'Add...' }}
               </div>
             </div>
@@ -1182,14 +1337,14 @@
             <div class="point-detail-item">
               <span class="point-detail-label">Defensive Style</span>
               <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
-                   onclick="editPointField({{ point.id }}, 'defense_type', this)">
+                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
                 {{ point.defense_type if point.defense_type else 'Add...' }}
               </div>
             </div>
             <div class="point-detail-item">
               <span class="point-detail-label">Offense Faced</span>
               <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
-                   onclick="editPointField({{ point.id }}, 'offense_faced', this)">
+                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'offense_faced', this)">
                 {{ point.offense_faced if point.offense_faced else 'Add...' }}
               </div>
             </div>
@@ -1211,7 +1366,25 @@
       <div class="comments-area">
         <div class="comment-input-wrap">
           <textarea class="comment-input" id="commentInput" placeholder="Share your thoughts about this game..."></textarea>
-          <button class="comment-btn" onclick="addComment()">Post Comment</button>
+          <div class="comment-controls">
+            <div class="comment-type-selector">
+              <button class="comment-type-btn active" data-type="Comment" onclick="selectCommentType('Comment')" title="Comment">💬</button>
+              <button class="comment-type-btn" data-type="Question" onclick="selectCommentType('Question')" title="Question">❓</button>
+              <button class="comment-type-btn" data-type="Highlight" onclick="selectCommentType('Highlight')" title="Highlight">⭐</button>
+              <button class="comment-type-btn" data-type="Event" onclick="selectCommentType('Event')" title="Event">🎯</button>
+              <div class="event-options" id="eventOptions">
+                <select class="event-select" id="eventType">
+                  <option value="Turnover">Turnover</option>
+                  <option value="Score">Score</option>
+                </select>
+                <select class="event-select" id="eventTeam">
+                  <option value="Tron">Tron</option>
+                  <option value="{{ game.opponent }}">{{ game.opponent }}</option>
+                </select>
+              </div>
+            </div>
+            <button class="comment-btn" onclick="addComment()">Post Comment</button>
+          </div>
         </div>
         <div class="comments-list" id="commentsList">
           <div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>
@@ -1230,6 +1403,7 @@
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
   let currentActivePointId = null;
   let currentActiveCommentId = null;
+  let selectedCommentType = 'Comment';
 
   // Build arrays of existing field values from ALL games
   const existingValues = {
@@ -1568,6 +1742,38 @@
     }
   }
 
+  // Comment type selection
+  function selectCommentType(type) {
+    selectedCommentType = type;
+    
+    // Update button states
+    document.querySelectorAll('.comment-type-btn').forEach(btn => {
+      if (btn.dataset.type === type) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    
+    // Show/hide event options
+    const eventOptions = document.getElementById('eventOptions');
+    if (type === 'Event') {
+      eventOptions.classList.add('show');
+    } else {
+      eventOptions.classList.remove('show');
+    }
+    
+    // Update placeholder text
+    const input = document.getElementById('commentInput');
+    const placeholders = {
+      'Comment': 'Add a Comment...',
+      'Question': 'Add a Question...',
+      'Highlight': 'Add a Highlight...',
+      'Event': 'Add an Event...'
+    };
+    input.placeholder = placeholders[type] || placeholders['Comment'];
+  }
+
   // Comments functionality
   async function loadComments() {
     try {
@@ -1584,7 +1790,8 @@
     const input = document.getElementById('commentInput');
     const text = input.value.trim();
     
-    if (!text) return;
+    // Events don't require text, but other types do
+    if (!text && selectedCommentType !== 'Event') return;
     
     const commentBtn = document.querySelector('.comment-btn');
     commentBtn.disabled = true;
@@ -1600,6 +1807,14 @@
       }
     }
     
+    // Build comment content based on type
+    let commentContent = text;
+    if (selectedCommentType === 'Event') {
+      const eventType = document.getElementById('eventType').value;
+      const eventTeam = document.getElementById('eventTeam').value;
+      commentContent = text ? `[${eventType} - ${eventTeam}] ${text}` : `[${eventType} - ${eventTeam}]`;
+    }
+    
     try {
       const response = await fetch(`/api/games/{{ game.id }}/comments`, {
         method: 'POST',
@@ -1607,9 +1822,9 @@
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          content: text,
+          content: commentContent,
           author_name: 'Tron User',  // You can make this dynamic later
-          comment_type: 'Comment',
+          comment_type: selectedCommentType,
           timestamp: timestamp
         })
       });
@@ -1657,12 +1872,35 @@
         `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : 
         '';
       
+      // Type indicator badge
+      const typeIcons = {
+        'Comment': '💬',
+        'Question': '❓',
+        'Highlight': '⭐',
+        'Event': '🎯'
+      };
+      const typeBadgeClasses = {
+        'Comment': 'comment-badge',
+        'Question': 'question-badge',
+        'Highlight': 'highlight-badge',
+        'Event': 'event-badge'
+      };
+      const typeIcon = typeIcons[c.comment_type] || typeIcons['Comment'];
+      const typeBadgeClass = typeBadgeClasses[c.comment_type] || typeBadgeClasses['Comment'];
+      const typeIndicator = `<span class="comment-type-indicator ${typeBadgeClass}">${typeIcon}</span>`;
+      
+      // Events don't show author name or created_at timestamp
+      const isEvent = c.comment_type === 'Event';
+      const authorLine = isEvent ? '' : `<div class="comment-author">${typeIndicator}${escHtml(c.author_name)}</div>`;
+      const timestampLine = isEvent ? '' : `<div class="comment-timestamp">${escHtml(c.created_at)}</div>`;
+      const contentPrefix = isEvent ? typeIndicator : '';
+      
       return `
         <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
           <div class="comment-content-wrapper">
-            <div class="comment-author">${escHtml(c.author_name)}</div>
-            <div class="comment-text">${timestampPrefix}${escHtml(c.content)}</div>
-            <div class="comment-timestamp">${escHtml(c.created_at)}</div>
+            ${authorLine}
+            <div class="comment-text">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
+            ${timestampLine}
           </div>
           ${deleteBtn}
         </div>
@@ -1844,6 +2082,11 @@
     positionDropdown();
     input.focus();
     
+    // Prevent click propagation on input
+    input.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
     // Reposition dropdown on scroll
     const scrollContainer = document.querySelector('.point-info-scroll');
     const handleScroll = () => positionDropdown();
@@ -1880,7 +2123,10 @@
           const displayDiv = document.createElement('div');
           displayDiv.className = 'point-detail-value' + (newValue ? '' : ' empty');
           displayDiv.textContent = newValue || 'Add...';
-          displayDiv.onclick = () => editPointField(pointId, fieldName, displayDiv);
+          displayDiv.onclick = (e) => {
+            e.stopPropagation();
+            editPointField(pointId, fieldName, displayDiv);
+          };
           parent.replaceChild(displayDiv, input);
           cleanupDropdown();
         } else {
@@ -1918,6 +2164,39 @@
 
   // Load comments when page loads
   loadComments();
+
+  // Player sheet column hover effect
+  document.addEventListener('DOMContentLoaded', () => {
+    const playerSheetTable = document.querySelector('.player-sheet-table');
+    if (playerSheetTable) {
+      playerSheetTable.addEventListener('mouseover', (e) => {
+        const cell = e.target.closest('td.clickable, th.clickable');
+        if (cell) {
+          // Get column index
+          const row = cell.parentElement;
+          const columnIndex = Array.from(row.children).indexOf(cell);
+          
+          // Highlight all cells in this column
+          const rows = playerSheetTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cellInColumn = row.children[columnIndex];
+            if (cellInColumn && cellInColumn.classList.contains('clickable')) {
+              cellInColumn.classList.add('column-hover');
+            }
+          });
+        }
+      });
+      
+      playerSheetTable.addEventListener('mouseout', (e) => {
+        const cell = e.target.closest('td.clickable, th.clickable');
+        if (cell) {
+          // Remove highlight from all cells
+          const allClickables = playerSheetTable.querySelectorAll('.column-hover');
+          allClickables.forEach(el => el.classList.remove('column-hover'));
+        }
+      });
+    }
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
