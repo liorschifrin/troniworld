@@ -24,7 +24,7 @@ def link_or_create_user_for_player(player):
         player: The Player object that was just created
     """
     # Check if a user with this username already exists
-    existing_user = User.query.filter_by(username=player.name).first()
+    existing_user = User.query.filter(func.lower(User.username) == player.name.lower()).first()
     
     if existing_user:
         # Link the existing user to this player (if not already linked)
@@ -36,8 +36,8 @@ def link_or_create_user_for_player(player):
         password = os.getenv('FILM_USER_PASSWORD')
         if password:
             new_user = User(
-                username=player.name,
-                hashed_password=generate_password_hash(password),
+                username=player.name.capitalize(),
+                hashed_password=generate_password_hash(password.lower()),
                 is_admin=False,
                 is_leadership=False,
                 player_id=player.id
@@ -60,7 +60,7 @@ def manage_users():
         action = request.form.get('action')
         
         if action == 'create':
-            username = request.form.get('username', '').strip()
+            username = request.form.get('username', '').strip().capitalize()
             is_admin = request.form.get('is_admin') == 'on'
             is_leadership = request.form.get('is_leadership') == 'on'
             player_name = request.form.get('player_name', '').strip()
@@ -70,7 +70,7 @@ def manage_users():
                 return redirect(url_for('manage_users'))
             
             # Check if username already exists
-            existing = User.query.filter_by(username=username).first()
+            existing = User.query.filter(func.lower(User.username) == username.lower()).first()
             if existing:
                 flash('Username already exists.', 'error')
                 return redirect(url_for('manage_users'))
@@ -96,7 +96,7 @@ def manage_users():
             # Create new user with shared password
             new_user = User(
                 username=username,
-                hashed_password=generate_password_hash(password),
+                hashed_password=generate_password_hash(password.lower()),
                 is_admin=is_admin,
                 is_leadership=is_leadership,
                 player_id=player.id if player else None
@@ -148,7 +148,7 @@ def manage_users():
                                 password = os.getenv('FILM_USER_PASSWORD')
                             
                             if password:
-                                user_to_update.hashed_password = generate_password_hash(password)
+                                user_to_update.hashed_password = generate_password_hash(password.lower())
                             
                             status = "enabled" if user_to_update.is_admin else "disabled"
                             message = f'Admin status {status} for "{user_to_update.username}". Password updated to {"admin" if user_to_update.is_admin else "user"} password.'
@@ -212,13 +212,13 @@ def create_users_for_all_players():
     
     for player in players_without_users:
         # Check if username already exists
-        if User.query.filter_by(username=player.name).first():
+        if User.query.filter(func.lower(User.username) == player.name.lower()).first():
             skipped_count += 1
             continue
         
         new_user = User(
-            username=player.name,
-            hashed_password=generate_password_hash(password),
+            username=player.name.capitalize(),
+            hashed_password=generate_password_hash(password.lower()),
             is_admin=False,
             is_leadership=False,
             player_id=player.id

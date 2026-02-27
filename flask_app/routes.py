@@ -1,6 +1,7 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
+from sqlalchemy import func
 import os
 import uuid
 
@@ -34,14 +35,14 @@ def register():
             return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        username = request.form.get('username', '').strip().capitalize()
         is_admin = request.form.get('is_admin', '0') == '1'
 
         if not username:
             flash('Username is required.')
             return redirect(url_for('register'))
 
-        existing = User.query.filter_by(username=username).first()
+        existing = User.query.filter(func.lower(User.username) == username.lower()).first()
         if existing:
             flash('Username already exists.')
             return redirect(url_for('register'))
@@ -58,7 +59,7 @@ def register():
 
         user = User(
             username=username,
-            hashed_password=generate_password_hash(password),
+            hashed_password=generate_password_hash(password.lower()),
             is_admin=is_admin,
         )
         db.session.add(user)
@@ -73,11 +74,15 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip().lower()
+
+        print("Login attempt with data:", request.form)
+
+        username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip().lower()
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter(func.lower(User.username) == username.lower()).first()
         if not user:
+            print("Login failed - user not found:", username)
             flash('Invalid username or password.')
             return redirect(url_for('login'))
         
@@ -88,11 +93,13 @@ def login():
             expected_password = os.getenv('FILM_USER_PASSWORD')
         
         if not expected_password:
+            print("Shared passwords not configured in environment variables.")
             flash('Authentication system not configured properly.')
             return redirect(url_for('login'))
         
         # Verify against hashed password (which was created from shared password)
         if not check_password_hash(user.hashed_password, password):
+            print("Invalid username or password attempt for user:", username)
             flash('Invalid username or password.')
             return redirect(url_for('login'))
 
@@ -106,7 +113,7 @@ def login():
         flash('Logged in.')
         
         # Redirect to original page or default to index
-        next_url = request.args.get('next') or url_for('index')
+        next_url = request.args.get('next') or url_for('games_list')
         return redirect(next_url)
 
     return render_template('login.html')
