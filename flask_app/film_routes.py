@@ -461,9 +461,13 @@ def create_comment(game_id):
     """Create a new comment for a game"""
     game = Game.query.get_or_404(game_id)
     
+    # Get the current user
+    current_user = get_current_user()
+    
     data = request.get_json()
     content = data.get('content', '').strip()
-    author_name = data.get('author_name', 'Anonymous').strip()
+    # Use the logged-in user's username, or fallback to Anonymous if not logged in
+    author_name = current_user.username if current_user else 'Anonymous'
     comment_type = data.get('comment_type', 'Comment')
     parent_id = data.get('parent_id')
     timestamp = data.get('timestamp')
@@ -510,12 +514,16 @@ def create_comment(game_id):
 
 
 @app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'])
-@admin_required
+@login_required
 def delete_comment(game_id, comment_id):
-    """Delete a comment"""
+    """Delete a comment - users can delete their own comments, admins can delete any"""
     current_user = get_current_user()
     
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
+    
+    # Check if user is authorized to delete this comment
+    if not current_user.is_admin and comment.author_name != current_user.username:
+        return jsonify({'error': 'Unauthorized - you can only delete your own comments'}), 403
     
     try:
         db.session.delete(comment)
@@ -524,6 +532,50 @@ def delete_comment(game_id, comment_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['PATCH'])
+@login_required
+def update_comment(game_id, comment_id):
+    """Update a comment - users can only edit their own comments"""
+    current_user = get_current_user()
+    
+    comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
+    
+    # Check if user is authorized to edit this comment (only own comments)
+    if comment.author_name != current_user.username:
+        return jsonify({'error': 'Unauthorized - you can only edit your own comments'}), 403
+    
+    data = request.get_json()
+    new_content = data.get('content', '').strip()
+    new_comment_type = data.get('comment_type')
+    
+    # Content is required for non-Event types
+    if not new_content and (not new_comment_type or new_comment_type != 'Event'):
+        return jsonify({'error': 'Content is required'}), 400
+    
+    # Validate comment_type if provided
+    valid_types = ['Comment', 'Question', 'Highlight', 'Event']
+    if new_comment_type and new_comment_type not in valid_types:
+        return jsonify({'error': 'Invalid comment type'}), 400
+    
+    try:
+        comment.content = new_content
+        if new_comment_type:
+            comment.comment_type = new_comment_type
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'comment': {
+                'id': comment.id,
+                'content': comment.content,
+                'author_name': comment.author_name,
+                'comment_type': comment.comment_type,
+                'timestamp': comment.timestamp,
+                'created_at': comment.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'parent_id': comment.parent_id
+            }
+        }), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
