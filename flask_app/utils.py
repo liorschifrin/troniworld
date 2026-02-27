@@ -16,8 +16,8 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         user = get_current_user()
         if not user:
-            # Store the original URL to redirect back after login
-            next_url = request.url
+            # Use relative path so _login_template can detect /film or /admin prefix
+            next_url = request.path
             flash('Please log in to access this page.', 'info')
             return redirect(url_for('login', next=next_url))
         return f(*args, **kwargs)
@@ -30,7 +30,7 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         user = get_current_user()
         if not user:
-            next_url = request.url
+            next_url = request.path
             flash('Please log in to access this page.', 'info')
             return redirect(url_for('login', next=next_url))
         if not user.is_admin:
@@ -46,7 +46,7 @@ def leadership_required(f):
     def decorated_function(*args, **kwargs):
         user = get_current_user()
         if not user:
-            next_url = request.url
+            next_url = request.path
             flash('Please log in to access this page.', 'info')
             return redirect(url_for('login', next=next_url))
         if not (user.is_admin or user.is_leadership):
