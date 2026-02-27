@@ -244,7 +244,67 @@ def create_users_for_all_players():
 @login_required
 def my_games():
     current_user = get_current_user()
-    return render_template('my_games.html', current_user=current_user)
+    
+    # Get games where the user's linked player participated
+    my_games_list = []
+    games_with_stats = []
+    total_o_points = 0
+    total_o_scored = 0
+    total_d_points = 0
+    total_d_scored = 0
+    
+    if current_user.player:
+        # Get all games this player was in (through game_roster)
+        my_games_list = current_user.player.games
+        # Sort by date descending (game_date is a string in ISO format YYYY-MM-DD, or None)
+        my_games_list = sorted(my_games_list, key=lambda g: (g.game_date or '', g.id), reverse=True)
+        
+        # Calculate stats for each game
+        for game in my_games_list:
+            # Get points where this player participated
+            player_points = [p for p in game.points if current_user.player in p.players]
+            
+            # Calculate O and D stats
+            o_points = [p for p in player_points if p.tron_o]
+            d_points = [p for p in player_points if not p.tron_o]
+            
+            o_count = len(o_points)
+            o_scored = len([p for p in o_points if p.tron_point])
+            hold_pct = (o_scored / o_count * 100) if o_count > 0 else 0
+            
+            d_count = len(d_points)
+            d_scored = len([p for p in d_points if p.tron_point])
+            break_pct = (d_scored / d_count * 100) if d_count > 0 else 0
+            
+            games_with_stats.append({
+                'game': game,
+                'o_count': o_count,
+                'o_scored': o_scored,
+                'hold_pct': hold_pct,
+                'd_count': d_count,
+                'd_scored': d_scored,
+                'break_pct': break_pct
+            })
+            
+            # Add to totals
+            total_o_points += o_count
+            total_o_scored += o_scored
+            total_d_points += d_count
+            total_d_scored += d_scored
+    
+    # Calculate total percentages
+    total_hold_pct = (total_o_scored / total_o_points * 100) if total_o_points > 0 else 0
+    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else 0
+    
+    return render_template('my_games.html', 
+                         current_user=current_user, 
+                         games_with_stats=games_with_stats,
+                         total_o_points=total_o_points,
+                         total_o_scored=total_o_scored,
+                         total_hold_pct=total_hold_pct,
+                         total_d_points=total_d_points,
+                         total_d_scored=total_d_scored,
+                         total_break_pct=total_break_pct)
 
 
 @app.route('/film/games')
