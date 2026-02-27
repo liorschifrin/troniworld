@@ -1129,6 +1129,218 @@
     letter-spacing: 0.5px;
   }
 
+  /* Thread / Reply UI */
+  .comment-thread-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comment-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    min-height: 20px;
+  }
+
+  .reply-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: color 0.2s, background 0.2s;
+    opacity: 0;
+    pointer-events: none;
+    letter-spacing: 0.5px;
+  }
+
+  .comment-item:hover .reply-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .reply-btn:hover {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+  }
+
+  .thread-toggle-btn {
+    background: transparent;
+    border: 1px solid rgba(200,241,53,0.25);
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .thread-toggle-btn:hover {
+    background: rgba(200,241,53,0.12);
+    border-color: var(--lime);
+  }
+
+  .thread-replies {
+    margin-top: 4px;
+    padding-left: 12px;
+    border-left: 2px solid rgba(200,241,53,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .thread-reply-item {
+    background: rgba(255,255,255,0.02);
+    border-radius: 4px;
+    padding: 8px 10px;
+    position: relative;
+  }
+
+  .reply-author {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--warm);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .reply-text {
+    color: var(--text);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+  }
+
+  .reply-timestamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .reply-delete-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+    line-height: 1;
+  }
+
+  .thread-reply-item:hover .reply-delete-btn {
+    opacity: 1;
+  }
+
+  .reply-delete-btn:hover {
+    color: var(--warm);
+  }
+
+  .reply-edit-btn {
+    position: absolute;
+    top: 6px;
+    right: 28px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+    line-height: 1;
+  }
+
+  .thread-reply-item:hover .reply-edit-btn {
+    opacity: 1;
+  }
+
+  .reply-edit-btn:hover {
+    color: var(--lime);
+  }
+
+  /* Reply button shown inline below replies — always visible */
+  .reply-btn-inline {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    margin-top: 2px;
+    align-self: flex-start;
+  }
+
+  .reply-input-wrap {
+    margin-top: 4px;
+    padding-left: 12px;
+    border-left: 2px solid rgba(200,241,53,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .reply-input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    outline: none;
+    resize: none;
+    min-height: 50px;
+    transition: border-color 0.2s;
+  }
+
+  .reply-input::placeholder { color: var(--muted); }
+  .reply-input:focus { border-color: var(--lime); }
+
+  .reply-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .reply-submit-btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 4px;
+    padding: 5px 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .reply-submit-btn:hover { opacity: 0.85; }
+  .reply-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .reply-cancel-btn {
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .reply-cancel-btn:hover { opacity: 0.85; }
+
   /* Responsive */
   @media (max-width: 1300px) {
     .layout { 
@@ -1435,6 +1647,9 @@
   let currentActivePointId = null;
   let currentActiveCommentId = null;
   let selectedCommentType = 'Comment';
+  const expandedThreads = new Set();   // comment IDs whose replies are shown
+  let activeReplyInputId = null;        // comment ID currently being replied to
+  let activeEditReplyId  = null;        // reply ID currently being edited
 
   // Build arrays of existing field values from ALL games
   const existingValues = {
@@ -1966,72 +2181,274 @@
   function renderComments() {
     const list = document.getElementById('commentsList');
     const badge = document.getElementById('commentCountBadge');
-    badge.textContent = comments.length;
+
+    // Count top-level + all replies
+    const totalCount = comments.reduce((acc, c) => acc + 1 + (c.replies ? c.replies.length : 0), 0);
+    badge.textContent = totalCount;
 
     if (comments.length === 0) {
       list.innerHTML = '<div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>';
       return;
     }
 
-    list.innerHTML = comments.map((c, i) => {
-      const timestampFormatted = formatTimestamp(c.timestamp);
-      const clickable = c.timestamp !== null && c.timestamp !== undefined;
-      const cursorStyle = clickable ? 'cursor:pointer;' : '';
-      const onclickAttr = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
-      const dataAttrs = clickable ? `data-timestamp="${c.timestamp}" data-comment-id="${c.id}"` : '';
-      
-      // Users can only edit their own comments, admins can delete any comment
-      const isOwnComment = currentUserName && c.author_name === currentUserName;
-      const canEdit = isOwnComment;
-      const canDelete = isAdmin || isOwnComment;
-      const editBtn = canEdit ? 
-        `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit comment">✎</button>` : 
-        '';
-      const deleteBtn = canDelete ? 
-        `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete comment">✕</button>` : 
-        '';
-      
-      const timestampPrefix = timestampFormatted ? 
-        `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : 
-        '';
-      
-      // Type indicator badge
-      const typeIcons = {
-        'Comment': '💬',
-        'Question': '❓',
-        'Highlight': '⭐',
-        'Event': '🎯'
-      };
-      const typeBadgeClasses = {
-        'Comment': 'comment-badge',
-        'Question': 'question-badge',
-        'Highlight': 'highlight-badge',
-        'Event': 'event-badge'
-      };
-      const typeIcon = typeIcons[c.comment_type] || typeIcons['Comment'];
-      const typeBadgeClass = typeBadgeClasses[c.comment_type] || typeBadgeClasses['Comment'];
-      const typeIndicator = `<span class="comment-type-indicator ${typeBadgeClass}">${typeIcon}</span>`;
-      
-      // Events don't show author name or created_at timestamp
-      const isEvent = c.comment_type === 'Event';
-      const authorLine = isEvent ? '' : `<div class="comment-author">${typeIndicator}${escHtml(c.author_name)}</div>`;
-      const timestampLine = isEvent ? '' : `<div class="comment-timestamp">${escHtml(c.created_at)}</div>`;
-      const contentPrefix = isEvent ? typeIndicator : '';
-      
-      return `
-        <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
-          <div class="comment-content-wrapper">
-            ${authorLine}
-            <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
-            ${timestampLine}
-          </div>
-          <div class="comment-actions">
-            ${editBtn}
-            ${deleteBtn}
-          </div>
+    list.innerHTML = comments.map(c => renderCommentThread(c)).join('');
+
+    // Re-focus reply textarea if one is active
+    if (activeReplyInputId) {
+      const ta = document.getElementById(`reply-textarea-${activeReplyInputId}`);
+      if (ta) {
+        ta.focus();
+        ta.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitReply(activeReplyInputId); }
+          else if (e.key === 'Escape') { e.preventDefault(); cancelReply(); }
+        });
+      }
+    }
+
+    // Re-focus edit-reply textarea if one is active
+    if (activeEditReplyId) {
+      const ta = document.getElementById(`edit-reply-textarea-${activeEditReplyId}`);
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+        ta.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditReply(activeEditReplyId); }
+          else if (e.key === 'Escape') { e.preventDefault(); cancelEditReply(); }
+        });
+      }
+    }
+  }
+
+  function renderCommentThread(c) {
+    const hasReplies = c.replies && c.replies.length > 0;
+    const replyCount  = c.replies ? c.replies.length : 0;
+    const isExpanded  = expandedThreads.has(c.id);
+    const isReplying  = activeReplyInputId === c.id;
+
+    const timestampFormatted = formatTimestamp(c.timestamp);
+    const clickable    = c.timestamp !== null && c.timestamp !== undefined;
+    const cursorStyle  = clickable ? 'cursor:pointer;' : '';
+    const onclickAttr  = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
+    const dataAttrs    = clickable ? `data-timestamp="${c.timestamp}" data-comment-id="${c.id}"` : '';
+
+    const isOwnComment = currentUserName && c.author_name === currentUserName;
+    const canEdit      = isOwnComment;
+    const canDelete    = isAdmin || isOwnComment;
+    const editBtn   = canEdit   ? `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit">✎</button>` : '';
+    const deleteBtn = canDelete ? `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete">✕</button>` : '';
+
+    const timestampPrefix = timestampFormatted ? `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : '';
+
+    const typeIcons       = { 'Comment':'💬','Question':'❓','Highlight':'⭐','Event':'🎯' };
+    const typeBadgeClasses= { 'Comment':'comment-badge','Question':'question-badge','Highlight':'highlight-badge','Event':'event-badge' };
+    const typeIcon       = typeIcons[c.comment_type]       || typeIcons['Comment'];
+    const typeBadgeClass = typeBadgeClasses[c.comment_type] || typeBadgeClasses['Comment'];
+    const typeIndicator  = `<span class="comment-type-indicator ${typeBadgeClass}">${typeIcon}</span>`;
+
+    const isEvent      = c.comment_type === 'Event';
+    const authorLine   = isEvent ? '' : `<div class="comment-author">${typeIndicator}${escHtml(c.author_name)}</div>`;
+    const timestampLine= isEvent ? '' : `<div class="comment-timestamp">${escHtml(c.created_at)}</div>`;
+    const contentPrefix= isEvent ? typeIndicator : '';
+
+    // Footer: Reply button (only when no replies yet) + thread toggle
+    const threadToggle = replyCount > 0 ? `
+        <button class="thread-toggle-btn" onclick="event.stopPropagation(); toggleReplies(${c.id})">
+          ${isExpanded ? '▲ Hide' : '↩'} ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}
+        </button>` : '';
+
+    // When there are replies, the Reply button moves below the last reply
+    const footerReplyBtn = replyCount === 0
+      ? `<button class="reply-btn" onclick="event.stopPropagation(); showReplyInput(${c.id})">↩ Reply</button>`
+      : '';
+
+    const commentFooter = `
+        <div class="comment-footer">
+          ${footerReplyBtn}
+          ${threadToggle}
+        </div>`;
+
+    const commentItemHtml = `
+      <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
+        <div class="comment-content-wrapper">
+          ${authorLine}
+          <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
+          ${timestampLine}
+          ${commentFooter}
         </div>
-      `;
-    }).join('');
+        <div class="comment-actions">
+          ${editBtn}
+          ${deleteBtn}
+        </div>
+      </div>`;
+
+    // Replies section — inline Reply button appears after last reply
+    let repliesHtml = '';
+    if ((isExpanded || isReplying) && replyCount > 0) {
+      const inlineReplyBtn = (isExpanded && !isReplying)
+        ? `<button class="reply-btn reply-btn-inline" onclick="showReplyInput(${c.id})">↩ Reply</button>`
+        : '';
+      repliesHtml = `
+      <div class="thread-replies" id="replies-${c.id}">
+        ${c.replies.map(reply => renderReplyItem(reply)).join('')}
+        ${inlineReplyBtn}
+      </div>`;
+    }
+
+    // Inline reply input
+    let replyInputHtml = '';
+    if (isReplying) {
+      replyInputHtml = `
+      <div class="reply-input-wrap" id="reply-input-${c.id}">
+        <textarea class="reply-input" id="reply-textarea-${c.id}" placeholder="Reply to ${escHtml(c.author_name)}..." rows="2"></textarea>
+        <div class="reply-actions">
+          <button class="reply-cancel-btn" onclick="cancelReply()">Cancel</button>
+          <button class="reply-submit-btn" id="reply-submit-${c.id}" onclick="submitReply(${c.id})">Reply</button>
+        </div>
+      </div>`;
+    }
+
+    return `
+    <div class="comment-thread-wrapper" id="thread-${c.id}">
+      ${commentItemHtml}
+      ${repliesHtml}
+      ${replyInputHtml}
+    </div>`;
+  }
+
+  function renderReplyItem(reply) {
+    const isOwnReply = currentUserName && reply.author_name === currentUserName;
+    const canDelete  = isAdmin || isOwnReply;
+    const isEditing  = activeEditReplyId === reply.id;
+
+    if (isEditing) {
+      return `
+        <div class="thread-reply-item" id="reply-item-${reply.id}">
+          <textarea class="reply-input" id="edit-reply-textarea-${reply.id}" rows="2">${escHtml(reply.content)}</textarea>
+          <div class="reply-actions">
+            <button class="reply-cancel-btn" onclick="cancelEditReply()">Cancel</button>
+            <button class="reply-submit-btn" id="edit-reply-submit-${reply.id}" onclick="saveEditReply(${reply.id})">Save</button>
+          </div>
+        </div>`;
+    }
+
+    const editBtn   = isOwnReply
+      ? `<button class="reply-edit-btn" onclick="editReply(${reply.id})" title="Edit">✎</button>`
+      : '';
+    const deleteBtn = canDelete
+      ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
+      : '';
+    return `
+      <div class="thread-reply-item" id="reply-item-${reply.id}">
+        <div class="reply-author">${escHtml(reply.author_name)}</div>
+        <div class="reply-text">${escHtml(reply.content)}</div>
+        <div class="reply-timestamp">${escHtml(reply.created_at)}</div>
+        ${editBtn}
+        ${deleteBtn}
+      </div>`;
+  }
+
+  function editReply(replyId) {
+    activeEditReplyId = replyId;
+    // Ensure the parent thread is expanded so the edit form is visible
+    comments.forEach(c => {
+      if (c.replies && c.replies.some(r => r.id === replyId)) {
+        expandedThreads.add(c.id);
+      }
+    });
+    renderComments();
+  }
+
+  function cancelEditReply() {
+    activeEditReplyId = null;
+    renderComments();
+  }
+
+  async function saveEditReply(replyId) {
+    const ta = document.getElementById(`edit-reply-textarea-${replyId}`);
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) return;
+
+    const submitBtn = document.getElementById(`edit-reply-submit-${replyId}`);
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments/${replyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, comment_type: 'Comment' })
+      });
+
+      if (response.ok) {
+        activeEditReplyId = null;
+        await loadComments();
+      } else {
+        const error = await response.json();
+        alert('Error updating reply: ' + (error.error || 'Unknown error'));
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
+      }
+    } catch (error) {
+      console.error('Error updating reply:', error);
+      alert('Error updating reply. Please try again.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
+    }
+  }
+
+  function toggleReplies(commentId) {
+    if (expandedThreads.has(commentId)) {
+      expandedThreads.delete(commentId);
+    } else {
+      expandedThreads.add(commentId);
+    }
+    renderComments();
+  }
+
+  function showReplyInput(commentId) {
+    expandedThreads.add(commentId);   // expand existing replies too
+    activeReplyInputId = commentId;
+    renderComments();
+  }
+
+  function cancelReply() {
+    activeReplyInputId = null;
+    renderComments();
+  }
+
+  async function submitReply(parentId) {
+    const ta = document.getElementById(`reply-textarea-${parentId}`);
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text) return;
+
+    const submitBtn = document.getElementById(`reply-submit-${parentId}`);
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: text,
+          author_name: currentUserName || 'Anonymous',
+          comment_type: 'Comment',
+          parent_id: parentId
+        })
+      });
+
+      if (response.ok) {
+        activeReplyInputId = null;
+        expandedThreads.add(parentId);  // keep replies visible after posting
+        await loadComments();
+      } else {
+        const error = await response.json();
+        alert('Error posting reply: ' + (error.error || 'Unknown error'));
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Reply'; }
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      alert('Error posting reply. Please try again.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Reply'; }
+    }
   }
 
   async function deleteComment(commentId) {
