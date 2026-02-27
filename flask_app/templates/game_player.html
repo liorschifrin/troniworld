@@ -213,6 +213,17 @@
     background: rgba(255,107,43,0.2) !important;
   }
 
+  .player-sheet-table td.column-active,
+  .player-sheet-table th.column-active {
+    background: rgba(200,241,53,0.1) !important;
+    box-shadow: inset 0 0 0 1px rgba(200,241,53,0.25);
+  }
+
+  .player-sheet-table th.column-active {
+    background: rgba(200,241,53,0.18) !important;
+    color: var(--lime);
+  }
+
   .layout {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -309,6 +320,13 @@
     padding: 3px 8px;
     border-radius: 3px;
     border: 1px solid rgba(200,241,53,0.15);
+  }
+
+  .player-badge-self {
+    background: rgba(200,241,53,0.85);
+    color: #0a0a0a;
+    border-color: rgba(200,241,53,0.9);
+    font-weight: 600;
   }
 
   .current-players.empty .player-badge {
@@ -1557,6 +1575,7 @@
             <th>O/D</th>
             {% for point in player_sheet_data['points'] %}
             <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+                data-point-index="{{ point.point_index }}"
                 {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {{ point.point_index }}
             </th>
@@ -2364,6 +2383,7 @@
         // Update current players display
         const pointIndex = parseInt(activePoint.getAttribute('data-point-index'));
         updateCurrentPlayers(pointIndex);
+        updatePlayerSheetActiveColumn(pointIndex);
         
         // Scroll to show the active point on the left
         const scrollContainer = document.querySelector('.point-info-scroll');
@@ -2385,7 +2405,22 @@
       // No active point, remove all highlights
       pointItems.forEach(item => item.classList.remove('active'));
       currentActivePointId = null;
+      updatePlayerSheetActiveColumn(null);
     }
+  }
+
+  function updatePlayerSheetActiveColumn(pointIndex) {
+    const table = document.querySelector('.player-sheet-table');
+    if (!table) return;
+    table.querySelectorAll('.column-active').forEach(el => el.classList.remove('column-active'));
+    if (pointIndex == null) return;
+    const th = table.querySelector(`th[data-point-index="${pointIndex}"]`);
+    if (!th) return;
+    const colIdx = th.cellIndex;
+    table.querySelectorAll('tr').forEach(row => {
+      const cell = row.cells[colIdx];
+      if (cell) cell.classList.add('column-active');
+    });
   }
 
   function updateCurrentPlayers(pointIndex) {
@@ -2398,9 +2433,10 @@
     
     if (players && players.length > 0) {
       playersContainer.classList.remove('empty');
-      playersList.innerHTML = players.map(name => 
-        `<span class="player-badge">${escHtml(name)}</span>`
-      ).join('');
+      playersList.innerHTML = players.map(name => {
+        const isSelf = currentUserName && name === currentUserName;
+        return `<span class="player-badge${isSelf ? ' player-badge-self' : ''}">${escHtml(name)}</span>`;
+      }).join('');
     } else {
       playersContainer.classList.add('empty');
       playersList.innerHTML = '<span class="player-badge">No players listed</span>';
