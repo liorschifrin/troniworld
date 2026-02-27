@@ -523,7 +523,10 @@ def view_game(game_id):
         }
         
         for point in points:
-            player_sheet_data['point_players'][point.point_index] = [p.name for p in point.players]
+            player_sheet_data['point_players'][point.point_index] = sorted(
+                [p.name for p in point.players],
+                key=lambda n: all_players.index(n) if n in all_players else len(all_players)
+            )
     
     users = [u.username for u in User.query.order_by(User.username).all()]
     return render_template('game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
