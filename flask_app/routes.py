@@ -35,16 +35,25 @@ def register():
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
         is_admin = request.form.get('is_admin', '0') == '1'
 
-        if not username or not password:
-            flash('Username and password are required.')
+        if not username:
+            flash('Username is required.')
             return redirect(url_for('register'))
 
         existing = User.query.filter_by(username=username).first()
         if existing:
             flash('Username already exists.')
+            return redirect(url_for('register'))
+
+        # Get the appropriate shared password based on role
+        if is_admin:
+            password = os.getenv('FILM_ADMIN_PASSWORD')
+        else:
+            password = os.getenv('FILM_USER_PASSWORD')
+        
+        if not password:
+            flash('Shared passwords not configured in .env file.')
             return redirect(url_for('register'))
 
         user = User(
@@ -68,13 +77,31 @@ def login():
         password = request.form.get('password', '').strip()
 
         user = User.query.filter_by(username=username).first()
-        if not user or not check_password_hash(user.hashed_password, password):
+        if not user:
+            flash('Invalid username or password.')
+            return redirect(url_for('login'))
+        
+        # Check password against shared passwords based on role
+        if user.is_admin:
+            expected_password = os.getenv('FILM_ADMIN_PASSWORD')
+        else:
+            expected_password = os.getenv('FILM_USER_PASSWORD')
+        
+        if not expected_password:
+            flash('Authentication system not configured properly.')
+            return redirect(url_for('login'))
+        
+        # Verify against hashed password (which was created from shared password)
+        if not check_password_hash(user.hashed_password, password):
             flash('Invalid username or password.')
             return redirect(url_for('login'))
 
         session['user_id'] = user.id
         flash('Logged in.')
-        return redirect(url_for('index'))
+        
+        # Redirect to original page or default to index
+        next_url = request.args.get('next') or url_for('index')
+        return redirect(next_url)
 
     return render_template('login.html')
 
