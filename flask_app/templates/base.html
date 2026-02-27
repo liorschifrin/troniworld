@@ -11,50 +11,58 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
     {% block extra_head %}{% endblock %}
-</head>
+    <style>
+        .main-menu__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .action-menu.js-action-menu {
+            display: flex !important;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+        }
+        .action-menu.js-action-menu .inline-list__item {
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        .action-menu.js-action-menu .inline-list__item + .inline-list__item {
+            border-left: 1px solid rgba(255,255,255,0.2);
+            margin-left: 8px;
+            padding-left: 10px;
+        }
+        .promo-menu a, .promo-menu {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+    </style>
 <body>
     <header class="header">
         <nav class="main-menu">
             <div class="main-menu__top">
                 <div class="main-menu__left">
                     <span class="promo-menu">
-                        <a href="mailto:trek@brandeis.edu">News, tips, & rumors: trek@brandeis.edu</a>
+                        <i class="fa fa-bullhorn" style="margin-right:5px;opacity:0.7;"></i>
+                        <a href="mailto:brandeistronultimate@gmail.com">News, tips, &amp; rumors: brandeistronultimate@gmail.com</a>
                     </span>
-                    <ul class="inline-list social-menu">
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#" target="_blank"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="#"></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="social-menu__link iconify iconify--before" href="{{ url_for('index') }}#contact"></a>
-                        </li>
-                    </ul>
                 </div>
 
                 <div class="main-menu__right">
                     <ul class="inline-list action-menu js-action-menu">
                         <li class="inline-list__item">
-                            <a class="action-menu__link" href="#">About</a>
+                            <a class="action-menu__link" href="mailto:brandeistronultimate@gmail.com"><i class="fa fa-fw fa-envelope"></i> Email Tron</a>
                         </li>
                         <li class="inline-list__item">
-                            <a class="action-menu__link" href="#">Discord</a>
+                            <a class="action-menu__link" href="https://tron2025-2026.slack.com" target="_blank"><i class="fa fa-fw fa-slack"></i> Slack</a>
                         </li>
                         <li class="inline-list__item">
-                            <a class="action-menu__link" href="#">Disc Golf</a>
+                            <a class="action-menu__link" href="https://docs.google.com/forms/d/e/1FAIpQLScyI90G6MT2JOh4771IHaJI9Nx8keZOPcv4NbZGKkdi2nzMvg/viewform?pli=1" target="_blank"><i class="fa fa-fw fa-comment-o"></i> Feedback</a>
                         </li>
                         <li class="inline-list__item js-user-menu">
                             <!-- User menu will be dynamically loaded by JavaScript -->
@@ -96,28 +104,8 @@
                         <li class="column-list__item">
                             <a href="{{ url_for('my_games') }}">My Games</a>
                         </li>
-                        {# <li class="column-list__item">
-                            <a href="#">News</a>
-                        </li>
                         <li class="column-list__item">
-                            <a href="#">Rankings</a>
-                        </li>
-                        <li class="column-list__item">
-                            <a href="#">Podcasts</a>
-                        </li>
-                        <li class="column-list__item">
-                            <a href="#">Videos</a>
-                        </li>
-                        <li class="column-list__item">
-                            <a href="#">Subs Only</a>
-                        </li> #}
-                        <li class="column-list__item">
-                            <div id="search-container" class="">
-                                <a id="search-button" class="button button--no-background cursor-pointer" title="Search">
-                                    <span class="hidden--apartment hidden--house hidden--mansion">Search</span>
-                                    <i class="fa fa-search"></i>
-                                </a>
-                            </div>
+                            <a href="{{ url_for('tron_data') }}">Tron Data</a>
                         </li>
                     </ul>
                 </div>
@@ -137,13 +125,10 @@
                 <div class="alt-menu__left">
                     <ul class="inline-list">
                         <li class="inline-list__item">
-                            <a href="#"><i class="fa fa-fw fa-calendar"></i> Schedule</a>
+                            <a href="mailto:brandeistronultimate@gmail.com"><i class="fa fa-fw fa-envelope"></i> Email Tron</a>
                         </li>
                         <li class="inline-list__item">
-                            <a href="#"><i class="fa fa-fw fa-comments"></i> Discord</a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a href="#"><i class="fa fa-fw fa-globe"></i> Disc Golf</a>
+                            <a href="slack://open?team=T090FKX89E1" onclick="var t=setTimeout(function(){window.location='https://tron2025-2026.slack.com';},600);window.addEventListener('blur',function(){clearTimeout(t);},{once:true});"><i class="fa fa-fw fa-slack"></i> Slack</a>
                         </li>
                     </ul>
                 </div>
@@ -151,13 +136,10 @@
                 <div class="alt-menu__right">
                     <ul class="inline-list inline-list--rtl">
                         <li class="inline-list__item js-alt-sign-in">
-                            <a href="{{ url_for('login') }}">Sign In <i class="fa fa-fw fa-user-circle"></i></a>
+                            <a href="{{ url_for('login') }}"><i class="fa fa-fw fa-user-circle"></i> Sign In</a>
                         </li>
                         <li class="inline-list__item">
-                            <a href="#">Subscribe <i class="fa fa-fw fa-ticket"></i></a>
-                        </li>
-                        <li class="inline-list__item">
-                            <a class="cursor-pointer" onclick="document.getElementById('search-button').click()">Search <i class="fa fa-fw fa-search"></i></a>
+                            <a href="https://docs.google.com/forms/d/e/1FAIpQLScyI90G6MT2JOh4771IHaJI9Nx8keZOPcv4NbZGKkdi2nzMvg/viewform?pli=1" target="_blank"><i class="fa fa-fw fa-comment-o"></i> Feedback</a>
                         </li>
                     </ul>
                 </div>
@@ -166,21 +148,9 @@
             </div>
 
             <div class="alt-menu__middle">
-                <ul class="column-list column-list--justify">
+                <ul class="column-list column-list--justify" style="justify-content:center;text-align:center;">
                     <li class="column-list__item">
-                        <a href="#">Semi-Pro</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">Club</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">College</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">Youth</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">Europe</a>
+                        <a href="{{ url_for('index') }}">Read the Articles</a>
                     </li>
                 </ul>
 
@@ -190,19 +160,13 @@
             <div class="alt-menu__bottom">
                 <ul class="column-list column-list--justify">
                     <li class="column-list__item">
-                        <a href="#">News</a>
+                        <a href="{{ url_for('games_list') }}">Film Room</a>
                     </li>
                     <li class="column-list__item">
-                        <a href="#">Rankings</a>
+                        <a href="{{ url_for('my_games') }}">My Games</a>
                     </li>
                     <li class="column-list__item">
-                        <a href="#">Podcasts</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">Videos</a>
-                    </li>
-                    <li class="column-list__item">
-                        <a href="#">Subs Only</a>
+                        <a href="{{ url_for('tron_data') }}">Tron Data</a>
                     </li>
                 </ul>
 
@@ -244,7 +208,6 @@
         
         var menuLoggedOut = '\
             <li class="inline-list__item" style="color:#008392;font-weight:600;">\
-                <a class="action-menu__link" href="#" style="margin-right:0.5em;">Support our coverage</a>|\
                 <a class="action-menu__link" href="{{ url_for('login') }}" style="margin-left:0.5em;">Log in</a>\
             </li>';
         
@@ -252,7 +215,7 @@
         if (isAuthenticated) {
             jQuery('.js-user-menu').append(menuLoggedIn);
             /* Update mobile menu sign in link */
-            jQuery('.js-alt-sign-in a').attr('href', '#').html('My Settings <i class="fa fa-fw fa-user-circle"></i>');
+            jQuery('.js-alt-sign-in a').attr('href', '{{ url_for('logout') }}').html('<i class="fa fa-fw fa-sign-out"></i> Log out');
         } else {
             jQuery('.js-user-menu').append(menuLoggedOut);
         }
