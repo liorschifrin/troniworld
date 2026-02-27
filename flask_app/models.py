@@ -6,6 +6,12 @@ class User(db.Model):
     username = db.Column(db.String(255), unique=True, nullable=False)
     hashed_password = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_leadership = db.Column(db.Boolean, nullable=False, default=False)
+    is_film_user = db.Column(db.Boolean, nullable=False, default=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('players.id', ondelete='SET NULL'), nullable=True)
+    
+    # Relationship
+    player = db.relationship('Player', backref=db.backref('user', uselist=False), foreign_keys=[player_id])
 
     def __repr__(self) -> str:
         return f"<User {self.username}>"
@@ -55,6 +61,7 @@ class Player(db.Model):
     # Relationships
     points = db.relationship('Point', secondary=point_players, backref='players')
     games = db.relationship('Game', secondary='game_roster', backref='roster')
+    # user relationship defined in User model via backref
 
     def __repr__(self) -> str:
         return f"<Player {self.name}>"

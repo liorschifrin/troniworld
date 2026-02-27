@@ -1,19 +1,253 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 import csv
 import io
+import os
 
 from . import app, db
-from .models import Player, Game, Point, Event, Comment, point_players
-from .utils import get_current_user
+from .models import Player, Game, Point, Event, Comment, point_players, User
+from .utils import get_current_user, login_required, admin_required
+
+
+# =========================
+# HELPER FUNCTIONS
+# =========================
+
+def link_or_create_user_for_player(player):
+    """
+    When a new player is created, check if a user with the same username exists.
+    If so, link them. If not, auto-create a user for them.
+    
+    Args:
+        player: The Player object that was just created
+    """
+    # Check if a user with this username already exists
+    existing_user = User.query.filter_by(username=player.name).first()
+    
+    if existing_user:
+        # Link the existing user to this player (if not already linked)
+        if not existing_user.player_id:
+            existing_user.player_id = player.id
+            db.session.flush()
+    else:
+        # Auto-create a new user for this player
+        password = os.getenv('FILM_USER_PASSWORD')
+        if password:
+            new_user = User(
+                username=player.name,
+                hashed_password=generate_password_hash(password),
+                is_admin=False,
+                is_leadership=False,
+                player_id=player.id
+            )
+            db.session.add(new_user)
+            db.session.flush()
+
+
+# =========================
+# USER MANAGEMENT (Admin Only)
+# =========================
+
+@app.route('/admin/users', methods=['GET', 'POST'])
+@admin_required
+def manage_users():
+    """Admin page to manage users"""
+    current_user = get_current_user()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'create':
+            username = request.form.get('username', '').strip()
+            is_admin = request.form.get('is_admin') == 'on'
+            is_leadership = request.form.get('is_leadership') == 'on'
+            player_name = request.form.get('player_name', '').strip()
+            
+            if not username:
+                flash('Username is required.', 'error')
+                return redirect(url_for('manage_users'))
+            
+            # Check if username already exists
+            existing = User.query.filter_by(username=username).first()
+            if existing:
+                flash('Username already exists.', 'error')
+                return redirect(url_for('manage_users'))
+            
+            # Get the appropriate shared password based on role
+            if is_admin:
+                password = os.getenv('FILM_ADMIN_PASSWORD')
+            else:
+                password = os.getenv('FILM_USER_PASSWORD')
+            
+            if not password:
+                flash('Shared passwords not configured in .env file.', 'error')
+                return redirect(url_for('manage_users'))
+            
+            # Get player if specified
+            player = None
+            if player_name:
+                player = Player.query.filter_by(name=player_name).first()
+                if not player:
+                    flash(f'Player "{player_name}" not found.', 'error')
+                    return redirect(url_for('manage_users'))
+            
+            # Create new user with shared password
+            new_user = User(
+                username=username,
+                hashed_password=generate_password_hash(password),
+                is_admin=is_admin,
+                is_leadership=is_leadership,
+                player_id=player.id if player else None
+            )
+            
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                flash(f'User "{username}" created successfully!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error creating user: {str(e)}', 'error')
+            
+            return redirect(url_for('manage_users'))
+        
+        elif action == 'delete':
+            user_id = request.form.get('user_id')
+            if user_id:
+                user_to_delete = User.query.get(user_id)
+                if user_to_delete:
+                    if user_to_delete.id == current_user.id:
+                        flash('You cannot delete your own account.', 'error')
+                    else:
+                        try:
+                            db.session.delete(user_to_delete)
+                            db.session.commit()
+                            flash(f'User "{user_to_delete.username}" deleted.', 'success')
+                        except Exception as e:
+                            db.session.rollback()
+                            flash(f'Error deleting user: {str(e)}', 'error')
+            return redirect(url_for('manage_users'))
+        
+        elif action == 'toggle_role':
+            user_id = request.form.get('user_id')
+            role_type = request.form.get('role_type')  # 'admin' or 'leadership'
+            
+            if user_id and role_type:
+                user_to_update = User.query.get(user_id)
+                if user_to_update:
+                    try:
+                        if role_type == 'admin':
+                            # Toggle admin status
+                            user_to_update.is_admin = not user_to_update.is_admin
+                            
+                            # Update password based on new role
+                            if user_to_update.is_admin:
+                                password = os.getenv('FILM_ADMIN_PASSWORD')
+                            else:
+                                password = os.getenv('FILM_USER_PASSWORD')
+                            
+                            if password:
+                                user_to_update.hashed_password = generate_password_hash(password)
+                            
+                            status = "enabled" if user_to_update.is_admin else "disabled"
+                            message = f'Admin status {status} for "{user_to_update.username}". Password updated to {"admin" if user_to_update.is_admin else "user"} password.'
+                        
+                        elif role_type == 'leadership':
+                            # Toggle leadership status
+                            user_to_update.is_leadership = not user_to_update.is_leadership
+                            status = "enabled" if user_to_update.is_leadership else "disabled"
+                            message = f'Leadership status {status} for "{user_to_update.username}".'
+                        
+                        db.session.commit()
+                        
+                        # Return JSON for AJAX requests
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return jsonify({
+                                'success': True,
+                                'message': message,
+                                'user_id': user_id,
+                                'role_type': role_type,
+                                'new_value': user_to_update.is_admin if role_type == 'admin' else user_to_update.is_leadership
+                            })
+                        else:
+                            flash(message, 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        error_msg = f'Error updating user: {str(e)}'
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return jsonify({'success': False, 'message': error_msg}), 500
+                        else:
+                            flash(error_msg, 'error')
+            return redirect(url_for('manage_users'))
+    
+    # GET request - show user management page
+    all_users = User.query.order_by(User.username).all()
+    all_players = Player.query.order_by(Player.name).all()
+    
+    return render_template('manage_users.html', 
+                         current_user=current_user, 
+                         all_users=all_users,
+                         all_players=all_players)
+
+
+@app.route('/admin/users/create_all_players', methods=['POST'])
+@admin_required
+def create_users_for_all_players():
+    """Bulk create users for all players that don't have users yet"""
+    current_user = get_current_user()
+    
+    # Use shared user password from environment
+    password = os.getenv('FILM_USER_PASSWORD')
+    if not password:
+        flash('FILM_USER_PASSWORD not configured in .env file.', 'error')
+        return redirect(url_for('manage_users'))
+    
+    players_without_users = Player.query.filter(~Player.id.in_(
+        db.session.query(User.player_id).filter(User.player_id.isnot(None))
+    )).all()
+    
+    created_count = 0
+    skipped_count = 0
+    
+    for player in players_without_users:
+        # Check if username already exists
+        if User.query.filter_by(username=player.name).first():
+            skipped_count += 1
+            continue
+        
+        new_user = User(
+            username=player.name,
+            hashed_password=generate_password_hash(password),
+            is_admin=False,
+            is_leadership=False,
+            player_id=player.id
+        )
+        db.session.add(new_user)
+        created_count += 1
+    
+    try:
+        db.session.commit()
+        flash(f'Created {created_count} users for players with shared password. ({skipped_count} skipped due to existing usernames)', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error creating users: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_users'))
+
+
+# =========================
+# FILM ROUTES
+# =========================
 
 @app.route('/player')
+@login_required
 def player():
     current_user = get_current_user()
     return render_template('player.html', current_user=current_user)
 
 
 @app.route('/games')
+@login_required
 def games_list():
     current_user = get_current_user()
     games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
@@ -21,6 +255,7 @@ def games_list():
 
 
 @app.route('/games/<int:game_id>')
+@login_required
 def view_game(game_id):
     current_user = get_current_user()
     game = Game.query.get_or_404(game_id)
@@ -85,13 +320,9 @@ def view_game(game_id):
 
 
 @app.route('/film/games/new_game', methods=['GET', 'POST'])
+@admin_required
 def new_game():
     current_user = get_current_user()
-    
-    # Check if user is admin
-    if not current_user or not current_user.is_admin:
-        flash('You must be an admin to create games.', 'error')
-        return redirect(url_for('index'))
     
     if request.method == 'POST':
         # Get form data
@@ -136,13 +367,9 @@ def new_game():
 
 
 @app.route('/games/<int:game_id>/edit', methods=['GET', 'POST'])
+@admin_required
 def edit_game(game_id):
     current_user = get_current_user()
-    
-    # Check if user is admin
-    if not current_user or not current_user.is_admin:
-        flash('You must be an admin to edit games.', 'error')
-        return redirect(url_for('index'))
     
     game = Game.query.get_or_404(game_id)
     
@@ -190,6 +417,7 @@ def edit_game(game_id):
 # =========================
 
 @app.route('/api/games/<int:game_id>/comments', methods=['GET'])
+@login_required
 def get_comments(game_id):
     """Get all comments for a game"""
     game = Game.query.get_or_404(game_id)
@@ -227,6 +455,7 @@ def get_comments(game_id):
 
 
 @app.route('/api/games/<int:game_id>/comments', methods=['POST'])
+@login_required
 def create_comment(game_id):
     """Create a new comment for a game"""
     game = Game.query.get_or_404(game_id)
@@ -280,26 +509,20 @@ def create_comment(game_id):
 
 
 @app.route('/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'])
+@admin_required
 def delete_comment(game_id, comment_id):
     """Delete a comment"""
     current_user = get_current_user()
     
-    # Must be logged in to delete comments
-    if not current_user:
-        return jsonify({'error': 'Must be logged in to delete comments'}), 401
-    
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
-    
-    # Only admins or comment author can delete (for now, all users post as "Tron User")
-    # In a real app, you'd track user_id on comments
-    if not current_user.is_admin:
-        # For now, only admins can delete since we don't track comment ownership
-        return jsonify({'error': 'Only admins can delete comments'}), 403
     
     try:
         db.session.delete(comment)
         db.session.commit()
         return jsonify({'success': True}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
@@ -310,14 +533,10 @@ def delete_comment(game_id, comment_id):
 # =========================
 
 @app.route('/games/<int:game_id>/upload_csv', methods=['GET', 'POST'])
+@admin_required
 def upload_game_csv(game_id):
     """Upload CSV to populate game points and player data"""
     current_user = get_current_user()
-    
-    # Check if user is admin
-    if not current_user or not current_user.is_admin:
-        flash('You must be an admin to upload game data.', 'error')
-        return redirect(url_for('index'))
     
     game = Game.query.get_or_404(game_id)
     
@@ -455,6 +674,8 @@ def upload_game_csv(game_id):
                             player = Player(name=player_name, active=True)
                             db.session.add(player)
                             db.session.flush()
+                            # Auto-create or link user for new player
+                            link_or_create_user_for_player(player)
                         
                         # Add player to point
                         point.players.append(player)
@@ -485,14 +706,10 @@ def upload_game_csv(game_id):
 
 
 @app.route('/games/<int:game_id>/delete_player_sheet', methods=['POST'])
+@admin_required
 def delete_player_sheet(game_id):
     """Delete all points and player associations for a game"""
     current_user = get_current_user()
-    
-    # Check if user is admin
-    if not current_user or not current_user.is_admin:
-        flash('You must be an admin to delete game data.', 'error')
-        return redirect(url_for('index'))
     
     game = Game.query.get_or_404(game_id)
     
@@ -513,13 +730,10 @@ def delete_player_sheet(game_id):
 
 
 @app.route('/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
+@admin_required
 def update_point(game_id, point_id):
     """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""
     current_user = get_current_user()
-    
-    # Check if user is admin
-    if not current_user or not current_user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
     
     point = Point.query.filter_by(id=point_id, game_id=game_id).first_or_404()
     
