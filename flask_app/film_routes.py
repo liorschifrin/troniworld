@@ -1,10 +1,20 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from sqlalchemy import func
 import csv
 import io
 import os
+
+_EST = ZoneInfo('America/New_York')
+
+def fmt_dt_est(dt):
+    """Format a naive-UTC datetime as a human-readable EST/EDT string."""
+    if dt is None:
+        return ''
+    aware = dt.replace(tzinfo=timezone.utc).astimezone(_EST)
+    return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
 from .models import Player, Game, Point, Event, Comment, point_players, User, VideoWatchSession, LoginEvent
@@ -634,7 +644,7 @@ def get_comments(game_id):
             'content': comment.content,
             'comment_type': comment.comment_type,
             'timestamp': comment.timestamp,
-            'created_at': comment.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'created_at': fmt_dt_est(comment.created_at),
             'replies': []
         }
         
@@ -645,7 +655,7 @@ def get_comments(game_id):
                 'id': reply.id,
                 'author_name': reply.author_name,
                 'content': reply.content,
-                'created_at': reply.created_at.strftime('%b %d, %Y %I:%M %p')
+                'created_at': fmt_dt_est(reply.created_at)
             })
         
         comments_list.append(comment_data)
@@ -702,7 +712,7 @@ def create_comment(game_id):
                 'content': new_comment.content,
                 'comment_type': new_comment.comment_type,
                 'timestamp': new_comment.timestamp,
-                'created_at': new_comment.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'created_at': fmt_dt_est(new_comment.created_at),
                 'parent_id': new_comment.parent_id
             }
         }), 201
@@ -770,7 +780,7 @@ def update_comment(game_id, comment_id):
                 'author_name': comment.author_name,
                 'comment_type': comment.comment_type,
                 'timestamp': comment.timestamp,
-                'created_at': comment.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'created_at': fmt_dt_est(comment.created_at),
                 'parent_id': comment.parent_id
             }
         }), 200
