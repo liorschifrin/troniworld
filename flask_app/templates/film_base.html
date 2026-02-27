@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Troniworld Film Room{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --grass: #1a3a1a;
+    --field: #0f2410;
+    --lime: #c8f135;
+    --disc: #ffffff;
+    --sky: #7ecfff;
+    --warm: #ff6b2b;
+    --text: #e8f5d0;
+    --muted: #6a8a5a;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(200,241,53,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--field);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
+  }
+
+  /* Film Room Navigation Bar */
+  .film-nav {
+    background: rgba(26, 58, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid var(--lime);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+
+  .film-nav__wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  .film-nav__user {
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .film-nav__user-greeting {
+    font-size: 12px;
+    letter-spacing: 0.3px;
+  }
+
+  .film-nav__user-name {
+    color: var(--lime);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  .film-nav__container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+  }
+
+  .film-nav__logout {
+    text-align: right;
+  }
+
+  .film-nav__link {
+    color: var(--text);
+    text-decoration: none;
+    padding: 12px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    border-right: 1px solid var(--border);
+    display: inline-block;
+  }
+
+  .film-nav__link:first-child {
+    border-left: 1px solid var(--border);
+  }
+
+  .film-nav__link:hover {
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-nav__link.active {
+    background: rgba(200, 241, 53, 0.15);
+    color: var(--lime);
+    font-weight: 500;
+  }
+
+  .film-nav__logout-link {
+    color: var(--warm);
+    text-decoration: none;
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    border: 1px solid var(--warm);
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .film-nav__logout-link:hover {
+    background: rgba(255, 107, 43, 0.1);
+  }
+
+  /* Hamburger Menu */
+  .film-nav__hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--lime);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: auto;
+  }
+
+  .film-nav__menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9998;
+  }
+
+  .film-nav__menu-overlay.active {
+    display: block;
+  }
+
+  .film-nav__mobile-menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: -280px;
+    width: 280px;
+    height: 100vh;
+    background: var(--grass);
+    border-left: 2px solid var(--lime);
+    padding: 20px;
+    z-index: 9999;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .film-nav__mobile-menu.active {
+    right: 0;
+  }
+
+  .film-nav__menu-close {
+    background: none;
+    border: none;
+    color: var(--lime);
+    font-size: 32px;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 20px;
+    float: right;
+  }
+
+  .film-nav__mobile-content {
+    clear: both;
+    padding-top: 20px;
+  }
+
+  .film-nav__mobile-user {
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .film-nav__mobile-user .film-nav__user-greeting {
+    font-size: 14px;
+  }
+
+  .film-nav__mobile-user .film-nav__user-name {
+    font-size: 16px;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .film-nav__mobile-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .film-nav__mobile-link {
+    color: var(--text);
+    text-decoration: none;
+    padding: 16px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    display: block;
+    transition: background 0.2s ease;
+  }
+
+  .film-nav__mobile-link:hover {
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-nav__mobile-logout {
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .film-nav__mobile-logout-link {
+    color: var(--warm);
+    text-decoration: none;
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--warm);
+    border-radius: 4px;
+    display: block;
+    text-align: center;
+    transition: background 0.2s ease;
+  }
+
+  .film-nav__mobile-logout-link:hover {
+    background: rgba(255, 107, 43, 0.1);
+  }
+
+  @media (max-width: 900px) {
+    .film-nav__wrapper {
+      grid-template-columns: 1fr auto;
+      padding: 0 12px;
+    }
+
+    .film-nav__user {
+      font-size: 12px;
+      gap: 4px;
+    }
+
+    .film-nav__user-greeting {
+      font-size: 11px;
+    }
+
+    .film-nav__user-name {
+      font-size: 13px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .film-nav__container {
+      display: none;
+    }
+
+    .film-nav__logout {
+      display: none;
+    }
+
+    .film-nav__hamburger {
+      display: block;
+    }
+
+    .film-nav__mobile-menu {
+      display: block;
+    }
+  }
+
+  {% block extra_style %}{% endblock %}
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Film Room Navigation -->
+<nav class="film-nav">
+  <div class="film-nav__wrapper">
+    <div class="film-nav__user">
+      {% if current_user %}
+        <span class="film-nav__user-greeting">Hello,</span>
+        <span class="film-nav__user-name">{{ current_user.username }}</span>
+      {% endif %}
+    </div>
+    <div class="film-nav__container">
+      <a href="{{ url_for('index') }}" class="film-nav__link">Read the Articles</a>
+      <a href="{{ url_for('games_list') }}" class="film-nav__link">Tron Film Room</a>
+      <a href="{{ url_for('my_games') }}" class="film-nav__link">My Games</a>
+      <a href="{{ url_for('tron_data') }}" class="film-nav__link">Tron Data</a>
+      {% if current_user and current_user.is_admin %}
+        <a href="{{ url_for('analytics_dashboard') }}" class="film-nav__link">Analytics</a>
+      {% endif %}
+    </div>
+    <div class="film-nav__logout">
+      {% if current_user %}
+        <a href="{{ url_for('logout') }}" class="film-nav__logout-link">Logout</a>
+      {% endif %}
+    </div>
+    <button class="film-nav__hamburger" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<!-- Mobile Menu Overlay -->
+<div class="film-nav__menu-overlay" onclick="toggleMobileMenu()"></div>
+
+<!-- Mobile Menu -->
+<div class="film-nav__mobile-menu">
+  <button class="film-nav__menu-close" onclick="toggleMobileMenu()" aria-label="Close">×</button>
+  <div class="film-nav__mobile-content">
+    {% if current_user %}
+      <div class="film-nav__mobile-user">
+        <span class="film-nav__user-greeting">Hello,</span>
+        <span class="film-nav__user-name">{{ current_user.username }}</span>
+      </div>
+    {% endif %}
+    <div class="film-nav__mobile-links">
+      <a href="{{ url_for('index') }}" class="film-nav__mobile-link">Read the Articles</a>
+      <a href="{{ url_for('games_list') }}" class="film-nav__mobile-link">Tron Film Room</a>
+      <a href="{{ url_for('my_games') }}" class="film-nav__mobile-link">My Games</a>
+      <a href="{{ url_for('tron_data') }}" class="film-nav__mobile-link">Tron Data</a>
+      {% if current_user and current_user.is_admin %}
+        <a href="{{ url_for('analytics_dashboard') }}" class="film-nav__mobile-link">Analytics</a>
+      {% endif %}
+    </div>
+    {% if current_user %}
+      <div class="film-nav__mobile-logout">
+        <a href="{{ url_for('logout') }}" class="film-nav__mobile-logout-link">Logout</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Main Content -->
+{% block content %}{% endblock %}
+
+<script>
+  function toggleMobileMenu() {
+    const menu = document.querySelector('.film-nav__mobile-menu');
+    const overlay = document.querySelector('.film-nav__menu-overlay');
+    menu.classList.toggle('active');
+    overlay.classList.toggle('active');
+    
+    // Prevent body scroll when menu is open
+    if (menu.classList.contains('active')) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Close menu when clicking on a link
+  document.querySelectorAll('.film-nav__mobile-link, .film-nav__mobile-logout-link').forEach(link => {
+    link.addEventListener('click', () => {
+      toggleMobileMenu();
+    });
+  });
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

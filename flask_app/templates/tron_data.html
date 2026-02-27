@@ -1,0 +1,605 @@
+{% extends "film_base.html" %}
+
+{% block title %}Tron Game Data - Troniworld{% endblock %}
+
+{% block extra_style %}
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+
+  .container {
+    padding: 20px 32px 48px;
+    max-width: 1400px;
+  }
+
+  /* ── Summary row ───────────────────────────────────────────────── */
+  .summary-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .stat-card {
+    flex: 1;
+    min-width: 130px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .stat-card-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .stat-card-value.good { color: var(--lime); }
+  .stat-card-value.warn { color: var(--warm); }
+
+  .stat-card-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .stat-card-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+
+  .stat-card-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--muted);
+  }
+  .stat-card-bar-fill.good { background: var(--lime); }
+
+  /* ── Section headers ───────────────────────────────────────────── */
+  .section-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section {
+    margin-bottom: 36px;
+  }
+
+  /* ── Generic data table ────────────────────────────────────────── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.88rem;
+  }
+
+  .data-table thead {
+    background: rgba(0,0,0,0.3);
+  }
+
+  .data-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table th.center { text-align: center; }
+
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+
+  .data-table tbody tr:last-child td { border-bottom: none; }
+
+  .data-table tbody tr.clickable {
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .data-table tbody tr.clickable:hover {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .data-table td.center { text-align: center; }
+
+  .cell-mono {
+    font-family: 'DM Mono', monospace;
+  }
+
+  .cell-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.05rem;
+    letter-spacing: 0.5px;
+    color: var(--lime);
+  }
+
+  .cell-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .score-pill {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 3px 9px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .score-pill.win  { background: rgba(200,241,53,0.12); color: var(--lime); }
+  .score-pill.loss { background: rgba(255,107,43,0.10); color: var(--warm); }
+  .score-pill.draw { background: rgba(255,255,255,0.07); color: var(--muted); }
+
+  .pct-value { font-family: 'DM Mono', monospace; }
+  .pct-value.good { color: var(--lime); }
+  .pct-sub { font-size: 0.75rem; color: var(--muted); display: block; margin-top: 1px; }
+
+  .totals-row td {
+    border-top: 2px solid var(--lime);
+    background: rgba(200,241,53,0.04);
+    font-weight: 600;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .totals-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+  }
+
+  /* ── Bottom grid (tendencies) ──────────────────────────────────── */
+  .tendencies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 36px;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .bar-row:last-child { border-bottom: none; }
+
+  .bar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    min-width: 110px;
+    flex-shrink: 0;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--lime);
+    opacity: 0.7;
+  }
+
+  .bar-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  .bar-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    min-width: 42px;
+    text-align: right;
+  }
+  .bar-pct.good { color: var(--lime); }
+
+  /* ── Record badge ──────────────────────────────────────────────── */
+  .record-badge {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .record-w { color: var(--lime); }
+  .record-l { color: var(--warm); }
+  .record-t { color: var(--muted); }
+
+  /* ── Responsive ────────────────────────────────────────────────── */
+  @media (max-width: 968px) {
+    header h1 { font-size: 2rem; }
+    .container { padding: 16px 16px 32px; }
+    .data-table { font-size: 0.82rem; }
+    .data-table th, .data-table td { padding: 9px 10px; }
+  }
+
+  @media (max-width: 640px) {
+    header {
+      padding: 14px 16px 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    header h1 { font-size: 1.8rem; }
+    .container { padding: 12px 12px 28px; }
+
+    .summary-row { gap: 10px; }
+    .stat-card { padding: 12px 14px; min-width: 110px; }
+    .stat-card-value { font-size: 1.8rem; }
+
+    .data-table th.hide-mobile,
+    .data-table td.hide-mobile { display: none; }
+
+    .tendencies-grid { grid-template-columns: 1fr; }
+  }
+{% endblock %}
+
+{% block content %}
+<header>
+  <div class="header-left">
+    <h1>Tron Data</h1>
+    <span>Team Statistics</span>
+  </div>
+  <a href="{{ url_for('games_list') }}" class="btn">Film Room</a>
+</header>
+
+<div class="container">
+
+  {# ── Overall Summary Cards ── #}
+  <div class="summary-row">
+
+    <div class="stat-card">
+      <div class="stat-card-label">Record</div>
+      <div class="stat-card-value record-badge">
+        <span class="record-w">{{ wins }}</span>
+        <span style="color:var(--muted);font-size:1.4rem">–</span>
+        <span class="record-l">{{ losses }}</span>
+        {% if ties > 0 %}
+          <span style="color:var(--muted);font-size:1.4rem">–</span>
+          <span class="record-t">{{ ties }}</span>
+        {% endif %}
+      </div>
+      <div class="stat-card-sub">{{ total_games }} game{{ 's' if total_games != 1 else '' }}</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card-label">O Hold %</div>
+      {% if total_hold_pct is not none %}
+        <div class="stat-card-value{% if total_hold_pct >= 75 %} good{% endif %}">{{ "%.0f"|format(total_hold_pct) }}%</div>
+        <div class="stat-card-sub">{{ total_o_scored }}/{{ total_o_points }} O pts held</div>
+        <div class="stat-card-bar">
+          <div class="stat-card-bar-fill{% if total_hold_pct >= 75 %} good{% endif %}" style="width:{{ total_hold_pct }}%"></div>
+        </div>
+      {% else %}
+        <div class="stat-card-value">—</div>
+        <div class="stat-card-sub">No data yet</div>
+      {% endif %}
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card-label">D Break %</div>
+      {% if total_break_pct is not none %}
+        <div class="stat-card-value{% if total_break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(total_break_pct) }}%</div>
+        <div class="stat-card-sub">{{ total_d_scored }}/{{ total_d_points }} D pts broken</div>
+        <div class="stat-card-bar">
+          <div class="stat-card-bar-fill{% if total_break_pct >= 25 %} good{% endif %}" style="width:{{ total_break_pct }}%"></div>
+        </div>
+      {% else %}
+        <div class="stat-card-value">—</div>
+        <div class="stat-card-sub">No data yet</div>
+      {% endif %}
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card-label">O Points</div>
+      <div class="stat-card-value">{{ total_o_points }}</div>
+      <div class="stat-card-sub">across all games</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-card-label">D Points</div>
+      <div class="stat-card-value">{{ total_d_points }}</div>
+      <div class="stat-card-sub">across all games</div>
+    </div>
+
+  </div>
+
+  {# ── Per-Game Table ── #}
+  {% if games_with_stats %}
+  <div class="section">
+    <div class="section-header">Games</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Game</th>
+          <th class="hide-mobile">Date</th>
+          <th class="center">Result</th>
+          <th class="center">O Pts</th>
+          <th class="center">Hold %</th>
+          <th class="center">D Pts</th>
+          <th class="center">Break %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in games_with_stats %}
+        <tr class="clickable" onclick="window.location.href='{{ url_for('view_game', game_id=item.game.id) }}'">
+          <td>
+            <div class="cell-title">{{ item.game.title }}</div>
+            <div class="cell-sub">vs {{ item.game.opponent }}</div>
+          </td>
+          <td class="cell-mono hide-mobile" style="color:var(--muted);font-size:0.8rem">
+            {{ item.game.game_date or '—' }}
+          </td>
+          <td class="center">
+            {% if item.game.final_score_tron is not none and item.game.final_score_opponent is not none %}
+              {% if item.game.final_score_tron > item.game.final_score_opponent %}
+                <span class="score-pill win">{{ item.game.final_score_tron }}–{{ item.game.final_score_opponent }}</span>
+              {% elif item.game.final_score_tron < item.game.final_score_opponent %}
+                <span class="score-pill loss">{{ item.game.final_score_tron }}–{{ item.game.final_score_opponent }}</span>
+              {% else %}
+                <span class="score-pill draw">{{ item.game.final_score_tron }}–{{ item.game.final_score_opponent }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+          <td class="center cell-mono">{{ item.o_count }}</td>
+          <td class="center">
+            {% if item.hold_pct is not none %}
+              <span class="pct-value{% if item.hold_pct >= 75 %} good{% endif %}">{{ "%.0f"|format(item.hold_pct) }}%</span>
+              <span class="pct-sub">{{ item.o_scored }}/{{ item.o_count }}</span>
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+          <td class="center cell-mono">{{ item.d_count }}</td>
+          <td class="center">
+            {% if item.break_pct is not none %}
+              <span class="pct-value{% if item.break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(item.break_pct) }}%</span>
+              <span class="pct-sub">{{ item.d_scored }}/{{ item.d_count }}</span>
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+
+        {# Totals row #}
+        <tr class="totals-row">
+          <td colspan="2" class="totals-label hide-mobile">TOTALS</td>
+          <td class="totals-label center hide-mobile"></td>
+          <td class="totals-label center" colspan="1">{{ total_o_points }}</td>
+          <td class="center">
+            {% if total_hold_pct is not none %}
+              <span class="pct-value{% if total_hold_pct >= 75 %} good{% endif %}">{{ "%.0f"|format(total_hold_pct) }}%</span>
+              <span class="pct-sub">{{ total_o_scored }}/{{ total_o_points }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="center" style="font-weight:600">{{ total_d_points }}</td>
+          <td class="center">
+            {% if total_break_pct is not none %}
+              <span class="pct-value{% if total_break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(total_break_pct) }}%</span>
+              <span class="pct-sub">{{ total_d_scored }}/{{ total_d_points }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {# ── Player Leaderboard ── #}
+  {% if player_stats %}
+  <div class="section">
+    <div class="section-header">Player Stats</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="center hide-mobile">Games</th>
+          <th class="center">Pts Played</th>
+          <th class="center">O Pts</th>
+          <th class="center">Hold %</th>
+          <th class="center">D Pts</th>
+          <th class="center">Break %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ps in player_stats %}
+        <tr>
+          <td>
+            <div class="cell-title">{{ ps.player.name }}</div>
+            {% if ps.player.jersey_number %}
+              <div class="cell-sub">#{{ ps.player.jersey_number }}</div>
+            {% endif %}
+          </td>
+          <td class="center cell-mono hide-mobile">{{ ps.games_played }}</td>
+          <td class="center cell-mono">{{ ps.total_pts }}</td>
+          <td class="center cell-mono">{{ ps.o_count }}</td>
+          <td class="center">
+            {% if ps.hold_pct is not none %}
+              <span class="pct-value{% if ps.hold_pct >= 75 %} good{% endif %}">{{ "%.0f"|format(ps.hold_pct) }}%</span>
+              <span class="pct-sub">{{ ps.o_scored }}/{{ ps.o_count }}</span>
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+          <td class="center cell-mono">{{ ps.d_count }}</td>
+          <td class="center">
+            {% if ps.break_pct is not none %}
+              <span class="pct-value{% if ps.break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(ps.break_pct) }}%</span>
+              <span class="pct-sub">{{ ps.d_scored }}/{{ ps.d_count }}</span>
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {# ── Tendencies ── #}
+  {% if defense_breakdown or pull_breakdown or offense_faced_breakdown %}
+  <div class="section">
+    <div class="section-header">Tendencies</div>
+    <div class="tendencies-grid">
+
+      {% if defense_breakdown %}
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Defense Played</div>
+        {% set max_def = defense_breakdown[0].count %}
+        {% for row in defense_breakdown %}
+        <div class="bar-row">
+          <div class="bar-label">{{ row.name }}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:{{ (row.count / max_def * 100)|int }}%"></div>
+          </div>
+          <div class="bar-count">{{ row.count }}</div>
+          {% if row.break_pct is not none %}
+            <div class="bar-pct{% if row.break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(row.break_pct) }}%</div>
+          {% else %}
+            <div class="bar-pct">—</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if offense_faced_breakdown %}
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Offense Faced</div>
+        {% set max_off = offense_faced_breakdown[0].count %}
+        {% for row in offense_faced_breakdown %}
+        <div class="bar-row">
+          <div class="bar-label">{{ row.name }}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:{{ (row.count / max_off * 100)|int }}%"></div>
+          </div>
+          <div class="bar-count">{{ row.count }}</div>
+          {% if row.break_pct is not none %}
+            <div class="bar-pct{% if row.break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(row.break_pct) }}%</div>
+          {% else %}
+            <div class="bar-pct">—</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if pull_breakdown %}
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Pull Play</div>
+        {% set max_pull = pull_breakdown[0].count %}
+        {% for row in pull_breakdown %}
+        <div class="bar-row">
+          <div class="bar-label">{{ row.name }}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:{{ (row.count / max_pull * 100)|int }}%"></div>
+          </div>
+          <div class="bar-count">{{ row.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
