@@ -805,6 +805,17 @@
     flex-shrink: 0;
   }
 
+  .comment-edit-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
   .comment-input {
     background: rgba(0,0,0,0.3);
     border: 1px solid var(--border);
@@ -963,6 +974,25 @@
   .comment-btn:hover { opacity: 0.85; }
   .comment-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .comment-btn-cancel {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-end;
+  }
+
+  .comment-btn-cancel:hover { 
+    opacity: 0.85;
+    border-color: var(--muted);
+  }
+
   .comments-list {
     display: flex;
     overflow-y: auto;
@@ -1059,6 +1089,30 @@
 
   .comment-delete-btn:hover {
     opacity: 1;
+  }
+
+  .comment-edit-btn {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 8px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+    z-index: 10;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  .comment-edit-btn:hover {
+    opacity: 1;
+  }
+
+  .comment-actions {
+    display: flex;
+    gap: 0;
+    align-items: center;
   }
 
   .comment-text {
@@ -1271,11 +1325,15 @@
              {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
           {% if point.timestamp_start is not none %}
           <div class="point-timestamp" title="Click to seek to this point">
+            {% if current_user and current_user.is_admin %}
             <span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp({{ point.id }}, this)" title="Delete timestamp">✕</span>
+            {% endif %}
             {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}
           </div>
           {% else %}
+          {% if current_user and current_user.is_admin %}
           <div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp({{ point.id }}, this)" title="Set timestamp to current video time">+ Time</div>
+          {% endif %}
           {% endif %}
           <div class="point-item-header">
             <span class="point-number">P{{ point.point_index }}</span>
@@ -1293,32 +1351,32 @@
               <span class="point-detail-label">Pull Play</span>
               <div class="point-detail-value {% if not point.pull_play %}empty{% endif %}" 
                    onclick="event.stopPropagation(); editPointField({{ point.id }}, 'pull_play', this)">
-                {{ point.pull_play if point.pull_play else 'Add...' }}
+                {{ point.pull_play if point.pull_play else ('Add...' if current_user and current_user.is_admin else '') }}
               </div>
             </div>
-            <div class="point-detail-item">
+            {# <div class="point-detail-item">
               <span class="point-detail-label">Defense Faced</span>
               <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
                    onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
                 {{ point.defense_type if point.defense_type else 'Add...' }}
               </div>
-            </div>
+            </div> #}
             {% else %}
             <!-- Defense fields -->
             <div class="point-detail-item">
               <span class="point-detail-label">Defensive Style</span>
               <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
                    onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
-                {{ point.defense_type if point.defense_type else 'Add...' }}
+                {{ point.defense_type if point.defense_type else ('Add...' if current_user and current_user.is_admin else '') }}
               </div>
             </div>
-            <div class="point-detail-item">
+            {# <div class="point-detail-item">
               <span class="point-detail-label">Offense Faced</span>
               <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
                    onclick="event.stopPropagation(); editPointField({{ point.id }}, 'offense_faced', this)">
                 {{ point.offense_faced if point.offense_faced else 'Add...' }}
               </div>
-            </div>
+            </div> #}
             {% endif %}
           </div>
         </div>
@@ -1883,7 +1941,7 @@
         },
         body: JSON.stringify({
           content: commentContent,
-          author_name: 'Tron User',  // You can make this dynamic later
+          author_name: currentUserName || 'Anonymous',
           comment_type: selectedCommentType,
           timestamp: timestamp
         })
@@ -1922,8 +1980,13 @@
       const onclickAttr = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
       const dataAttrs = clickable ? `data-timestamp="${c.timestamp}" data-comment-id="${c.id}"` : '';
       
-      // Show delete button only for admins (until we implement proper user tracking)
-      const canDelete = isAdmin;
+      // Users can only edit their own comments, admins can delete any comment
+      const isOwnComment = currentUserName && c.author_name === currentUserName;
+      const canEdit = isOwnComment;
+      const canDelete = isAdmin || isOwnComment;
+      const editBtn = canEdit ? 
+        `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit comment">✎</button>` : 
+        '';
       const deleteBtn = canDelete ? 
         `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete comment">✕</button>` : 
         '';
@@ -1959,10 +2022,13 @@
         <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
           <div class="comment-content-wrapper">
             ${authorLine}
-            <div class="comment-text">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
+            <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${escHtml(c.content)}</div>
             ${timestampLine}
           </div>
-          ${deleteBtn}
+          <div class="comment-actions">
+            ${editBtn}
+            ${deleteBtn}
+          </div>
         </div>
       `;
     }).join('');
@@ -1988,6 +2054,161 @@
       console.error('Error deleting comment:', error);
       alert('Error deleting comment. Please try again.');
     }
+  }
+
+  function editComment(commentId, buttonElement) {
+    // Find the comment in the comments array
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    
+    // Find the comment item element
+    const commentItem = buttonElement.closest('.comment-item');
+    const commentWrapper = commentItem.querySelector('.comment-content-wrapper');
+    
+    if (!commentWrapper) return;
+    
+    // Store original content
+    const originalHTML = commentWrapper.innerHTML;
+    
+    // Get current text (remove any prefix like video timestamp or type indicators)
+    let currentText = comment.content;
+    // If it's an Event with the [Type - Team] prefix, extract just the note part
+    if (comment.comment_type === 'Event') {
+      const eventMatch = currentText.match(/^\[.+?\]\s*(.*)$/);
+      if (eventMatch) {
+        currentText = eventMatch[1];
+      }
+    }
+    
+    let editCommentType = comment.comment_type || 'Comment';
+    
+    // Create edit interface matching the original comment box
+    const editHTML = `
+      <div class="comment-edit-wrap">
+        <textarea class="comment-input" id="editCommentInput" placeholder="Edit your comment...">${escHtml(currentText)}</textarea>
+        <div class="comment-controls">
+          <div class="comment-type-selector" id="editCommentTypeSelector">
+            <button class="comment-type-btn ${editCommentType === 'Comment' ? 'active' : ''}" data-type="Comment" title="Comment">💬</button>
+            <button class="comment-type-btn ${editCommentType === 'Question' ? 'active' : ''}" data-type="Question" title="Question">❓</button>
+            <button class="comment-type-btn ${editCommentType === 'Highlight' ? 'active' : ''}" data-type="Highlight" title="Highlight">⭐</button>
+            <button class="comment-type-btn ${editCommentType === 'Event' ? 'active' : ''}" data-type="Event" title="Event">🎯</button>
+            <div class="event-options ${editCommentType === 'Event' ? 'show' : ''}" id="editEventOptions">
+              <select class="event-select" id="editEventType">
+                <option value="Turnover">Turnover</option>
+                <option value="Score">Score</option>
+              </select>
+              <select class="event-select" id="editEventTeam">
+                <option value="Tron">Tron</option>
+                <option value="{{ game.opponent }}">{{ game.opponent }}</option>
+              </select>
+            </div>
+          </div>
+          <button class="comment-btn" id="editSaveBtn">Save</button>
+          <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
+        </div>
+      </div>
+    `;
+    
+    commentWrapper.innerHTML = editHTML;
+    
+    const textarea = document.getElementById('editCommentInput');
+    const saveBtn = document.getElementById('editSaveBtn');
+    const cancelBtn = document.getElementById('editCancelBtn');
+    const typeButtons = commentWrapper.querySelectorAll('.comment-type-btn');
+    const eventOptions = document.getElementById('editEventOptions');
+    
+    textarea.focus();
+    textarea.select();
+    
+    // Handle type selection
+    typeButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const newType = btn.getAttribute('data-type');
+        editCommentType = newType;
+        
+        // Update button states
+        typeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Show/hide event options
+        if (newType === 'Event') {
+          eventOptions.classList.add('show');
+        } else {
+          eventOptions.classList.remove('show');
+        }
+        
+        // Update placeholder
+        const placeholders = {
+          'Comment': 'Edit your comment...',
+          'Question': 'Edit your question...',
+          'Highlight': 'Edit your highlight...',
+          'Event': 'Add optional note for event...'
+        };
+        textarea.placeholder = placeholders[newType] || placeholders['Comment'];
+      });
+    });
+    
+    // Cancel function
+    const cancelEdit = () => {
+      commentWrapper.innerHTML = originalHTML;
+    };
+    
+    // Save function
+    const saveEdit = async () => {
+      let newText = textarea.value.trim();
+      
+      // For non-Event types, content is required
+      if (!newText && editCommentType !== 'Event') {
+        alert('Comment cannot be empty');
+        return;
+      }
+      
+      // Build comment content based on type
+      let commentContent = newText;
+      if (editCommentType === 'Event') {
+        const eventType = document.getElementById('editEventType').value;
+        const eventTeam = document.getElementById('editEventTeam').value;
+        commentContent = newText ? `[${eventType} - ${eventTeam}] ${newText}` : `[${eventType} - ${eventTeam}]`;
+      }
+      
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      
+      try {
+        const response = await fetch(`/film/api/games/{{ game.id }}/comments/${commentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            content: commentContent,
+            comment_type: editCommentType
+          })
+        });
+        
+        if (response.ok) {
+          await loadComments();
+        } else {
+          const error = await response.json();
+          alert('Error updating comment: ' + (error.error || 'Unknown error'));
+          commentWrapper.innerHTML = originalHTML;
+        }
+      } catch (error) {
+        console.error('Error updating comment:', error);
+        alert('Error updating comment. Please try again.');
+        commentWrapper.innerHTML = originalHTML;
+      }
+    };
+    
+    // Event listeners
+    saveBtn.addEventListener('click', saveEdit);
+    cancelBtn.addEventListener('click', cancelEdit);
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cancelEdit();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        saveEdit();
+      }
+    });
   }
 
   // Point timestamp functions
@@ -2029,7 +2250,7 @@
         // Replace "+ Time" button with timestamp display and delete button
         const mins = Math.floor(currentTime / 60);
         const secs = currentTime % 60;
-        const deleteBtn = `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>`;
+        const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
         const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
         element.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
       } else {
@@ -2061,12 +2282,20 @@
         pointCard.removeAttribute('data-timestamp');
         pointCard.onclick = null;
         
-        // Replace timestamp and delete button with "+ Time" button
-        const addBtn = `<div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp(${pointId}, this)" title="Set timestamp to current video time">+ Time</div>`;
-        // Find and replace the entire timestamp element
-        const timestamp = pointCard.querySelector('.point-timestamp');
-        if (timestamp) {
-          timestamp.outerHTML = addBtn;
+        // Replace timestamp and delete button with "+ Time" button (only for admins)
+        if (isAdmin) {
+          const addBtn = `<div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp(${pointId}, this)" title="Set timestamp to current video time">+ Time</div>`;
+          // Find and replace the entire timestamp element
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) {
+            timestamp.outerHTML = addBtn;
+          }
+        } else {
+          // For non-admins, just remove the timestamp element
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) {
+            timestamp.remove();
+          }
         }
       } else {
         const error = await response.json();
