@@ -75,6 +75,8 @@ class Game(db.Model):
     opponent = db.Column(db.String(100), nullable=False)
     youtube_id = db.Column(db.String(20))
     game_date = db.Column(db.String(10))  # ISO format: YYYY-MM-DD
+    tournament_id = db.Column(db.Integer, db.ForeignKey('tournaments.id', ondelete='SET NULL'), index=True)
+    tournament_game_number = db.Column(db.Integer)
     final_score_tron = db.Column(db.Integer)
     final_score_opponent = db.Column(db.Integer)
     player_order_data = db.Column(db.JSON)  # Stores player order and section info: {"players": [names], "separator_index": int}
@@ -87,6 +89,19 @@ class Game(db.Model):
 
     def __repr__(self) -> str:
         return f"<Game {self.title} vs {self.opponent}>"
+
+
+class Tournament(db.Model):
+    __tablename__ = 'tournaments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    start_date = db.Column(db.String(10))  # ISO format: YYYY-MM-DD
+
+    games = db.relationship('Game', backref='tournament', lazy='dynamic')
+
+    def __repr__(self) -> str:
+        return f"<Tournament {self.name}>"
 
 
 class Point(db.Model):

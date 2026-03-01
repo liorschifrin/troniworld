@@ -3,6 +3,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 import csv
 import io
 import os
@@ -17,7 +18,7 @@ def fmt_dt_est(dt):
     return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
-from .models import Player, Game, Point, Event, Comment, point_players, User, VideoWatchSession, LoginEvent
+from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent
 from .utils import get_current_user, login_required, admin_required
 
 
@@ -459,8 +460,80 @@ def tron_data():
 @login_required
 def games_list():
     current_user = get_current_user()
-    games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
-    return render_template('games_list.html', current_user=current_user, games=games)
+    games = Game.query.options(joinedload(Game.tournament)).all()
+
+    tournaments_map = {}
+    standalone_games = []
+
+    for game in games:
+        if game.tournament:
+            tournament_id = game.tournament.id
+            if tournament_id not in tournaments_map:
+                tournaments_map[tournament_id] = {
+                    'tournament': game.tournament,
+                    'games': []
+                }
+            tournaments_map[tournament_id]['games'].append(game)
+        else:
+            standalone_games.append(game)
+
+    def game_chronological_sort_key(game):
+        return (
+            game.game_date or '9999-12-31',
+            game.tournament_game_number if game.tournament_game_number is not None else 999999,
+            game.id
+        )
+
+    tournament_sections = list(tournaments_map.values())
+    for section in tournament_sections:
+        section['games'].sort(key=game_chronological_sort_key)
+
+    def tournament_recent_first_key(section):
+        tournament = section['tournament']
+        latest_game_date = max((g.game_date or '' for g in section['games']), default='')
+        primary_date = tournament.start_date or latest_game_date
+        return (primary_date, tournament.id)
+
+    tournament_sections.sort(key=tournament_recent_first_key, reverse=True)
+    standalone_games.sort(key=lambda g: (g.game_date or '', g.id), reverse=True)
+
+    return render_template(
+        'games_list.html',
+        current_user=current_user,
+        tournament_sections=tournament_sections,
+        standalone_games=standalone_games
+    )
+
+
+@app.route('/film/tournaments/new', methods=['GET', 'POST'])
+@admin_required
+def new_tournament():
+    current_user = get_current_user()
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        start_date = request.form.get('start_date', '').strip()
+
+        if not name:
+            flash('Tournament name is required.', 'error')
+            return render_template('new_tournament.html', current_user=current_user)
+
+        tournament = Tournament(
+            name=name,
+            start_date=start_date if start_date else None
+        )
+
+        try:
+            db.session.add(tournament)
+            db.session.commit()
+            flash(f'Tournament "{name}" created successfully!', 'success')
+            return redirect(url_for('new_game'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating tournament: {str(e)}', 'error')
+            return render_template('new_tournament.html', current_user=current_user)
+
+    return render_template('new_tournament.html', current_user=current_user)
 
 
 @app.route('/film/games/<int:game_id>')
@@ -536,6 +609,7 @@ def view_game(game_id):
 @admin_required
 def new_game():
     current_user = get_current_user()
+    tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name.asc()).all()
     
     if request.method == 'POST':
         # Get form data
@@ -543,13 +617,43 @@ def new_game():
         opponent = request.form.get('opponent', '').strip()
         youtube_id = request.form.get('youtube_id', '').strip()
         game_date = request.form.get('game_date', '').strip()
+        tournament_id_raw = request.form.get('tournament_id', '').strip()
+        tournament_game_number_raw = request.form.get('tournament_game_number', '').strip()
         final_score_tron = request.form.get('final_score_tron', '').strip()
         final_score_opponent = request.form.get('final_score_opponent', '').strip()
         
         # Validate required fields
         if not title or not opponent:
             flash('Title and opponent are required.', 'error')
-            return render_template('new_game.html', current_user=current_user)
+            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+
+        tournament = None
+        if tournament_id_raw:
+            try:
+                tournament = Tournament.query.get(int(tournament_id_raw))
+            except ValueError:
+                flash('Invalid tournament selection.', 'error')
+                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+            if not tournament:
+                flash('Selected tournament not found.', 'error')
+                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+
+        if tournament and not tournament_game_number_raw:
+            flash('Game number is required when a tournament is selected.', 'error')
+            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+        if not tournament and tournament_game_number_raw:
+            flash('Choose a tournament before setting a tournament game number.', 'error')
+            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+
+        tournament_game_number = None
+        if tournament_game_number_raw:
+            try:
+                tournament_game_number = int(tournament_game_number_raw)
+                if tournament_game_number <= 0:
+                    raise ValueError
+            except ValueError:
+                flash('Tournament game number must be a positive whole number.', 'error')
+                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
         
         # Convert scores to integers if provided
         tron_score = int(final_score_tron) if final_score_tron else None
@@ -561,6 +665,8 @@ def new_game():
             opponent=opponent,
             youtube_id=youtube_id if youtube_id else None,
             game_date=game_date if game_date else None,
+            tournament_id=tournament.id if tournament else None,
+            tournament_game_number=tournament_game_number,
             final_score_tron=tron_score,
             final_score_opponent=opp_score
         )
@@ -573,10 +679,10 @@ def new_game():
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating game: {str(e)}', 'error')
-            return render_template('new_game.html', current_user=current_user)
+            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
     
     # GET request - show the form
-    return render_template('new_game.html', current_user=current_user)
+    return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
 
 
 @app.route('/film/games/<int:game_id>/edit', methods=['GET', 'POST'])
@@ -585,6 +691,7 @@ def edit_game(game_id):
     current_user = get_current_user()
     
     game = Game.query.get_or_404(game_id)
+    tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name.asc()).all()
     
     if request.method == 'POST':
         # Get form data
@@ -592,13 +699,43 @@ def edit_game(game_id):
         opponent = request.form.get('opponent', '').strip()
         youtube_id = request.form.get('youtube_id', '').strip()
         game_date = request.form.get('game_date', '').strip()
+        tournament_id_raw = request.form.get('tournament_id', '').strip()
+        tournament_game_number_raw = request.form.get('tournament_game_number', '').strip()
         final_score_tron = request.form.get('final_score_tron', '').strip()
         final_score_opponent = request.form.get('final_score_opponent', '').strip()
         
         # Validate required fields
         if not title or not opponent:
             flash('Title and opponent are required.', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game)
+            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+
+        tournament = None
+        if tournament_id_raw:
+            try:
+                tournament = Tournament.query.get(int(tournament_id_raw))
+            except ValueError:
+                flash('Invalid tournament selection.', 'error')
+                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+            if not tournament:
+                flash('Selected tournament not found.', 'error')
+                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+
+        if tournament and not tournament_game_number_raw:
+            flash('Game number is required when a tournament is selected.', 'error')
+            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+        if not tournament and tournament_game_number_raw:
+            flash('Choose a tournament before setting a tournament game number.', 'error')
+            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+
+        tournament_game_number = None
+        if tournament_game_number_raw:
+            try:
+                tournament_game_number = int(tournament_game_number_raw)
+                if tournament_game_number <= 0:
+                    raise ValueError
+            except ValueError:
+                flash('Tournament game number must be a positive whole number.', 'error')
+                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
         
         # Convert scores to integers if provided
         tron_score = int(final_score_tron) if final_score_tron else None
@@ -609,6 +746,8 @@ def edit_game(game_id):
         game.opponent = opponent
         game.youtube_id = youtube_id if youtube_id else None
         game.game_date = game_date if game_date else None
+        game.tournament_id = tournament.id if tournament else None
+        game.tournament_game_number = tournament_game_number
         game.final_score_tron = tron_score
         game.final_score_opponent = opp_score
         
@@ -619,10 +758,10 @@ def edit_game(game_id):
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating game: {str(e)}', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game)
+            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
     
     # GET request - show the form
-    return render_template('edit_game.html', current_user=current_user, game=game)
+    return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
 
 # =========================
