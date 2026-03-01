@@ -225,12 +225,13 @@
     <h1>Games</h1>
     <span>Film Room Library</span>
   </div>
-  {% if current_user and current_user.is_admin %}
   <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="{{ url_for('film_room_app') }}" class="btn">Open Film App</a>
+    {% if current_user and current_user.is_admin %}
     <a href="{{ url_for('new_tournament') }}" class="btn">+ New Tournament</a>
     <a href="{{ url_for('new_game') }}" class="btn">+ New Game</a>
+    {% endif %}
   </div>
-  {% endif %}
 </header>
 
 <div class="container">
