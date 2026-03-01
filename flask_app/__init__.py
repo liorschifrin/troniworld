@@ -49,6 +49,8 @@ from .models import *
 
 from . import routes
 from . import film_routes
+from .api_routes import api_v1
+app.register_blueprint(api_v1)
 
 # Add custom Jinja2 filters
 import re

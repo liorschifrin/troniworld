@@ -1,0 +1,270 @@
+.film-app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  min-height: 70vh;
+}
+
+.film-app__panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-height: 0;
+}
+
+.film-app__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.film-app__panel-title {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 1.5px;
+  font-size: 1.2rem;
+  color: var(--lime);
+}
+
+.film-app__panel-subtitle {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+.film-app__search {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.film-app__games-list {
+  max-height: calc(70vh - 130px);
+  overflow: auto;
+  padding: 10px;
+}
+
+.film-app__game-row {
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.film-app__game-row.is-active {
+  border-color: var(--lime);
+  background: rgba(200, 241, 53, 0.1);
+}
+
+.film-app__game-title {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 1px;
+  font-size: 1.05rem;
+  color: var(--lime);
+}
+
+.film-app__meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
+
+.film-app__content {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 16px;
+}
+
+.film-app__game-summary {
+  padding: 14px 16px;
+}
+
+.film-app__summary-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 2px;
+  color: var(--lime);
+}
+
+.film-app__summary-meta {
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.78rem;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.film-app__video {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.film-app__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 0;
+}
+
+.film-app__scroll {
+  overflow: auto;
+  max-height: 52vh;
+}
+
+.film-app__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.film-app__table th,
+.film-app__table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.film-app__table th {
+  text-align: left;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.film-app__table button,
+.film-app__comment-form button,
+.film-app__inline-btn {
+  background: rgba(200, 241, 53, 0.15);
+  border: 1px solid var(--border);
+  color: var(--lime);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+}
+
+.film-app__table button:hover,
+.film-app__comment-form button:hover,
+.film-app__inline-btn:hover {
+  background: rgba(200, 241, 53, 0.22);
+}
+
+.film-app__comments {
+  padding: 0 12px 12px;
+}
+
+.film-app__comment {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.film-app__comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  font-size: 0.7rem;
+  margin-bottom: 6px;
+}
+
+.film-app__badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--lime);
+  background: rgba(200, 241, 53, 0.1);
+}
+
+.film-app__comment-body {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.film-app__comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.film-app__reply {
+  margin-top: 8px;
+  margin-left: 16px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.film-app__comment-form {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.film-app__comment-form textarea,
+.film-app__comment-form input,
+.film-app__comment-form select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px;
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.film-app__comment-form-row {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  gap: 8px;
+}
+
+.film-app__status {
+  padding: 20px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.film-app__status.is-error {
+  color: #ff9898;
+}
+
+@media (max-width: 1100px) {
+  .film-app {
+    grid-template-columns: 1fr;
+  }
+
+  .film-app__games-list {
+    max-height: 36vh;
+  }
+
+  .film-app__grid {
+    grid-template-columns: 1fr;
+  }
+}
