@@ -1392,6 +1392,53 @@
     letter-spacing: 1px;
     cursor: pointer;
     transition: opacity 0.15s;
+}
+
+/* Scoreboard positioned like player-timestamp */
+.scoreboard-container {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+.scoreboard {
+  background: rgba(0,0,0,0.75);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+.score-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.score-value {
+  font-size: 0.75rem;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.score-value-tron {
+  color: var(--lime);
+}
+
+.score-value-sep {
+  color: var(--muted);
+}
+
+.score-value-opponent {
+  color: var(--warm);
+}
   }
 
   .reply-submit-btn:hover { opacity: 0.85; }
@@ -1721,6 +1768,16 @@
       </div>
       {% endif %}
       <div id="player"></div>
+      <div class="scoreboard-container">
+        <div class="scoreboard" id="scoreboard">
+          <span class="score-label">Score:</span>
+          <span class="score-value" id="scoreValue">
+            <span class="score-value-tron" id="scoreValueTron">0</span>
+            <span class="score-value-sep">-</span>
+            <span class="score-value-opponent" id="scoreValueOpponent">0</span>
+          </span>
+        </div>
+      </div>
       <div class="player-timestamp" id="playerTimestamp">0:00</div>
       {# <div class="custom-video-controls" id="customControls">
         <div class="video-time-display" id="timeDisplay">0:00 / 0:00</div>
@@ -1845,6 +1902,19 @@
 
 {% block extra_scripts %}
 <script>
+  {% if player_sheet_data %}
+    window.player_sheet_data = {
+      points: [
+        {% for point in player_sheet_data['points'] %}
+        {
+          id: {{ point.id }},
+          tron_point: {{ 'true' if point.tron_point else 'false' }},
+          timestamp_start: {% if point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    };
+  {% endif %}
   let player = null;
   let playerReady = false;
   let comments = [];
@@ -1983,7 +2053,7 @@
     if (!inputEl.contains(range.startContainer) || !range.collapsed) return null;
     const node = range.startContainer;
     if (node.nodeType !== Node.TEXT_NODE) return null;
-    if (node.parentElement && node.parentElement.closest('.mention-token')) return null;
+    if (node.parentElement && node.parentElement.closest('.mention-token,.mention-suggestion')) return null;
     const text = node.textContent;
     const offset = range.startOffset;
     for (let i = offset - 1; i >= 0; i--) {
@@ -2425,19 +2495,8 @@
         updateCurrentPlayers(pointIndex);
         updatePlayerSheetActiveColumn(pointIndex);
         
-        // Scroll to show the active point on the left
-        const scrollContainer = document.querySelector('.point-info-scroll');
-        if (scrollContainer) {
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const pointRect = activePoint.getBoundingClientRect();
-          const relativeLeft = pointRect.left - containerRect.left;
-          
-          // Scroll so the point appears on the left with some padding
-          scrollContainer.scrollBy({
-            left: relativeLeft - 10,
-            behavior: 'smooth'
-          });
-        }
+        // Scroll to show the active point
+        activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         
         currentActivePointId = activePointId;
       }
@@ -2515,19 +2574,8 @@
         activeComment.classList.add('active');
         activeComment.classList.add('active-pulse');
         
-        // Scroll to show the active comment at the top of the container
-        const scrollContainer = document.querySelector('.comments-list');
-        if (scrollContainer) {
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const commentRect = activeComment.getBoundingClientRect();
-          const relativeTop = commentRect.top - containerRect.top;
-          
-          // Scroll so the comment appears at the top with some padding
-          scrollContainer.scrollBy({
-            top: relativeTop - 10,
-            behavior: 'smooth'
-          });
-        }
+        // Scroll to show the active comment
+        activeComment.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         
         // Remove pulse animation after it completes (1s)
         setTimeout(() => {
@@ -2564,7 +2612,10 @@
     if (controlsUpdateInterval) {
       clearInterval(controlsUpdateInterval);
     }
-    controlsUpdateInterval = setInterval(updateVideoControls, 100);
+    controlsUpdateInterval = setInterval(() => {
+      updateVideoControls();
+      updateScoreboard();
+    }, 100);
   }
 
   function togglePlayPause() {
@@ -3268,6 +3319,11 @@
       });
       
       if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = currentTime;
+        }
+
         // Update the UI
         const pointCard = element.closest('.point-item');
         pointCard.classList.add('has-timestamp');
@@ -3303,6 +3359,11 @@
       });
       
       if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = null;
+        }
+
         // Update the UI
         const pointCard = element.closest('.point-item');
         pointCard.classList.remove('has-timestamp');
@@ -3591,5 +3652,82 @@
     }
   });
   {% endif %}
+  // Scoreboard logic
+  function getCurrentScore(points) {
+    let tron = 0, opp = 0;
+    for (const point of points) {
+      if (point.tron_point) tron++;
+      else opp++;
+    }
+    return { tron, opp };
+  }
+
+  function getTimestampValue(point) {
+    if (!point) return null;
+    const raw = point.timestamp_start;
+    if (raw === null || raw === undefined || raw === '') return null;
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  function getCompletedPoints(points, currentTime, duration) {
+    const timestampedPoints = points
+      .map((point, index) => ({ point, index, ts: getTimestampValue(point) }))
+      .filter(entry => entry.ts !== null)
+      .sort((a, b) => a.ts - b.ts || a.index - b.index);
+
+    if (timestampedPoints.length === 0) return [];
+
+    const completed = [];
+    for (let i = 0; i < timestampedPoints.length; i++) {
+      const current = timestampedPoints[i];
+      const next = timestampedPoints[i + 1];
+
+      if (next) {
+        // A point is complete once the next point begins.
+        if (currentTime >= next.ts) completed.push(current.point);
+        continue;
+      }
+
+      // Last point completes only once the video ends.
+      if (Number.isFinite(duration) && duration > 0 && currentTime >= (duration - 0.25)) {
+        completed.push(current.point);
+      }
+    }
+
+    return completed;
+  }
+
+  function updateScoreboard() {
+    try {
+      const tronEl = document.getElementById('scoreValueTron');
+      const opponentEl = document.getElementById('scoreValueOpponent');
+      if (!tronEl || !opponentEl) return;
+      if (!window.player_sheet_data || !Array.isArray(window.player_sheet_data.points)) {
+        tronEl.textContent = '0';
+        opponentEl.textContent = '0';
+        return;
+      }
+
+      // Find current point based on video timestamp
+      const ts = (player && playerReady && typeof player.getCurrentTime === 'function')
+        ? player.getCurrentTime()
+        : 0;
+      const duration = (player && playerReady && typeof player.getDuration === 'function')
+        ? player.getDuration()
+        : 0;
+      const points = window.player_sheet_data.points;
+      const completedPoints = getCompletedPoints(points, ts, duration);
+      const score = getCurrentScore(completedPoints);
+      tronEl.textContent = String(score.tron);
+      opponentEl.textContent = String(score.opp);
+    } catch (e) {
+      // Keep scoreboard updates from breaking other player update loops.
+    }
+  }
+
+  updateScoreboard();
+  // Update scoreboard every second
+  setInterval(updateScoreboard, 1000);
 </script>
 {% endblock %}
