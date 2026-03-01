@@ -73,6 +73,7 @@
   }
 
   .form-group input,
+  .form-group select,
   .form-group textarea {
     width: 100%;
     background: rgba(0,0,0,0.3);
@@ -90,7 +91,8 @@
     color: var(--muted);
   }
 
-  .form-group input:focus {
+  .form-group input:focus,
+  .form-group select:focus {
     border-color: var(--lime);
   }
 
@@ -206,6 +208,28 @@
           <label>Game Date</label>
           <input type="date" name="game_date" value="{{ game.game_date if game.game_date else '' }}">
         </div>
+
+        <div class="form-group">
+          <label>Tournament</label>
+          <select name="tournament_id" id="tournament-select">
+            <option value="">No tournament</option>
+            {% for tournament in tournaments %}
+            <option value="{{ tournament.id }}" {% if game.tournament_id == tournament.id %}selected{% endif %}>
+              {{ tournament.name }}{% if tournament.start_date %} ({{ tournament.start_date }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          {% if current_user and current_user.is_admin %}
+          <div style="margin-top: 8px;">
+            <a href="{{ url_for('new_tournament') }}" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.9rem;">+ Create Tournament</a>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Tournament Game Number</label>
+          <input type="number" name="tournament_game_number" id="tournament-game-number" min="1" placeholder="e.g., 1" value="{{ game.tournament_game_number if game.tournament_game_number is not none else '' }}">
+        </div>
         
         <div class="form-group">
           <label>Final Score - Tron</label>
@@ -230,8 +254,9 @@
   let hasUnsavedChanges = false;
 
   // Track changes in form inputs
-  document.querySelectorAll('#game-form input').forEach(function(input) {
-    input.addEventListener('input', function() {
+  document.querySelectorAll('#game-form input, #game-form select').forEach(function(input) {
+    const eventType = input.tagName.toLowerCase() === 'select' ? 'change' : 'input';
+    input.addEventListener(eventType, function() {
       hasUnsavedChanges = true;
     });
   });

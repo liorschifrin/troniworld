@@ -44,8 +44,8 @@ db.init_app(app)
 
 from .models import *
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 from . import routes
 from . import film_routes
