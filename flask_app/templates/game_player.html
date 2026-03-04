@@ -374,6 +374,68 @@
     z-index: 10;
   }
 
+  /* ── Video quick-controls bar ── */
+  .video-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+
+  .vc-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .vc-btn:hover {
+    background: rgba(255,255,255,0.07);
+  }
+
+  .vc-btn:active {
+    transform: scale(0.95);
+  }
+
+  .vc-btn .vc-label {
+    color: var(--text);
+  }
+
+  .vc-btn .vc-shortcut {
+    display: none;
+    color: var(--muted);
+    font-size: 0.58rem;
+    margin-top: 2px;
+  }
+
+  .vc-btn.vc-active {
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  .vc-btn.vc-active .vc-label {
+    color: var(--lime);
+  }
+
+  @media (min-width: 768px) {
+    .vc-btn .vc-shortcut {
+      display: block;
+    }
+  }
+
   .video-progress-bar {
     width: 100%;
     height: 4px;
@@ -1788,6 +1850,37 @@
       </div> #}
     </div>
 
+    <!-- Video Quick Controls -->
+    <div class="video-controls" id="videoControls">
+      <button class="vc-btn" onclick="togglePlayPause()" title="Play / Pause">
+        <span class="vc-label">Play/Pause</span> <span class="vc-shortcut">(k)</span>
+      </button>
+      <button class="vc-btn" onclick="seekRelative(-10)" title="Seek backward 10 seconds">
+        <span class="vc-label">−10s</span>
+        <span class="vc-shortcut">(j)</span>
+      </button>
+      <button class="vc-btn" onclick="seekRelative(10)" title="Seek forward 10 seconds">
+        <span class="vc-label">+10s</span>
+        <span class="vc-shortcut">(l)</span>
+      </button>
+      <button class="vc-btn vc-speed" data-rate="0.5" onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
+        <span class="vc-label">0.5×</span>
+        <span class="vc-shortcut">(Shift+,)</span>
+      </button>
+      <button class="vc-btn vc-speed vc-active" data-rate="1" onclick="setPlaybackSpeed(1)" title="1× speed">
+        <span class="vc-label">1×</span>
+        <span class="vc-shortcut">(Shift+.)</span>
+      </button>
+      <button class="vc-btn vc-speed" data-rate="2" onclick="setPlaybackSpeed(2)" title="2× speed">
+        <span class="vc-label">2×</span>
+        <span class="vc-shortcut">(Shift+/)</span>
+      </button>
+      <button class="vc-btn" onclick="vcFullscreen()" title="Fullscreen">
+        <span class="vc-label">⛶ Fullscreen</span>
+        <span class="vc-shortcut">(f)</span>
+      </button>
+    </div>
+
     <!-- Point Information Section -->
     {% if player_sheet_data %}
     <div class="point-info-section">
@@ -2636,6 +2729,59 @@
     const current = player.getCurrentTime();
     player.seekTo(current + seconds, true);
   }
+
+  function setPlaybackSpeed(rate) {
+    if (!player || !playerReady) return;
+    player.setPlaybackRate(rate);
+    document.querySelectorAll('.vc-speed').forEach(btn => btn.classList.remove('vc-active'));
+    const btn = document.querySelector(`.vc-speed[data-rate="${rate}"]`);
+    if (btn) btn.classList.add('vc-active');
+  }
+
+  function vcFullscreen() {
+    const iframe = document.querySelector('#player iframe');
+    if (!iframe) return;
+    const req = iframe.requestFullscreen || iframe.webkitRequestFullscreen || iframe.mozRequestFullScreen;
+    if (req) req.call(iframe);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    // Skip when focus is inside a text input or editable element
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+
+    switch (e.key) {
+      case 'k':
+        togglePlayPause();
+        e.preventDefault();
+        break;
+      case 'j':
+        seekRelative(-10);
+        e.preventDefault();
+        break;
+      case 'l':
+        seekRelative(10);
+        e.preventDefault();
+        break;
+      case '<': // Shift + ,
+        setPlaybackSpeed(0.5);
+        e.preventDefault();
+        break;
+      case '>': // Shift + .
+        setPlaybackSpeed(1);
+        e.preventDefault();
+        break;
+      case '?': // Shift + /
+        setPlaybackSpeed(2);
+        e.preventDefault();
+        break;
+      case 'f':
+      case 'F':
+        vcFullscreen();
+        e.preventDefault();
+        break;
+    }
+  });
 
   function relativeTime(dateStr) {
     if (!dateStr) return '';
