@@ -15,6 +15,131 @@ function totalCommentCount(comments) {
   }, 0);
 }
 
+// ─── Mention-aware textarea ──────────────────────────────────────────────────
+
+function MentionTextarea({ value, onChange, mentionables, rows, placeholder }) {
+  const [mention, setMention] = useState({
+    active: false,
+    query: "",
+    selIdx: 0,
+    triggerStart: -1,
+  });
+  const textareaRef = useRef(null);
+
+  const suggestions = useMemo(() => {
+    if (!mention.active || !mentionables || !mentionables.length) return [];
+    const q = mention.query.toLowerCase();
+    return mentionables.filter((name) => name.toLowerCase().includes(q));
+  }, [mention.active, mention.query, mentionables]);
+
+  function detectMention(val, pos) {
+    const before = val.slice(0, pos);
+    const match = before.match(/@([A-Za-z0-9_-]*)$/);
+    if (match) {
+      setMention({
+        active: true,
+        query: match[1],
+        selIdx: 0,
+        triggerStart: pos - match[0].length,
+      });
+    } else {
+      setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
+    }
+  }
+
+  function handleInput(e) {
+    const ta = e.target;
+    onChange(ta.value);
+    detectMention(ta.value, ta.selectionStart);
+  }
+
+  function handleKeyDown(e) {
+    if (!mention.active || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMention((prev) => ({
+        ...prev,
+        selIdx: Math.min(prev.selIdx + 1, suggestions.length - 1),
+      }));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMention((prev) => ({ ...prev, selIdx: Math.max(prev.selIdx - 1, 0) }));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      const pick = suggestions[mention.selIdx] || suggestions[0];
+      if (pick) {
+        e.preventDefault();
+        commitMention(pick);
+      }
+    } else if (e.key === "Escape") {
+      setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
+    }
+  }
+
+  function commitMention(name) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const pos = ta.selectionStart;
+    const val = ta.value;
+    const before = val.slice(0, mention.triggerStart);
+    const after = val.slice(pos);
+    const newVal = `${before}@${name} ${after}`;
+    onChange(newVal);
+    setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
+    const newPos = mention.triggerStart + name.length + 2;
+    requestAnimationFrame(() => {
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(newPos, newPos);
+      }
+    });
+  }
+
+  function handleBlur() {
+    setTimeout(
+      () => setMention((prev) => ({ ...prev, active: false })),
+      150
+    );
+  }
+
+  return html`
+    <div style=${{ position: "relative" }}>
+      <textarea
+        ref=${textareaRef}
+        rows=${rows || 3}
+        placeholder=${placeholder || ""}
+        value=${value}
+        onInput=${handleInput}
+        onKeyDown=${handleKeyDown}
+        onBlur=${handleBlur}
+      ></textarea>
+      ${mention.active && suggestions.length > 0
+        ? html`
+            <div className="film-app__mention-dropdown">
+              ${suggestions.map(
+                (name, idx) => html`
+                  <div
+                    key=${name}
+                    className=${`film-app__mention-dropdown-item ${
+                      idx === mention.selIdx ? "is-selected" : ""
+                    }`}
+                    onMouseDown=${(e) => {
+                      e.preventDefault();
+                      commitMention(name);
+                    }}
+                  >
+                    <span className="film-app__mention-dropdown-at">@</span>${name}
+                  </div>
+                `
+              )}
+            </div>
+          `
+        : null}
+    </div>
+  `;
+}
+
+// ─── CommentsPanel ────────────────────────────────────────────────────────────
+
 export function CommentsPanel({
   comments,
   viewer,
@@ -40,38 +165,15 @@ export function CommentsPanel({
   const mentionList = useMemo(() => mentionables || [], [mentionables]);
 
   useEffect(() => {
-    if (!activeCommentId) {
-      return;
-    }
+    if (!activeCommentId) return;
     const node = commentRefs.current[String(activeCommentId)];
     ensureVisible(listRef.current, node);
   }, [activeCommentId]);
 
-  function appendMention(name, mode = "main") {
-    if (!name) {
-      return;
-    }
-    const token = ` @${name}`;
-    if (mode === "main") {
-      setDraft((prev) => `${prev}${token}`.trimStart());
-      return;
-    }
-    if (mode === "reply") {
-      setReplyDraft((prev) => `${prev}${token}`.trimStart());
-      return;
-    }
-    if (mode === "edit") {
-      setEditingDraft((prev) => `${prev}${token}`.trimStart());
-    }
-  }
-
   async function submitComment(event) {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || busy) {
-      return;
-    }
-
+    if (!content || busy) return;
     setBusy(true);
     try {
       const currentVideoTime = getCurrentVideoTime();
@@ -88,10 +190,7 @@ export function CommentsPanel({
 
   async function submitReply(parentId) {
     const content = replyDraft.trim();
-    if (!content || busy) {
-      return;
-    }
-
+    if (!content || busy) return;
     setBusy(true);
     try {
       const currentVideoTime = getCurrentVideoTime();
@@ -110,10 +209,7 @@ export function CommentsPanel({
 
   async function saveEdit(commentId) {
     const content = editingDraft.trim();
-    if (!content || busy) {
-      return;
-    }
-
+    if (!content || busy) return;
     setBusy(true);
     try {
       await onUpdateComment(commentId, content);
@@ -127,26 +223,6 @@ export function CommentsPanel({
   function openEdit(comment) {
     setEditingCommentId(comment.id);
     setEditingDraft(comment.content || "");
-  }
-
-  function renderMentionButtons(mode) {
-    if (!mentionList.length) {
-      return null;
-    }
-    return html`
-      <div className="film-app__mention-pills">
-        ${mentionList.map((name) => html`
-          <button
-            key=${`${mode}-${name}`}
-            type="button"
-            className="film-app__mention-pill"
-            onClick=${() => appendMention(name, mode)}
-          >
-            @${name}
-          </button>
-        `)}
-      </div>
-    `;
   }
 
   function renderComment(comment, isReply = false) {
@@ -180,12 +256,13 @@ export function CommentsPanel({
         ${isEditing
           ? html`
               <div className="film-app__comment-edit">
-                <textarea
-                  rows="3"
+                <${MentionTextarea}
                   value=${editingDraft}
-                  onInput=${(event) => setEditingDraft(event.target.value)}
-                ></textarea>
-                ${renderMentionButtons("edit")}
+                  onChange=${setEditingDraft}
+                  mentionables=${mentionList}
+                  rows=${3}
+                  placeholder="Edit comment..."
+                />
                 <div className="film-app__comment-actions">
                   <button className="film-app__tiny-btn" disabled=${busy} onClick=${() => saveEdit(comment.id)}>Save</button>
                   <button className="film-app__tiny-btn" onClick=${() => setEditingCommentId(null)}>Cancel</button>
@@ -196,7 +273,11 @@ export function CommentsPanel({
               <div
                 className="film-app__comment-body"
                 dangerouslySetInnerHTML=${{
-                  __html: renderTextWithMentions(comment.content || "", mentionList),
+                  __html: renderTextWithMentions(
+                    comment.content || "",
+                    mentionList,
+                    viewer?.username || null
+                  ),
                 }}
               ></div>
             `}
@@ -204,20 +285,27 @@ export function CommentsPanel({
         <div className="film-app__comment-actions">
           ${!isReply
             ? html`
-                <button className="film-app__tiny-btn" onClick=${() => {
-                  setReplyingToId(comment.id);
-                  setExpanded((prev) => ({ ...prev, [String(comment.id)]: true }));
-                }}>
+                <button
+                  className="film-app__tiny-btn"
+                  onClick=${() => {
+                    setReplyingToId(comment.id);
+                    setExpanded((prev) => ({ ...prev, [String(comment.id)]: true }));
+                  }}
+                >
                   Reply
                 </button>
               `
             : null}
           ${replies.length
             ? html`
-                <button className="film-app__tiny-btn" onClick=${() => setExpanded((prev) => ({
-                  ...prev,
-                  [String(comment.id)]: !isExpanded,
-                }))}>
+                <button
+                  className="film-app__tiny-btn"
+                  onClick=${() =>
+                    setExpanded((prev) => ({
+                      ...prev,
+                      [String(comment.id)]: !isExpanded,
+                    }))}
+                >
                   ${isExpanded ? "Hide" : "Show"} ${replies.length} repl${replies.length === 1 ? "y" : "ies"}
                 </button>
               `
@@ -233,19 +321,22 @@ export function CommentsPanel({
         ${replyingToId === comment.id
           ? html`
               <div className="film-app__reply-compose">
-                <textarea
-                  rows="2"
-                  placeholder="Write a reply"
+                <${MentionTextarea}
                   value=${replyDraft}
-                  onInput=${(event) => setReplyDraft(event.target.value)}
-                ></textarea>
-                ${renderMentionButtons("reply")}
+                  onChange=${setReplyDraft}
+                  mentionables=${mentionList}
+                  rows=${2}
+                  placeholder="Write a reply... type @ to mention"
+                />
                 <div className="film-app__comment-actions">
                   <button className="film-app__tiny-btn" disabled=${busy} onClick=${() => submitReply(comment.id)}>Reply</button>
-                  <button className="film-app__tiny-btn" onClick=${() => {
-                    setReplyingToId(null);
-                    setReplyDraft("");
-                  }}>Cancel</button>
+                  <button
+                    className="film-app__tiny-btn"
+                    onClick=${() => {
+                      setReplyingToId(null);
+                      setReplyDraft("");
+                    }}
+                  >Cancel</button>
                 </div>
               </div>
             `
@@ -270,13 +361,13 @@ export function CommentsPanel({
       </div>
 
       <form className="film-app__comment-compose" onSubmit=${submitComment}>
-        <textarea
-          rows="3"
-          placeholder="Share your thoughts about this game..."
+        <${MentionTextarea}
           value=${draft}
-          onInput=${(event) => setDraft(event.target.value)}
-        ></textarea>
-        ${renderMentionButtons("main")}
+          onChange=${setDraft}
+          mentionables=${mentionList}
+          rows=${3}
+          placeholder="Share your thoughts... type @ to mention someone"
+        />
         <div className="film-app__comment-actions">
           <button disabled=${busy} type="submit">${busy ? "Posting..." : "Post Comment"}</button>
         </div>

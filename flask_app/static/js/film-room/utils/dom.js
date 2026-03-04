@@ -8,18 +8,28 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-export function renderTextWithMentions(rawText, mentionables = []) {
+export function renderTextWithMentions(rawText, mentionables = [], currentUsername = null, opponentName = null) {
   const escaped = escapeHtml(rawText);
   if (!escaped) {
     return "";
   }
 
-  const mentionSet = new Set((mentionables || []).map((item) => String(item).toLowerCase()));
+  const mentionSet   = new Set((mentionables || []).map((item) => String(item).toLowerCase()));
+  const selfLower    = currentUsername ? currentUsername.toLowerCase() : null;
+  const enemyLower   = opponentName   ? opponentName.toLowerCase()    : null;
+
   const withMentions = escaped.replace(/@([A-Za-z0-9_-]+)/g, (full, name) => {
     if (!mentionSet.has(name.toLowerCase())) {
       return full;
     }
-    return `<span class=\"film-app__mention\">@${name}</span>`;
+    const nameLower = name.toLowerCase();
+    let cls = "film-app__mention";
+    if (selfLower && nameLower === selfLower) {
+      cls += " is-self";
+    } else if (enemyLower && nameLower === enemyLower) {
+      cls += " is-enemy";
+    }
+    return `<span class="${cls}">@${name}</span>`;
   });
 
   return withMentions.replace(/\n/g, "<br>");
