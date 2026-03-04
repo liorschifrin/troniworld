@@ -308,6 +308,14 @@
     }
   }
 
+  /* Mobile landscape: nav is non-sticky to preserve vertical screen space */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .film-nav {
+      position: relative;
+      top: auto;
+    }
+  }
+
   /* Flash messages */
   .film-flash-messages {
     max-width: 1400px;

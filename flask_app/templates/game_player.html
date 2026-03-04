@@ -1031,6 +1031,64 @@
     }
   }
 
+  /* Compact comments for shorter viewports */
+  @media (max-height: 700px) {
+    .panel {
+      max-height: calc(100vh - 60px);
+    }
+    .comments-list {
+      min-height: 140px;
+    }
+    .comment-item {
+      padding: 7px 10px;
+    }
+    .comment-text {
+      font-size: 0.78rem;
+    }
+    .comment-author {
+      font-size: 0.65rem;
+    }
+    .comment-timestamp,
+    .reply-timestamp {
+      font-size: 0.58rem;
+    }
+    .reply-author {
+      font-size: 0.65rem;
+    }
+    .thread-reply-item {
+      padding: 5px 8px;
+    }
+  }
+
+  /* Further scale-down for very short viewports (mobile landscape) */
+  @media (max-height: 500px) {
+    .panel {
+      max-height: calc(100vh - 30px);
+    }
+    .comments-list {
+      min-height: 180px;
+    }
+    .comment-item {
+      padding: 5px 8px;
+    }
+    .comment-text {
+      font-size: 0.65rem;
+    }
+    .comment-author {
+      font-size: 0.55rem;
+    }
+    .comment-timestamp,
+    .reply-timestamp {
+      font-size: 0.5rem;
+    }
+    .reply-author {
+      font-size: 0.55rem;
+    }
+    .thread-reply-item {
+      padding: 3px 6px;
+    }
+  }
+
   .comment-edit-wrap {
     display: flex;
     flex-direction: column;
