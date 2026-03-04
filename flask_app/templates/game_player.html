@@ -1310,6 +1310,11 @@
     gap: 5px;
   }
 
+  .comment-author-self {
+    color: #C45AB3;
+    border-bottom: 1px solid rgba(196,90,179,0.5);
+  }
+
   .comment-delete-btn {
     background: transparent;
     border: none;
@@ -3463,7 +3468,10 @@
     const typeIndicator  = `<span class="comment-type-indicator ${typeBadgeClass}">${typeIcon}</span>`;
 
     const isEvent      = c.comment_type === 'Event';
-    const authorLine   = isEvent ? '' : `<div class="comment-author">${typeIndicator}${escHtml(c.author_name)}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
+    const authorNameHtml = isOwnComment
+      ? `<span class="comment-author-self">${escHtml(c.author_name)}</span>`
+      : escHtml(c.author_name);
+    const authorLine   = isEvent ? '' : `<div class="comment-author">${typeIndicator}${authorNameHtml}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
     const contentPrefix= isEvent ? typeIndicator : '';
 
     // Footer: Reply button (only when no replies yet) + thread toggle
@@ -3552,9 +3560,12 @@
     const deleteBtn = canDelete
       ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
       : '';
+    const replyAuthorNameHtml = isOwnReply
+      ? `<span class="comment-author-self">${escHtml(reply.author_name)}</span>`
+      : escHtml(reply.author_name);
     return `
       <div class="thread-reply-item" id="reply-item-${reply.id}">
-        <div class="reply-author">${escHtml(reply.author_name)}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
+        <div class="reply-author">${replyAuthorNameHtml}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
         <div class="reply-text">${parseMentions(reply.content)}</div>
         ${editBtn}
         ${deleteBtn}
