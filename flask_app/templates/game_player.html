@@ -2724,6 +2724,7 @@
     controlsUpdateInterval = setInterval(() => {
       updateVideoControls();
       updateScoreboard();
+      syncPlaybackRateIndicator();
     }, 100);
   }
 
@@ -2748,9 +2749,17 @@
   function setPlaybackSpeed(rate) {
     if (!player || !playerReady) return;
     player.setPlaybackRate(rate);
-    document.querySelectorAll('.vc-speed').forEach(btn => btn.classList.remove('vc-active'));
-    const btn = document.querySelector(`.vc-speed[data-rate="${rate}"]`);
-    if (btn) btn.classList.add('vc-active');
+    syncPlaybackRateIndicator();
+  }
+
+  function syncPlaybackRateIndicator() {
+    if (!player || !playerReady) return;
+    let rate;
+    try { rate = player.getPlaybackRate(); } catch(e) { return; }
+    document.querySelectorAll('.vc-speed').forEach(btn => {
+      const btnRate = parseFloat(btn.getAttribute('data-rate'));
+      btn.classList.toggle('vc-active', btnRate === rate);
+    });
   }
 
   function vcFullscreen() {
@@ -3889,7 +3898,5 @@
   }
 
   updateScoreboard();
-  // Update scoreboard every second
-  setInterval(updateScoreboard, 1000);
 </script>
 {% endblock %}
