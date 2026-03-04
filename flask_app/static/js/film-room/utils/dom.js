@@ -18,7 +18,23 @@ export function renderTextWithMentions(rawText, mentionables = [], currentUserna
   const selfLower    = currentUsername ? currentUsername.toLowerCase() : null;
   const enemyLower   = opponentName   ? opponentName.toLowerCase()    : null;
 
-  const withMentions = escaped.replace(/@([A-Za-z0-9_-]+)/g, (full, name) => {
+  // First, handle @[username] format (from contenteditable mentions)
+  let withBracketMentions = escaped.replace(/@\[([^\]]+)\]/g, (full, name) => {
+    if (!mentionSet.has(name.toLowerCase())) {
+      return full;
+    }
+    const nameLower = name.toLowerCase();
+    let cls = "film-app__mention";
+    if (selfLower && nameLower === selfLower) {
+      cls += " is-self";
+    } else if (enemyLower && nameLower === enemyLower) {
+      cls += " is-enemy";
+    }
+    return `<span class="${cls}">@${name}</span>`;
+  });
+
+  // Then, handle plain @username format (for backwards compatibility)
+  const withMentions = withBracketMentions.replace(/@([A-Za-z0-9_-]+)/g, (full, name) => {
     if (!mentionSet.has(name.toLowerCase())) {
       return full;
     }
