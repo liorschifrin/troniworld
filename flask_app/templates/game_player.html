@@ -1315,6 +1315,11 @@
     border-bottom: 1px solid rgba(196,90,179,0.5);
   }
 
+  .comment-author-leadership {
+    color: #4A9EDB;
+    border-bottom: 1px solid rgba(74,158,219,0.5);
+  }
+
   .comment-delete-btn {
     background: transparent;
     border: none;
@@ -3470,7 +3475,9 @@
     const isEvent      = c.comment_type === 'Event';
     const authorNameHtml = isOwnComment
       ? `<span class="comment-author-self">${escHtml(c.author_name)}</span>`
-      : escHtml(c.author_name);
+      : c.is_leadership
+        ? `<span class="comment-author-leadership">${escHtml(c.author_name)}</span>`
+        : escHtml(c.author_name);
     const authorLine   = isEvent ? '' : `<div class="comment-author">${typeIndicator}${authorNameHtml}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
     const contentPrefix= isEvent ? typeIndicator : '';
 
@@ -3562,7 +3569,9 @@
       : '';
     const replyAuthorNameHtml = isOwnReply
       ? `<span class="comment-author-self">${escHtml(reply.author_name)}</span>`
-      : escHtml(reply.author_name);
+      : reply.is_leadership
+        ? `<span class="comment-author-leadership">${escHtml(reply.author_name)}</span>`
+        : escHtml(reply.author_name);
     return `
       <div class="thread-reply-item" id="reply-item-${reply.id}">
         <div class="reply-author">${replyAuthorNameHtml}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>

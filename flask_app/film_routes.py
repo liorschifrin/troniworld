@@ -805,9 +805,11 @@ def get_comments(game_id):
     
     comments_list = []
     for comment in comments:
+        comment_author = User.query.filter_by(username=comment.author_name).first()
         comment_data = {
             'id': comment.id,
             'author_name': comment.author_name,
+            'is_leadership': bool(comment_author and comment_author.is_leadership),
             'content': comment.content,
             'comment_type': comment.comment_type,
             'timestamp': comment.timestamp,
@@ -818,9 +820,11 @@ def get_comments(game_id):
         # Get replies (1-level nesting)
         replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
         for reply in replies:
+            reply_author = User.query.filter_by(username=reply.author_name).first()
             comment_data['replies'].append({
                 'id': reply.id,
                 'author_name': reply.author_name,
+                'is_leadership': bool(reply_author and reply_author.is_leadership),
                 'content': reply.content,
                 'created_at': fmt_dt_est(reply.created_at)
             })
@@ -876,6 +880,7 @@ def create_comment(game_id):
             'comment': {
                 'id': new_comment.id,
                 'author_name': new_comment.author_name,
+                'is_leadership': bool(current_user and current_user.is_leadership),
                 'content': new_comment.content,
                 'comment_type': new_comment.comment_type,
                 'timestamp': new_comment.timestamp,
