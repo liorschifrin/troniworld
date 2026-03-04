@@ -142,17 +142,48 @@
 
   .player-sheet-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-family: 'DM Mono', monospace;
     font-size: 0.75rem;
     min-width: 800px;
   }
 
+  /* Edge-only borders to avoid doubles with border-collapse: separate */
   .player-sheet-table th,
   .player-sheet-table td {
-    border: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 6px 10px;
     text-align: center;
+  }
+
+  /* Left edge on first column, top edge on header row */
+  .player-sheet-table th:first-child,
+  .player-sheet-table td:first-child {
+    border-left: 1px solid var(--border);
+  }
+
+  .player-sheet-table thead th {
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Two-panel frozen first column ── */
+  .ps-frame {
+    display: flex;
+    align-items: flex-start;
+  }
+  .ps-pinned { flex-shrink: 0; }
+  .ps-scroll-body { overflow-x: auto; flex: 1; min-width: 0; }
+  .ps-pinned-table { min-width: 0 !important; }
+  .ps-pinned-table th,
+  .ps-pinned-table td {
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: #0f2410;
+  }
+  .ps-pinned-table thead th {
+    background: #1a3210;
   }
 
   .player-sheet-table th {
@@ -391,6 +422,10 @@
     gap: 6px;
     margin-top: 8px;
     margin-bottom: 4px;
+  }
+
+  .vc-speed-row {
+    display: contents; /* transparent on desktop — buttons flow in the parent flex row */
   }
 
   .vc-btn {
@@ -1753,6 +1788,9 @@
     .sidebar {
       width: 250px;
     }
+    .player-sheet-section {
+      margin: 0 16px;
+    }
   }
   /* Responsive */
   @media (max-width: 1100px) {
@@ -1771,12 +1809,24 @@
     .main {
       display: flex;
       flex-direction: column;
+      overflow: visible; /* allow .player-area negative margins to break out of padding */
     }
     .url-bar           { order: 0; }
     .current-players   { order: 1; }
     .point-info-section { order: 2; }
-    .player-area       { order: 3; display: flex; flex-direction: column; position: static; }
+    .player-area       { order: 3; display: flex; flex-direction: column; position: static; margin-left: -16px; margin-right: -16px; }
     #videoControls     { order: 4; }
+
+    /* Edge-to-edge video — square off radii since it spans full width */
+    .player-area .player-meta-bar { border-radius: 0; }
+    .player-area .player-wrap     { border-radius: 0 !important; }
+
+    /* Speed buttons break onto their own row on mobile */
+    .vc-speed-row {
+      display: flex;
+      width: 100%;
+      gap: 6px;
+    }
 
     /* Meta bar becomes a visible info row above the video */
     .player-meta-bar {
@@ -1875,7 +1925,7 @@
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
                 {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
-              {% if point.tron_o %}O{% else %}X{% endif %}
+              {% if point.tron_o %}O{% else %}D{% endif %}
             </td>
             {% endfor %}
           </tr>
@@ -2013,22 +2063,24 @@
         <span class="vc-label">+10s</span>
         <span class="vc-shortcut">(l)</span>
       </button>
-      <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
-        <span class="vc-label">0.5×</span>
-        <span class="vc-shortcut">(&lt;)</span>
-      </button>
-      <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed">
-        <span class="vc-label">1×</span>
-      </button>
-      <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed">
-        <span class="vc-label">2×</span>
-        <span class="vc-shortcut">(&gt;)</span>
-      </button>
       <button class="vc-btn vc-icon-mobile" onclick="vcFullscreen()" title="Fullscreen">
         <span class="vc-icon">⛶</span>
         <span class="vc-label">⛶ Fullscreen</span>
         <span class="vc-shortcut">(f)</span>
       </button>
+      <div class="vc-speed-row" id="vcSpeedRow">
+        <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
+          <span class="vc-label">0.5×</span>
+          <span class="vc-shortcut">(&lt;)</span>
+        </button>
+        <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed">
+          <span class="vc-label">1×</span>
+        </button>
+        <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed">
+          <span class="vc-label">2×</span>
+          <span class="vc-shortcut">(&gt;)</span>
+        </button>
+      </div>
     </div>
 
     <!-- Point Information Section -->
@@ -2502,7 +2554,65 @@
     } else {
       content.classList.add('open');
       icon.classList.add('open');
+      // Build the frozen first column on first open
+      requestAnimationFrame(buildStickyCol);
     }
+  }
+
+  function buildStickyCol() {
+    const wrapper = document.querySelector('.player-sheet-wrapper');
+    const table   = document.querySelector('.player-sheet-table');
+    if (!wrapper || !table || wrapper.querySelector('.ps-frame')) return;
+
+    // Clone first column into a separate table
+    const pinnedTable = document.createElement('table');
+    pinnedTable.className = 'player-sheet-table ps-pinned-table';
+    table.querySelectorAll('thead, tbody').forEach(section => {
+      const newSection = document.createElement(section.tagName.toLowerCase());
+      section.querySelectorAll('tr').forEach(origRow => {
+        const firstCell = origRow.cells[0];
+        if (!firstCell) return;
+        const newRow = document.createElement('tr');
+        newRow.appendChild(firstCell.cloneNode(true));
+        newSection.appendChild(newRow);
+      });
+      pinnedTable.appendChild(newSection);
+    });
+
+    // Build the two-panel frame
+    const frame = document.createElement('div');
+    frame.className = 'ps-frame';
+
+    const pinnedPanel = document.createElement('div');
+    pinnedPanel.className = 'ps-pinned';
+    pinnedPanel.appendChild(pinnedTable);
+
+    const scrollBody = document.createElement('div');
+    scrollBody.className = 'ps-scroll-body';
+
+    frame.appendChild(pinnedPanel);
+    frame.appendChild(scrollBody);
+    wrapper.insertBefore(frame, table);
+    scrollBody.appendChild(table);
+
+    // Measure heights with first column STILL VISIBLE, then lock both panels,
+    // then hide the first column — order matters.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const origRows = [...table.querySelectorAll('tr')];
+      const pinRows  = [...pinnedTable.querySelectorAll('tr')];
+
+      // Record heights before any hiding
+      const heights = origRows.map(row => row.getBoundingClientRect().height);
+
+      // Apply to both panels
+      origRows.forEach((row, i) => { row.style.height = heights[i] + 'px'; });
+      pinRows.forEach((row, i)  => { if (heights[i]) row.style.height = heights[i] + 'px'; });
+
+      // Now hide first column in the scrollable table
+      table.querySelectorAll('tr').forEach(row => {
+        if (row.cells[0]) row.cells[0].style.display = 'none';
+      });
+    }));
   }
 
   // Confirm and delete player sheet
@@ -2927,7 +3037,7 @@
       badge.innerHTML = `<span class="vc-label">${rate}×</span>`;
 
       // Insert in sorted position among speed buttons
-      const container = document.getElementById('videoControls');
+      const container = document.getElementById('vcSpeedRow');
       // Find the first preset button whose rate is greater than current rate
       const insertBefore = presetBtns.find(b => parseFloat(b.getAttribute('data-rate')) > rate);
       if (insertBefore) {
