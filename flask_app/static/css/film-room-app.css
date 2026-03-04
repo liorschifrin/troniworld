@@ -434,20 +434,39 @@
 }
 
 .film-app__comment {
-  border: 1px solid rgba(200, 241, 53, 0.15);
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(200, 241, 53, 0.1);
+  border-radius: 6px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.film-app__comment:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .film-app__comment.is-reply {
   margin-left: 14px;
-  border-left: 2px solid rgba(200, 241, 53, 0.4);
+  padding-left: 12px;
+  border-left: 2px solid rgba(200, 241, 53, 0.2);
 }
 
 .film-app__comment.is-active {
   background: rgba(200, 241, 53, 0.08);
   border-color: rgba(200, 241, 53, 0.4);
+}
+
+.film-app__comment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .film-app__comment-meta {
@@ -458,7 +477,6 @@
   font-family: 'DM Mono', monospace;
   font-size: 0.68rem;
   color: var(--muted);
-  margin-bottom: 6px;
 }
 
 .film-app__comment-author {
@@ -467,25 +485,198 @@
 }
 
 .film-app__comment-body {
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  line-height: 1.5;
   word-break: break-word;
 }
 
-.film-app__reply-list {
-  display: grid;
-  gap: 6px;
-  margin-top: 8px;
+.film-app__comment-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  min-height: 20px;
 }
 
-.film-app__comment-actions {
+.film-app__thread-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(200, 241, 53, 0.2);
+}
+
+.film-app__comment-top-actions {
+  display: flex;
+  gap: 0;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.film-app__form-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 8px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
+.film-app__tiny-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.2s, background 0.2s, opacity 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.film-app__tiny-btn:hover {
+  background: rgba(200, 241, 53, 0.1);
+  color: var(--lime);
+}
+
+.film-app__tiny-btn.warn:hover {
+  background: rgba(255, 107, 43, 0.1);
+  color: var(--warm);
+}
+
+/* Reply button - hidden until parent hover */
+.film-app__tiny-btn-reply {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.2s, background 0.2s, opacity 0.2s;
+  opacity: 0;
+  pointer-events: none;
+  letter-spacing: 0.5px;
+}
+
+.film-app__comment:hover .film-app__tiny-btn-reply {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.film-app__tiny-btn-reply:hover {
+  background: rgba(200, 241, 53, 0.1);
+  color: var(--lime);
+}
+
+/* Reply button at bottom of thread - always visible */
+.film-app__tiny-btn-reply-inline {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.2s, background 0.2s;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  align-self: flex-start;
+}
+
+.film-app__tiny-btn-reply-inline:hover {
+  background: rgba(200, 241, 53, 0.1);
+  color: var(--lime);
+}
+
+/* Thread toggle button - always visible with border */
+.film-app__tiny-btn-toggle {
+  background: transparent;
+  border: 1px solid rgba(200, 241, 53, 0.25);
+  color: var(--lime);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.film-app__tiny-btn-toggle:hover {
+  background: rgba(200, 241, 53, 0.12);
+  border-color: var(--lime);
+}
+
+/* Edit/Delete buttons - semi-transparent, positioned top-right */
+.film-app__tiny-btn-edit,
+.film-app__tiny-btn-delete {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.film-app__tiny-btn-edit:hover {
+  opacity: 1;
+  color: var(--lime);
+}
+
+.film-app__tiny-btn-delete:hover {
+  opacity: 1;
+  color: var(--warm);
+}
+
+/* Action buttons for forms (Save, Reply, Cancel) */
+.film-app__action-btn-submit {
+  background: var(--lime);
+  color: var(--field);
+  border: none;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.film-app__action-btn-submit:hover {
+  opacity: 0.85;
+}
+
+.film-app__action-btn-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.film-app__action-btn-cancel {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.film-app__action-btn-cancel:hover {
+  opacity: 0.85;
+}
+
+/* Small utility buttons (timestamps, point actions) */
 .film-app__tiny-btn {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -495,6 +686,7 @@
   font-size: 0.66rem;
   padding: 4px 7px;
   cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
 }
 
 .film-app__tiny-btn:hover {
@@ -507,10 +699,12 @@
   color: var(--warm);
 }
 
-.film-app__reply-compose,
-.film-app__comment-edit {
-  margin-top: 8px;
-  display: grid;
+.film-app__reply-compose {
+  margin-top: 4px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(200, 241, 53, 0.3);
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
