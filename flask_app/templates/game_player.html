@@ -1902,15 +1902,14 @@
       </button>
       <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
         <span class="vc-label">0.5×</span>
-        <span class="vc-shortcut">(<)</span>
+        <span class="vc-shortcut">(&lt;)</span>
       </button>
       <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed">
         <span class="vc-label">1×</span>
-        <span class="vc-shortcut">(>)</span>
       </button>
       <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed">
         <span class="vc-label">2×</span>
-        <span class="vc-shortcut">(?)</span>
+        <span class="vc-shortcut">(&gt;)</span>
       </button>
       <button class="vc-btn vc-icon-mobile" onclick="vcFullscreen()" title="Fullscreen">
         <span class="vc-icon">⛶</span>
@@ -2777,6 +2776,15 @@
     syncPlaybackRateIndicator();
   }
 
+  function adjustPlaybackSpeed(delta) {
+    if (!player || !playerReady) return;
+    let current;
+    try { current = player.getPlaybackRate(); } catch(e) { return; }
+    const next = Math.round((current + delta) * 100) / 100;
+    const clamped = Math.min(2, Math.max(0.25, next));
+    setPlaybackSpeed(clamped);
+  }
+
   function syncPlaybackRateIndicator() {
     if (!player || !playerReady) return;
     let rate;
@@ -2889,16 +2897,12 @@
         seekRelative(10);
         e.preventDefault();
         break;
-      case '<': // Shift + ,
-        setPlaybackSpeed(0.5);
+      case '<': // Shift + ,  — speed down
+        adjustPlaybackSpeed(-0.25);
         e.preventDefault();
         break;
-      case '>': // Shift + .
-        setPlaybackSpeed(1);
-        e.preventDefault();
-        break;
-      case '?': // Shift + /
-        setPlaybackSpeed(2);
+      case '>': // Shift + .  — speed up
+        adjustPlaybackSpeed(0.25);
         e.preventDefault();
         break;
       case 'f':
