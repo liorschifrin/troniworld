@@ -390,9 +390,10 @@
     color: var(--text);
     cursor: pointer;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     padding: 7px 12px;
     font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
@@ -418,8 +419,16 @@
     display: none;
     color: var(--muted);
     font-size: 0.58rem;
-    margin-top: 2px;
   }
+
+  .vc-btn .vc-icon {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  /* Icon-only on mobile: hide text label, show icon */
+  .vc-btn.vc-icon-mobile .vc-label { display: none; }
+  .vc-btn.vc-icon-mobile .vc-icon  { display: inline; }
 
   .vc-btn.vc-active {
     border-color: var(--lime);
@@ -432,8 +441,11 @@
 
   @media (min-width: 768px) {
     .vc-btn .vc-shortcut {
-      display: block;
+      display: inline;
     }
+    /* On desktop: show text, hide standalone icon */
+    .vc-btn.vc-icon-mobile .vc-label { display: inline; }
+    .vc-btn.vc-icon-mobile .vc-icon  { display: none; }
   }
 
   .video-progress-bar {
@@ -1852,8 +1864,10 @@
 
     <!-- Video Quick Controls -->
     <div class="video-controls" id="videoControls">
-      <button class="vc-btn" onclick="togglePlayPause()" title="Play / Pause">
-        <span class="vc-label">Play/Pause</span> <span class="vc-shortcut">(k)</span>
+      <button class="vc-btn vc-icon-mobile" onclick="togglePlayPause()" title="Play / Pause">
+        <span class="vc-icon">⏯</span>
+        <span class="vc-label">Play/Pause</span>
+        <span class="vc-shortcut">(k)</span>
       </button>
       <button class="vc-btn" onclick="seekRelative(-10)" title="Seek backward 10 seconds">
         <span class="vc-label">−10s</span>
@@ -1865,17 +1879,18 @@
       </button>
       <button class="vc-btn vc-speed" data-rate="0.5" onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
         <span class="vc-label">0.5×</span>
-        <span class="vc-shortcut">(Shift+,)</span>
+        <span class="vc-shortcut">(<)</span>
       </button>
       <button class="vc-btn vc-speed vc-active" data-rate="1" onclick="setPlaybackSpeed(1)" title="1× speed">
         <span class="vc-label">1×</span>
-        <span class="vc-shortcut">(Shift+.)</span>
+        <span class="vc-shortcut">(>)</span>
       </button>
       <button class="vc-btn vc-speed" data-rate="2" onclick="setPlaybackSpeed(2)" title="2× speed">
         <span class="vc-label">2×</span>
-        <span class="vc-shortcut">(Shift+/)</span>
+        <span class="vc-shortcut">(?)</span>
       </button>
-      <button class="vc-btn" onclick="vcFullscreen()" title="Fullscreen">
+      <button class="vc-btn vc-icon-mobile" onclick="vcFullscreen()" title="Fullscreen">
+        <span class="vc-icon">⛶</span>
         <span class="vc-label">⛶ Fullscreen</span>
         <span class="vc-shortcut">(f)</span>
       </button>
