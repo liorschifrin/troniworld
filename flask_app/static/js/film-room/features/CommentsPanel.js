@@ -22,6 +22,7 @@ export function CommentsPanel({
   comments,
   viewer,
   mentionables,
+  opponentName,
   activeCommentId,
   onSeek,
   onCreateComment,
@@ -153,7 +154,8 @@ export function CommentsPanel({
                   __html: renderTextWithMentions(
                     comment.content || "",
                     mentionList,
-                    viewer?.username || null
+                    viewer?.username || null,
+                    opponentName || null
                   ),
                 }}
               ></div>
