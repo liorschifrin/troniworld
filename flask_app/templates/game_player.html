@@ -944,6 +944,56 @@
     flex-direction: column;
     gap: 8px;
     flex-shrink: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
+    max-height: 400px;
+    opacity: 1;
+  }
+
+  .comment-input-wrap.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+  }
+
+  .add-comment-btn {
+    display: none;
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    border: 1px solid rgba(200,241,53,0.25);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .add-comment-btn:hover {
+    background: rgba(200,241,53,0.2);
+  }
+
+  .add-comment-btn.active {
+    background: rgba(200,241,53,0.2);
+    border-color: var(--lime);
+  }
+
+  @media (max-width: 767px) {
+    .add-comment-btn {
+      display: inline-block;
+    }
+    .comment-input-wrap {
+      max-height: 0;
+      opacity: 0;
+      margin: 0;
+    }
+    .comment-input-wrap.mobile-open {
+      max-height: 400px;
+      opacity: 1;
+      margin: revert;
+    }
   }
 
   .comment-edit-wrap {
@@ -2061,12 +2111,10 @@
       <div class="panel-header">
         <h2>Comments</h2>
         <span class="count-badge" id="commentCountBadge">0</span>
+        <button class="add-comment-btn" id="addCommentBtn" onclick="toggleCommentInput()">+ Comment</button>
       </div>
       <div class="comments-area">
-        <div class="comments-list" id="commentsList">
-          <div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>
-        </div>
-        <div class="comment-input-wrap">
+        <div class="comment-input-wrap" id="commentInputWrap">
           <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
           <div class="comment-controls">
             <div class="comment-type-selector">
@@ -2087,6 +2135,9 @@
             </div>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
           </div>
+        </div>
+        <div class="comments-list" id="commentsList">
+          <div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>
         </div>
       </div>
     </div>
@@ -3096,6 +3147,20 @@
     }
   }
 
+  function toggleCommentInput(forceOpen) {
+    const wrap = document.getElementById('commentInputWrap');
+    const btn  = document.getElementById('addCommentBtn');
+    if (!wrap) return;
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) return; // desktop always visible, nothing to toggle
+    const willOpen = forceOpen !== undefined ? forceOpen : !wrap.classList.contains('mobile-open');
+    wrap.classList.toggle('mobile-open', willOpen);
+    if (btn) btn.classList.toggle('active', willOpen);
+    if (willOpen) {
+      setTimeout(() => document.getElementById('commentInput')?.focus(), 260);
+    }
+  }
+
   async function addComment() {
     const input = document.getElementById('commentInput');
     // Auto-tokenize the last word if it matches a mentionable name
@@ -3146,6 +3211,7 @@
         const newId = newData.comment && newData.comment.id;
         input.innerHTML = '';
         updatePlaceholder(input);
+        toggleCommentInput(false); // hide form on mobile after posting
         await loadComments();  // Reload comments from server
         if (newId) {
           const newEl = document.querySelector(`[data-comment-id="${newId}"]`);
