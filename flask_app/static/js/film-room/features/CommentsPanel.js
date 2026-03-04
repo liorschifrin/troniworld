@@ -109,95 +109,119 @@ export function CommentsPanel({
     const replies = comment.replies || [];
     const ownOrAdmin = canManage(comment, viewer);
     const isEditing = editingCommentId === comment.id;
+    const isReplying = replyingToId === comment.id;
 
     return html`
-      <article
+      <div
         key=${comment.id}
         ref=${(node) => {
           commentRefs.current[String(comment.id)] = node;
         }}
-        className=${`film-app__comment ${isReply ? "is-reply" : ""} ${
-          activeCommentId === comment.id ? "is-active" : ""
-        }`}
       >
-        <div className="film-app__comment-meta">
-          <span className="film-app__comment-author">${comment.author_name}</span>
-          <span>${relativeTime(comment.created_at_iso, comment.created_at || "")}</span>
-          ${comment.timestamp !== null && comment.timestamp !== undefined
+        <article
+          className=${`film-app__comment ${isReply ? "is-reply" : ""} ${
+            activeCommentId === comment.id ? "is-active" : ""
+          }`}
+        >
+          <div className="film-app__comment-content">
+            ${!isEditing
+              ? html`
+                  <div className="film-app__comment-meta">
+                    <span className="film-app__comment-author">${comment.author_name}</span>
+                    <span>${relativeTime(comment.created_at_iso, comment.created_at || "")}</span>
+                    ${comment.timestamp !== null && comment.timestamp !== undefined
+                      ? html`
+                          <button className="film-app__tiny-btn" onClick=${() => onSeek(comment.timestamp)}>
+                            @ ${formatClock(comment.timestamp)}
+                          </button>
+                        `
+                      : null}
+                  </div>
+                  <div
+                    className="film-app__comment-body"
+                    dangerouslySetInnerHTML=${{
+                      __html: renderTextWithMentions(
+                        comment.content || "",
+                        mentionList,
+                        viewer?.username || null,
+                        opponentName || null
+                      ),
+                    }}
+                  ></div>
+                  <div className="film-app__comment-footer">
+                    ${!isReply && replies.length === 0
+                      ? html`
+                          <button
+                            className="film-app__tiny-btn-reply"
+                            onClick=${() => {
+                              setReplyingToId(comment.id);
+                              setExpanded((prev) => ({ ...prev, [String(comment.id)]: true }));
+                            }}
+                          >
+                            ↩ Reply
+                          </button>
+                        `
+                      : null}
+                    ${replies.length
+                      ? html`
+                          <button
+                            className="film-app__tiny-btn-toggle"
+                            onClick=${() =>
+                              setExpanded((prev) => ({
+                                ...prev,
+                                [String(comment.id)]: !isExpanded,
+                              }))}
+                          >
+                            ${isExpanded ? "▲ Hide" : "↩"} ${replies.length} ${replies.length === 1 ? "reply" : "replies"}
+                          </button>
+                        `
+                      : null}
+                  </div>
+                `
+              : html`
+                  <${MentionEditor}
+                    value=${editingDraft}
+                    onChange=${setEditingDraft}
+                    mentionables=${mentionList}
+                    placeholder="Edit comment..."
+                  />
+                  <div className="film-app__form-actions">
+                    <button className="film-app__action-btn-cancel" onClick=${() => setEditingCommentId(null)}>Cancel</button>
+                    <button className="film-app__action-btn-submit" disabled=${busy} onClick=${() => saveEdit(comment.id)}>Save</button>
+                  </div>
+                `}
+          </div>
+          ${ownOrAdmin && !isEditing
             ? html`
-                <button className="film-app__tiny-btn" onClick=${() => onSeek(comment.timestamp)}>
-                  @ ${formatClock(comment.timestamp)}
-                </button>
+                <div className="film-app__comment-top-actions">
+                  <button className="film-app__tiny-btn-edit" onClick=${() => openEdit(comment)}>✎</button>
+                  <button className="film-app__tiny-btn-delete" onClick=${() => onDeleteComment(comment.id)}>🗑</button>
+                </div>
               `
             : null}
-        </div>
+        </article>
 
-        ${isEditing
+        ${replies.length && isExpanded
           ? html`
-              <div className="film-app__comment-edit">
-                <${MentionEditor}
-                  value=${editingDraft}
-                  onChange=${setEditingDraft}
-                  mentionables=${mentionList}
-                  placeholder="Edit comment..."
-                />
-                <div className="film-app__comment-actions">
-                  <button className="film-app__tiny-btn" disabled=${busy} onClick=${() => saveEdit(comment.id)}>Save</button>
-                  <button className="film-app__tiny-btn" onClick=${() => setEditingCommentId(null)}>Cancel</button>
-                </div>
+              <div className="film-app__thread-replies">
+                ${replies.map((reply) => renderComment(reply, true))}
+                ${!isReplying && !isReply
+                  ? html`
+                      <button
+                        className="film-app__tiny-btn-reply-inline"
+                        onClick=${() => {
+                          setReplyingToId(comment.id);
+                        }}
+                      >
+                        ↩ Reply
+                      </button>
+                    `
+                  : null}
               </div>
             `
-          : html`
-              <div
-                className="film-app__comment-body"
-                dangerouslySetInnerHTML=${{
-                  __html: renderTextWithMentions(
-                    comment.content || "",
-                    mentionList,
-                    viewer?.username || null,
-                    opponentName || null
-                  ),
-                }}
-              ></div>
-            `}
+          : null}
 
-        <div className="film-app__comment-actions">
-          ${!isReply
-            ? html`
-                <button
-                  className="film-app__tiny-btn"
-                  onClick=${() => {
-                    setReplyingToId(comment.id);
-                    setExpanded((prev) => ({ ...prev, [String(comment.id)]: true }));
-                  }}
-                >
-                  Reply
-                </button>
-              `
-            : null}
-          ${replies.length
-            ? html`
-                <button
-                  className="film-app__tiny-btn"
-                  onClick=${() =>
-                    setExpanded((prev) => ({
-                      ...prev,
-                      [String(comment.id)]: !isExpanded,
-                    }))}
-                >
-                  ${isExpanded ? "Hide" : "Show"} ${replies.length} repl${replies.length === 1 ? "y" : "ies"}
-                </button>
-              `
-            : null}
-          ${ownOrAdmin
-            ? html`
-                <button className="film-app__tiny-btn" onClick=${() => openEdit(comment)}>Edit</button>
-                <button className="film-app__tiny-btn warn" onClick=${() => onDeleteComment(comment.id)}>Delete</button>
-              `
-            : null}
-        </div>
-
-        ${replyingToId === comment.id
+        ${isReplying
           ? html`
               <div className="film-app__reply-compose">
                 <${MentionEditor}
@@ -206,28 +230,20 @@ export function CommentsPanel({
                   mentionables=${mentionList}
                   placeholder="Write a reply... type @ to mention"
                 />
-                <div className="film-app__comment-actions">
-                  <button className="film-app__tiny-btn" disabled=${busy} onClick=${() => submitReply(comment.id)}>Reply</button>
+                <div className="film-app__form-actions">
                   <button
-                    className="film-app__tiny-btn"
+                    className="film-app__action-btn-cancel"
                     onClick=${() => {
                       setReplyingToId(null);
                       setReplyDraft("");
                     }}
                   >Cancel</button>
+                  <button className="film-app__action-btn-submit" disabled=${busy} onClick=${() => submitReply(comment.id)}>Reply</button>
                 </div>
               </div>
             `
           : null}
-
-        ${replies.length && isExpanded
-          ? html`
-              <div className="film-app__reply-list">
-                ${replies.map((reply) => renderComment(reply, true))}
-              </div>
-            `
-          : null}
-      </article>
+      </div>
     `;
   }
 
@@ -245,8 +261,8 @@ export function CommentsPanel({
           mentionables=${mentionList}
           placeholder="Share your thoughts... type @ to mention someone"
         />
-        <div className="film-app__comment-actions">
-          <button disabled=${busy} type="submit">${busy ? "Posting..." : "Post Comment"}</button>
+        <div className="film-app__form-actions">
+          <button disabled=${busy} type="submit" className="film-app__action-btn-submit">${busy ? "Posting..." : "Post Comment"}</button>
         </div>
       </form>
 
