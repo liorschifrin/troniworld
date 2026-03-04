@@ -18,6 +18,9 @@ export function renderTextWithMentions(rawText, mentionables = [], currentUserna
   const selfLower    = currentUsername ? currentUsername.toLowerCase() : null;
   const enemyLower   = opponentName   ? opponentName.toLowerCase()    : null;
 
+  // Use placeholders to prevent double processing
+  const placeholders = [];
+  
   // First, handle @[username] format (from contenteditable mentions)
   let withBracketMentions = escaped.replace(/@\[([^\]]+)\]/g, (full, name) => {
     if (!mentionSet.has(name.toLowerCase())) {
@@ -30,7 +33,9 @@ export function renderTextWithMentions(rawText, mentionables = [], currentUserna
     } else if (enemyLower && nameLower === enemyLower) {
       cls += " is-enemy";
     }
-    return `<span class="${cls}">@${name}</span>`;
+    const placeholder = `__MENTION_${placeholders.length}__`;
+    placeholders.push(`<span class="${cls}">@${name}</span>`);
+    return placeholder;
   });
 
   // Then, handle plain @username format (for backwards compatibility)
@@ -48,7 +53,13 @@ export function renderTextWithMentions(rawText, mentionables = [], currentUserna
     return `<span class="${cls}">@${name}</span>`;
   });
 
-  return withMentions.replace(/\n/g, "<br>");
+  // Replace placeholders with actual HTML
+  let result = withMentions;
+  placeholders.forEach((html, idx) => {
+    result = result.replace(`__MENTION_${idx}__`, html);
+  });
+
+  return result.replace(/\n/g, "<br>");
 }
 
 function isOutsideView(container, target) {

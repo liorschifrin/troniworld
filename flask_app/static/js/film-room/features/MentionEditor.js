@@ -12,6 +12,7 @@ export function MentionEditor({ value, onChange, mentionables, placeholder, minH
     triggerStart: -1,
   });
   const editorRef = useRef(null);
+  const dropdownRef = useRef(null);
   const placeholderText = placeholder || "Type @ to mention someone...";
 
   const suggestions = useMemo(() => {
@@ -19,6 +20,15 @@ export function MentionEditor({ value, onChange, mentionables, placeholder, minH
     const q = mention.query.toLowerCase();
     return mentionables.filter((name) => name.toLowerCase().includes(q));
   }, [mention.active, mention.query, mentionables]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (!mention.active || !dropdownRef.current) return;
+    const selected = dropdownRef.current.querySelector(".is-selected");
+    if (selected) {
+      selected.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [mention.selIdx, mention.active]);
 
   // Load initial content when value prop changes from outside
   useEffect(() => {
@@ -288,7 +298,7 @@ export function MentionEditor({ value, onChange, mentionables, placeholder, minH
       ></div>
       ${mention.active && suggestions.length > 0
         ? html`
-            <div className="film-app__mention-dropdown">
+            <div className="film-app__mention-dropdown" ref=${dropdownRef}>
               ${suggestions.map(
                 (name, idx) => html`
                   <div
