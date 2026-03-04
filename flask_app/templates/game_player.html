@@ -2819,8 +2819,8 @@
         activeComment.classList.add('active');
         activeComment.classList.add('active-pulse');
         
-        // Scroll to show the active comment
-        activeComment.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        // Scroll to show the active comment — within the list only, not the page
+        scrollCommentIntoView(activeComment, true);
         
         // Remove pulse animation after it completes (1s)
         setTimeout(() => {
@@ -3216,7 +3216,7 @@
         if (newId) {
           const newEl = document.querySelector(`[data-comment-id="${newId}"]`);
           if (newEl) {
-            newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            scrollCommentIntoView(newEl, true);
             newEl.classList.add('comment-flash');
             newEl.addEventListener('animationend', () => newEl.classList.remove('comment-flash'), { once: true });
           }
@@ -3231,6 +3231,22 @@
     } finally {
       commentBtn.disabled = false;
       commentBtn.textContent = 'Post Comment';
+    }
+  }
+
+  // Scroll a comment element into view within the comments list container,
+  // without touching the page scroll position.
+  function scrollCommentIntoView(el, smooth) {
+    const list = document.getElementById('commentsList');
+    if (!list || !el) return;
+    const listRect = list.getBoundingClientRect();
+    const elRect   = el.getBoundingClientRect();
+    const overTop    = listRect.top - elRect.top;
+    const overBottom = elRect.bottom - listRect.bottom;
+    if (overTop > 0) {
+      list.scrollBy({ top: -overTop - 8, behavior: smooth ? 'smooth' : 'auto' });
+    } else if (overBottom > 0) {
+      list.scrollBy({ top: overBottom + 8, behavior: smooth ? 'smooth' : 'auto' });
     }
   }
 
