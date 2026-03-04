@@ -71,6 +71,8 @@ export function CommentsPanel({
     const content = replyDraft.trim();
     if (!content || busy) return;
     setBusy(true);
+    // Set expanded state BEFORE the API call to prevent collapse during re-render
+    setExpanded((prev) => ({ ...prev, [String(parentId)]: true }));
     try {
       const currentVideoTime = getCurrentVideoTime();
       await onCreateComment({
@@ -80,7 +82,6 @@ export function CommentsPanel({
       });
       setReplyDraft("");
       setReplyingToId(null);
-      setExpanded((prev) => ({ ...prev, [String(parentId)]: true }));
     } finally {
       setBusy(false);
     }
@@ -131,7 +132,7 @@ export function CommentsPanel({
                     <span>${relativeTime(comment.created_at_iso, comment.created_at || "")}</span>
                     ${comment.timestamp !== null && comment.timestamp !== undefined
                       ? html`
-                          <button className="film-app__tiny-btn" onClick=${() => onSeek(comment.timestamp)}>
+                          <button type="button" className="film-app__tiny-btn" onClick=${() => onSeek(comment.timestamp)}>
                             @ ${formatClock(comment.timestamp)}
                           </button>
                         `
@@ -152,6 +153,7 @@ export function CommentsPanel({
                     ${!isReply && replies.length === 0
                       ? html`
                           <button
+                            type="button"
                             className="film-app__tiny-btn-reply"
                             onClick=${() => {
                               setReplyingToId(comment.id);
@@ -165,6 +167,7 @@ export function CommentsPanel({
                     ${replies.length
                       ? html`
                           <button
+                            type="button"
                             className="film-app__tiny-btn-toggle"
                             onClick=${() =>
                               setExpanded((prev) => ({
@@ -186,16 +189,16 @@ export function CommentsPanel({
                     placeholder="Edit comment..."
                   />
                   <div className="film-app__form-actions">
-                    <button className="film-app__action-btn-cancel" onClick=${() => setEditingCommentId(null)}>Cancel</button>
-                    <button className="film-app__action-btn-submit" disabled=${busy} onClick=${() => saveEdit(comment.id)}>Save</button>
+                    <button type="button" className="film-app__action-btn-cancel" onClick=${() => setEditingCommentId(null)}>Cancel</button>
+                    <button type="button" className="film-app__action-btn-submit" disabled=${busy} onClick=${() => saveEdit(comment.id)}>Save</button>
                   </div>
                 `}
           </div>
           ${ownOrAdmin && !isEditing
             ? html`
                 <div className="film-app__comment-top-actions">
-                  <button className="film-app__tiny-btn-edit" onClick=${() => openEdit(comment)}>✎</button>
-                  <button className="film-app__tiny-btn-delete" onClick=${() => onDeleteComment(comment.id)}>🗑</button>
+                  <button type="button" className="film-app__tiny-btn-edit" onClick=${() => openEdit(comment)}>✎</button>
+                  <button type="button" className="film-app__tiny-btn-delete" onClick=${() => onDeleteComment(comment.id)}>🗑</button>
                 </div>
               `
             : null}
@@ -208,6 +211,7 @@ export function CommentsPanel({
                 ${!isReplying && !isReply
                   ? html`
                       <button
+                        type="button"
                         className="film-app__tiny-btn-reply-inline"
                         onClick=${() => {
                           setReplyingToId(comment.id);
@@ -232,13 +236,14 @@ export function CommentsPanel({
                 />
                 <div className="film-app__form-actions">
                   <button
+                    type="button"
                     className="film-app__action-btn-cancel"
                     onClick=${() => {
                       setReplyingToId(null);
                       setReplyDraft("");
                     }}
                   >Cancel</button>
-                  <button className="film-app__action-btn-submit" disabled=${busy} onClick=${() => submitReply(comment.id)}>Reply</button>
+                  <button type="button" className="film-app__action-btn-submit" disabled=${busy} onClick=${() => submitReply(comment.id)}>Reply</button>
                 </div>
               </div>
             `
