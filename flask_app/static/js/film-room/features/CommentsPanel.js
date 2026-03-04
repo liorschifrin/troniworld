@@ -1,6 +1,7 @@
 import { html, useEffect, useMemo, useRef, useState } from "../deps.js";
 import { ensureVisible, renderTextWithMentions } from "../utils/dom.js";
 import { formatClock, relativeTime } from "../utils/time.js";
+import { MentionEditor } from "./MentionEditor.js";
 
 function canManage(comment, viewer) {
   if (!viewer || !viewer.username) {
@@ -13,129 +14,6 @@ function totalCommentCount(comments) {
   return (comments || []).reduce((acc, comment) => {
     return acc + 1 + ((comment.replies || []).length || 0);
   }, 0);
-}
-
-// ─── Mention-aware textarea ──────────────────────────────────────────────────
-
-function MentionTextarea({ value, onChange, mentionables, rows, placeholder }) {
-  const [mention, setMention] = useState({
-    active: false,
-    query: "",
-    selIdx: 0,
-    triggerStart: -1,
-  });
-  const textareaRef = useRef(null);
-
-  const suggestions = useMemo(() => {
-    if (!mention.active || !mentionables || !mentionables.length) return [];
-    const q = mention.query.toLowerCase();
-    return mentionables.filter((name) => name.toLowerCase().includes(q));
-  }, [mention.active, mention.query, mentionables]);
-
-  function detectMention(val, pos) {
-    const before = val.slice(0, pos);
-    const match = before.match(/@([A-Za-z0-9_-]*)$/);
-    if (match) {
-      setMention({
-        active: true,
-        query: match[1],
-        selIdx: 0,
-        triggerStart: pos - match[0].length,
-      });
-    } else {
-      setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
-    }
-  }
-
-  function handleInput(e) {
-    const ta = e.target;
-    onChange(ta.value);
-    detectMention(ta.value, ta.selectionStart);
-  }
-
-  function handleKeyDown(e) {
-    if (!mention.active || suggestions.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setMention((prev) => ({
-        ...prev,
-        selIdx: Math.min(prev.selIdx + 1, suggestions.length - 1),
-      }));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setMention((prev) => ({ ...prev, selIdx: Math.max(prev.selIdx - 1, 0) }));
-    } else if (e.key === "Enter" || e.key === "Tab") {
-      const pick = suggestions[mention.selIdx] || suggestions[0];
-      if (pick) {
-        e.preventDefault();
-        commitMention(pick);
-      }
-    } else if (e.key === "Escape") {
-      setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
-    }
-  }
-
-  function commitMention(name) {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const pos = ta.selectionStart;
-    const val = ta.value;
-    const before = val.slice(0, mention.triggerStart);
-    const after = val.slice(pos);
-    const newVal = `${before}@${name} ${after}`;
-    onChange(newVal);
-    setMention({ active: false, query: "", selIdx: 0, triggerStart: -1 });
-    const newPos = mention.triggerStart + name.length + 2;
-    requestAnimationFrame(() => {
-      if (ta) {
-        ta.focus();
-        ta.setSelectionRange(newPos, newPos);
-      }
-    });
-  }
-
-  function handleBlur() {
-    setTimeout(
-      () => setMention((prev) => ({ ...prev, active: false })),
-      150
-    );
-  }
-
-  return html`
-    <div style=${{ position: "relative" }}>
-      <textarea
-        ref=${textareaRef}
-        rows=${rows || 3}
-        placeholder=${placeholder || ""}
-        value=${value}
-        onInput=${handleInput}
-        onKeyDown=${handleKeyDown}
-        onBlur=${handleBlur}
-      ></textarea>
-      ${mention.active && suggestions.length > 0
-        ? html`
-            <div className="film-app__mention-dropdown">
-              ${suggestions.map(
-                (name, idx) => html`
-                  <div
-                    key=${name}
-                    className=${`film-app__mention-dropdown-item ${
-                      idx === mention.selIdx ? "is-selected" : ""
-                    }`}
-                    onMouseDown=${(e) => {
-                      e.preventDefault();
-                      commitMention(name);
-                    }}
-                  >
-                    <span className="film-app__mention-dropdown-at">@</span>${name}
-                  </div>
-                `
-              )}
-            </div>
-          `
-        : null}
-    </div>
-  `;
 }
 
 // ─── CommentsPanel ────────────────────────────────────────────────────────────
@@ -256,11 +134,10 @@ export function CommentsPanel({
         ${isEditing
           ? html`
               <div className="film-app__comment-edit">
-                <${MentionTextarea}
+                <${MentionEditor}
                   value=${editingDraft}
                   onChange=${setEditingDraft}
                   mentionables=${mentionList}
-                  rows=${3}
                   placeholder="Edit comment..."
                 />
                 <div className="film-app__comment-actions">
@@ -321,11 +198,10 @@ export function CommentsPanel({
         ${replyingToId === comment.id
           ? html`
               <div className="film-app__reply-compose">
-                <${MentionTextarea}
+                <${MentionEditor}
                   value=${replyDraft}
                   onChange=${setReplyDraft}
                   mentionables=${mentionList}
-                  rows=${2}
                   placeholder="Write a reply... type @ to mention"
                 />
                 <div className="film-app__comment-actions">
@@ -361,11 +237,10 @@ export function CommentsPanel({
       </div>
 
       <form className="film-app__comment-compose" onSubmit=${submitComment}>
-        <${MentionTextarea}
+        <${MentionEditor}
           value=${draft}
           onChange=${setDraft}
           mentionables=${mentionList}
-          rows=${3}
           placeholder="Share your thoughts... type @ to mention someone"
         />
         <div className="film-app__comment-actions">
