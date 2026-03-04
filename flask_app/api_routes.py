@@ -53,10 +53,16 @@ def _serialize_point(point: Point) -> dict:
     }
 
 
+def _is_leadership(author_name: str) -> bool:
+    user = User.query.filter_by(username=author_name).first()
+    return bool(user and user.is_leadership)
+
+
 def _serialize_reply(reply: Comment) -> dict:
     return {
         "id": reply.id,
         "author_name": reply.author_name,
+        "is_leadership": _is_leadership(reply.author_name),
         "comment_type": _comment_type_single(reply.comment_type),
         "timestamp": reply.timestamp,
         "content": reply.content,
@@ -71,6 +77,7 @@ def _serialize_comment(comment: Comment) -> dict:
     return {
         "id": comment.id,
         "author_name": comment.author_name,
+        "is_leadership": _is_leadership(comment.author_name),
         "comment_type": _comment_type_single(comment.comment_type),
         "timestamp": comment.timestamp,
         "content": comment.content,
