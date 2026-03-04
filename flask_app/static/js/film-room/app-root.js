@@ -390,6 +390,7 @@ function FilmRoomApp({ config }) {
                   comments=${state.game.comments || []}
                   viewer=${viewer}
                   mentionables=${state.game.mentionables || []}
+                  opponentName=${state.game.opponent || null}
                   activeCommentId=${state.activeCommentId}
                   onSeek=${(seconds) => seekTo(seconds)}
                   onCreateComment=${handleCreateComment}
