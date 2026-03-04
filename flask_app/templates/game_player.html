@@ -2820,7 +2820,7 @@
         activeComment.classList.add('active-pulse');
         
         // Scroll to show the active comment — within the list only, not the page
-        scrollCommentIntoView(activeComment, true);
+        scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
         
         // Remove pulse animation after it completes (1s)
         setTimeout(() => {
@@ -3234,11 +3234,34 @@
     }
   }
 
-  // Scroll a comment element into view within the comments list container,
-  // without touching the page scroll position.
-  function scrollCommentIntoView(el, smooth) {
-    const list = document.getElementById('commentsList');
+  // Scroll a comment element into view within the comments list container.
+  // Options: { smooth: bool, toTop: bool }
+  // toTop: on single-column layouts, scrolls the element to the top of the list
+  //        and then scrolls the page so the sidebar panel is visible.
+  function scrollCommentIntoView(el, opts) {
+    if (typeof opts === 'boolean') opts = { smooth: opts }; // back-compat
+    const smooth = opts.smooth !== false;
+    const toTop  = !!opts.toTop;
+    const list   = document.getElementById('commentsList');
     if (!list || !el) return;
+
+    const isSingleColumn = window.innerWidth <= 1100;
+
+    if (toTop && isSingleColumn) {
+      // Scroll to top of list so this comment is first visible
+      const elOffsetInList = el.offsetTop - list.offsetTop;
+      list.scrollTo({ top: Math.max(0, elOffsetInList - 8), behavior: smooth ? 'smooth' : 'auto' });
+
+      // Scroll the page just enough to show the first 250px of the comments list
+      const listTop = list.getBoundingClientRect().top + window.scrollY;
+      const targetScrollY = listTop - (window.innerHeight - 80);
+      if (targetScrollY > window.scrollY) {
+        window.scrollTo({ top: targetScrollY, behavior: smooth ? 'smooth' : 'auto' });
+      }
+      return;
+    }
+
+    // Default: bring into view without page scroll
     const listRect = list.getBoundingClientRect();
     const elRect   = el.getBoundingClientRect();
     const overTop    = listRect.top - elRect.top;
