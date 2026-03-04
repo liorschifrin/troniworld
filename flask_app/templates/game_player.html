@@ -2819,7 +2819,9 @@
   }
 
   function vcFullscreen() {
-    const iframe = document.querySelector('#player iframe');
+    let iframe = null;
+    try { iframe = player && player.getIframe ? player.getIframe() : null; } catch(e) {}
+    if (!iframe) iframe = document.querySelector('#player iframe');
     if (!iframe) return;
     const req = iframe.requestFullscreen || iframe.webkitRequestFullscreen || iframe.mozRequestFullScreen;
     if (req) req.call(iframe);
