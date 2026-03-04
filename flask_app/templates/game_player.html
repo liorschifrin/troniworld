@@ -439,6 +439,13 @@
     color: var(--lime);
   }
 
+  .vc-speed-custom {
+    border-style: double;
+    cursor: default;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
   @media (min-width: 768px) {
     .vc-btn .vc-shortcut {
       display: inline;
@@ -1877,15 +1884,15 @@
         <span class="vc-label">+10s</span>
         <span class="vc-shortcut">(l)</span>
       </button>
-      <button class="vc-btn vc-speed" data-rate="0.5" onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
+      <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
         <span class="vc-label">0.5×</span>
         <span class="vc-shortcut">(<)</span>
       </button>
-      <button class="vc-btn vc-speed vc-active" data-rate="1" onclick="setPlaybackSpeed(1)" title="1× speed">
+      <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed">
         <span class="vc-label">1×</span>
         <span class="vc-shortcut">(>)</span>
       </button>
-      <button class="vc-btn vc-speed" data-rate="2" onclick="setPlaybackSpeed(2)" title="2× speed">
+      <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed">
         <span class="vc-label">2×</span>
         <span class="vc-shortcut">(?)</span>
       </button>
@@ -2756,10 +2763,41 @@
     if (!player || !playerReady) return;
     let rate;
     try { rate = player.getPlaybackRate(); } catch(e) { return; }
-    document.querySelectorAll('.vc-speed').forEach(btn => {
+
+    // Remove any existing custom rate badge
+    const existing = document.getElementById('vc-custom-rate');
+    if (existing) existing.remove();
+
+    const presetBtns = [...document.querySelectorAll('.vc-speed[data-speed-group]')];
+    const presetRates = presetBtns.map(b => parseFloat(b.getAttribute('data-rate')));
+    const isPreset = presetRates.includes(rate);
+
+    // Highlight / un-highlight preset buttons
+    presetBtns.forEach(btn => {
       const btnRate = parseFloat(btn.getAttribute('data-rate'));
       btn.classList.toggle('vc-active', btnRate === rate);
     });
+
+    if (!isPreset) {
+      // Build the badge
+      const badge = document.createElement('span');
+      badge.id = 'vc-custom-rate';
+      badge.className = 'vc-btn vc-speed-custom vc-active';
+      badge.title = `Current speed: ${rate}× (set via YouTube controls)`;
+      badge.innerHTML = `<span class="vc-label">${rate}×</span>`;
+
+      // Insert in sorted position among speed buttons
+      const container = document.getElementById('videoControls');
+      // Find the first preset button whose rate is greater than current rate
+      const insertBefore = presetBtns.find(b => parseFloat(b.getAttribute('data-rate')) > rate);
+      if (insertBefore) {
+        container.insertBefore(badge, insertBefore);
+      } else {
+        // rate is higher than all presets — insert after the last preset button
+        const lastPreset = presetBtns[presetBtns.length - 1];
+        lastPreset.insertAdjacentElement('afterend', badge);
+      }
+    }
   }
 
   function vcFullscreen() {
