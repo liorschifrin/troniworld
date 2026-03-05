@@ -2079,41 +2079,6 @@
             <span class="my-point-badge">YOU</span>
             {% endif %}
           </div>
-          <div class="point-details">
-            {% if point.tron_o %}
-            <!-- Offense fields -->
-            <div class="point-detail-item">
-              <span class="point-detail-label">Pull Play</span>
-              <div class="point-detail-value {% if not point.pull_play %}empty{% endif %}" 
-                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'pull_play', this)">
-                {{ point.pull_play if point.pull_play else ('Add...' if current_user and current_user.is_admin else '') }}
-              </div>
-            </div>
-            {# <div class="point-detail-item">
-              <span class="point-detail-label">Defense Faced</span>
-              <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
-                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
-                {{ point.defense_type if point.defense_type else 'Add...' }}
-              </div>
-            </div> #}
-            {% else %}
-            <!-- Defense fields -->
-            <div class="point-detail-item">
-              <span class="point-detail-label">Defensive Style</span>
-              <div class="point-detail-value {% if not point.defense_type %}empty{% endif %}" 
-                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'defense_type', this)">
-                {{ point.defense_type if point.defense_type else ('Add...' if current_user and current_user.is_admin else '') }}
-              </div>
-            </div>
-            {# <div class="point-detail-item">
-              <span class="point-detail-label">Offense Faced</span>
-              <div class="point-detail-value {% if not point.offense_faced %}empty{% endif %}" 
-                   onclick="event.stopPropagation(); editPointField({{ point.id }}, 'offense_faced', this)">
-                {{ point.offense_faced if point.offense_faced else 'Add...' }}
-              </div>
-            </div> #}
-            {% endif %}
-          </div>
         </div>
         {% endfor %}
       </div>
