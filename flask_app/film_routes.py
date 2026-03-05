@@ -35,9 +35,12 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
     - Private comment: notify only the explicit private_to recipients ('private').
       @mentions inside private comments are ignored for notification purposes.
     - Public comment: notify every @[username] mentioned in the content.
-      @[Everyone] (leadership only) notifies all is_film_user members.
+      @[Everyone] (leadership only) notifies all users except the author.
     Author never notified for their own comment.
     """
+
+    print("Debug: Creatiting notification for comment with text:", comment.content)
+
     notif_map = {}  # username -> notification_type
 
     is_private = bool(comment.private_to)
@@ -55,12 +58,14 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
     else:
         # Public: notify @mentions only (format: @[username])
         mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
+        print("Debug: Found mention names in comment:", mention_names)
         for uname in mention_names:
             if uname == author_username:
                 continue
             if uname == 'Everyone' and author_is_leadership:
                 # Notify all film users except the author
-                all_users = User.query.filter_by(is_film_user=True).all()
+                print("Debug: Author is leadership and mentioned @Everyone, adding notifications for all film users except the author.")
+                all_users = User.query.all()
                 for u in all_users:
                     if u.username != author_username and u.username not in notif_map:
                         notif_map[u.username] = 'everyone'
