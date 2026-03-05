@@ -425,7 +425,9 @@
   }
 
   .vc-speed-row {
-    display: contents; /* transparent on desktop — buttons flow in the parent flex row */
+    display: flex;
+    gap: 6px;
+    margin-left: auto; /* push speed controls to the right end of the bar */
   }
 
   .vc-btn {
@@ -509,6 +511,17 @@
     /* On desktop: show text, hide standalone icon */
     .vc-btn.vc-icon-mobile .vc-label { display: inline; }
     .vc-btn.vc-icon-mobile .vc-icon  { display: none; }
+  }
+
+  /* Mobile landscape: all controls in one row, speed right-aligned */
+  @media (max-width: 767px) and (orientation: landscape) {
+    .video-controls {
+      flex-wrap: nowrap;
+    }
+    .vc-speed-row {
+      width: auto;
+      margin-left: auto;
+    }
   }
 
   .video-progress-bar {
@@ -1129,124 +1142,6 @@
     display: flex;
     gap: 8px;
     align-items: center;
-  }
-
-  .comment-type-selector {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    align-items: center;
-    flex: 1;
-  }
-
-  .comment-type-btn {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    line-height: 1;
-  }
-
-  .comment-type-btn:hover {
-    border-color: var(--lime);
-    background: rgba(200,241,53,0.1);
-  }
-
-  .comment-type-btn.active {
-    border-color: var(--lime);
-    font-weight: 500;
-    transform: scale(1.1);
-  }
-
-  .comment-type-btn[data-type="Comment"].active {
-    background: rgba(126,207,255,0.2);
-    color: var(--sky);
-    border-color: var(--sky);
-  }
-
-  .comment-type-btn[data-type="Question"].active {
-    background: rgba(200,241,53,0.2);
-    color: var(--lime);
-    border-color: var(--lime);
-  }
-
-  .comment-type-btn[data-type="Highlight"].active {
-    background: rgba(138,43,226,0.2);
-    color: #da70d6;
-    border-color: #da70d6;
-  }
-
-  .comment-type-btn[data-type="Event"].active {
-    background: rgba(255,107,43,0.2);
-    color: var(--warm);
-    border-color: var(--warm);
-  }
-
-  .event-options {
-    display: none;
-    gap: 8px;
-    margin-top: 4px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .event-options.show {
-    display: flex;
-  }
-
-  .event-option-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--muted);
-  }
-
-  .event-select {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    cursor: pointer;
-    outline: none;
-  }
-
-  .event-select:focus {
-    border-color: var(--lime);
-  }
-
-  .comment-type-indicator {
-    display: inline-block;
-    padding: 3px 5px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    line-height: 1;
-    margin-right: 6px;
-  }
-
-  .comment-type-indicator.comment-badge {
-    background: rgba(126,207,255,0.2);
-    color: var(--sky);
-  }
-
-  .comment-type-indicator.question-badge {
-    background: rgba(200,241,53,0.2);
-    color: var(--lime);
-  }
-
-  .comment-type-indicator.highlight-badge {
-    background: rgba(138,43,226,0.2);
-    color: #da70d6;
-  }
-
-  .comment-type-indicator.event-badge {
-    background: rgba(255,107,43,0.25);
-    color: var(--warm);
   }
 
   .comment-btn {
@@ -1889,7 +1784,7 @@
     .player-area .player-meta-bar { border-radius: 0; }
     .player-area .player-wrap     { border-radius: 0 !important; }
 
-    /* Speed buttons break onto their own row on mobile */
+    /* Speed buttons break onto their own row on mobile portrait */
     .vc-speed-row {
       display: flex;
       width: 100%;
@@ -2237,22 +2132,6 @@
         <div class="comment-input-wrap" id="commentInputWrap">
           <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
           <div class="comment-controls">
-            <div class="comment-type-selector">
-              <button class="comment-type-btn active" data-type="Comment" onclick="selectCommentType('Comment')" title="Comment">💬</button>
-              <button class="comment-type-btn" data-type="Question" onclick="selectCommentType('Question')" title="Question">❓</button>
-              <button class="comment-type-btn" data-type="Highlight" onclick="selectCommentType('Highlight')" title="Highlight">⭐</button>
-              <button class="comment-type-btn" data-type="Event" onclick="selectCommentType('Event')" title="Event">🎯</button>
-              <div class="event-options" id="eventOptions">
-                <select class="event-select" id="eventType">
-                  <option value="Turnover">Turnover</option>
-                  <option value="Score">Score</option>
-                </select>
-                <select class="event-select" id="eventTeam">
-                  <option value="Tron">Tron</option>
-                  <option value="{{ game.opponent }}">{{ game.opponent }}</option>
-                </select>
-              </div>
-            </div>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
           </div>
         </div>
@@ -3266,38 +3145,6 @@
     }
   }
 
-  // Comment type selection
-  function selectCommentType(type) {
-    selectedCommentType = type;
-    
-    // Update button states
-    document.querySelectorAll('.comment-type-btn').forEach(btn => {
-      if (btn.dataset.type === type) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-    
-    // Show/hide event options
-    const eventOptions = document.getElementById('eventOptions');
-    if (type === 'Event') {
-      eventOptions.classList.add('show');
-    } else {
-      eventOptions.classList.remove('show');
-    }
-    
-    // Update placeholder text
-    const input = document.getElementById('commentInput');
-    const placeholders = {
-      'Comment': 'Add a Comment...',
-      'Question': 'Add a Question...',
-      'Highlight': 'Add a Highlight...',
-      'Event': 'Add an Event...'
-    };
-    input.setAttribute('data-placeholder', placeholders[type] || placeholders['Comment']);
-  }
-
   // Auto-convert the trailing word of a contenteditable to a mention token
   // if it exactly matches a mentionable name.
   function autoTokenizeLastMention(el) {
@@ -3366,8 +3213,7 @@
     autoTokenizeLastMention(input);
     const text = extractContent(input);
     
-    // Events don't require text, but other types do
-    if (!text && selectedCommentType !== 'Event') return;
+    if (!text) return;
     
     const commentBtn = document.querySelector('.comment-btn');
     commentBtn.disabled = true;
@@ -3383,13 +3229,7 @@
       }
     }
     
-    // Build comment content based on type
     let commentContent = text;
-    if (selectedCommentType === 'Event') {
-      const eventType = document.getElementById('eventType').value;
-      const eventTeam = document.getElementById('eventTeam').value;
-      commentContent = text ? `[${eventType} - ${eventTeam}] ${text}` : `[${eventType} - ${eventTeam}]`;
-    }
     
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/comments`, {
@@ -3400,7 +3240,7 @@
         body: JSON.stringify({
           content: commentContent,
           author_name: currentUserName || 'Anonymous',
-          comment_type: selectedCommentType,
+          comment_type: 'Comment',
           timestamp: timestamp
         })
       });
@@ -3545,20 +3385,13 @@
 
     const timestampPrefix = timestampFormatted ? `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : '';
 
-    const typeIcons       = { 'Comment':'💬','Question':'❓','Highlight':'⭐','Event':'🎯' };
-    const typeBadgeClasses= { 'Comment':'comment-badge','Question':'question-badge','Highlight':'highlight-badge','Event':'event-badge' };
-    const typeIcon       = typeIcons[c.comment_type]       || typeIcons['Comment'];
-    const typeBadgeClass = typeBadgeClasses[c.comment_type] || typeBadgeClasses['Comment'];
-    const typeIndicator  = `<span class="comment-type-indicator ${typeBadgeClass}">${typeIcon}</span>`;
-
-    const isEvent      = c.comment_type === 'Event';
     const authorNameHtml = isOwnComment
       ? `<span class="comment-author-self">${escHtml(c.author_name)}</span>`
       : c.is_leadership
-        ? `<span class="comment-author-leadership">${escHtml(c.author_name)}</span>`
+        ? `<span class="comment-author-leadership">★ ${escHtml(c.author_name)}</span>`
         : escHtml(c.author_name);
-    const authorLine   = isEvent ? '' : `<div class="comment-author">${typeIndicator}${authorNameHtml}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
-    const contentPrefix= isEvent ? typeIndicator : '';
+    const authorLine   = `<div class="comment-author">${authorNameHtml}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
+    const contentPrefix= '';
 
     // Footer: Reply button (only when no replies yet) + thread toggle
     const threadToggle = replyCount > 0 ? `
@@ -3812,27 +3645,11 @@
     
     let editCommentType = comment.comment_type || 'Comment';
     
-    // Create edit interface matching the original comment box
+    // Create edit interface
     const editHTML = `
       <div class="comment-edit-wrap">
         <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
         <div class="comment-controls">
-          <div class="comment-type-selector" id="editCommentTypeSelector">
-            <button class="comment-type-btn ${editCommentType === 'Comment' ? 'active' : ''}" data-type="Comment" title="Comment">💬</button>
-            <button class="comment-type-btn ${editCommentType === 'Question' ? 'active' : ''}" data-type="Question" title="Question">❓</button>
-            <button class="comment-type-btn ${editCommentType === 'Highlight' ? 'active' : ''}" data-type="Highlight" title="Highlight">⭐</button>
-            <button class="comment-type-btn ${editCommentType === 'Event' ? 'active' : ''}" data-type="Event" title="Event">🎯</button>
-            <div class="event-options ${editCommentType === 'Event' ? 'show' : ''}" id="editEventOptions">
-              <select class="event-select" id="editEventType">
-                <option value="Turnover">Turnover</option>
-                <option value="Score">Score</option>
-              </select>
-              <select class="event-select" id="editEventTeam">
-                <option value="Tron">Tron</option>
-                <option value="{{ game.opponent }}">{{ game.opponent }}</option>
-              </select>
-            </div>
-          </div>
           <button class="comment-btn" id="editSaveBtn">Save</button>
           <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
         </div>
@@ -3844,8 +3661,6 @@
     const textarea = document.getElementById('editCommentInput');
     const saveBtn = document.getElementById('editSaveBtn');
     const cancelBtn = document.getElementById('editCancelBtn');
-    const typeButtons = commentWrapper.querySelectorAll('.comment-type-btn');
-    const eventOptions = document.getElementById('editEventOptions');
 
     loadContentWithMentions(textarea, currentText);
     bindMentionInput(textarea);
@@ -3857,35 +3672,6 @@
     editSel.removeAllRanges();
     editSel.addRange(editSelRange);
     
-    // Handle type selection
-    typeButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const newType = btn.getAttribute('data-type');
-        editCommentType = newType;
-        
-        // Update button states
-        typeButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        // Show/hide event options
-        if (newType === 'Event') {
-          eventOptions.classList.add('show');
-        } else {
-          eventOptions.classList.remove('show');
-        }
-        
-        // Update placeholder
-        const placeholders = {
-          'Comment': 'Edit your comment...',
-          'Question': 'Edit your question...',
-          'Highlight': 'Edit your highlight...',
-          'Event': 'Add optional note for event...'
-        };
-        textarea.placeholder = placeholders[newType] || placeholders['Comment'];
-      });
-    });
-    
     // Cancel function
     const cancelEdit = () => {
       commentWrapper.innerHTML = originalHTML;
@@ -3894,21 +3680,11 @@
     // Save function
     const saveEdit = async () => {
       let newText = extractContent(textarea);
-      
-      // For non-Event types, content is required
-      if (!newText && editCommentType !== 'Event') {
+      if (!newText) {
         alert('Comment cannot be empty');
         return;
       }
-      
-      // Build comment content based on type
       let commentContent = newText;
-      if (editCommentType === 'Event') {
-        const eventType = document.getElementById('editEventType').value;
-        const eventTeam = document.getElementById('editEventTeam').value;
-        commentContent = newText ? `[${eventType} - ${eventTeam}] ${newText}` : `[${eventType} - ${eventTeam}]`;
-      }
-      
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving...';
       
@@ -3918,7 +3694,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             content: commentContent,
-            comment_type: editCommentType
+            comment_type: 'Comment'
           })
         });
         
