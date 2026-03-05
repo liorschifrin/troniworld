@@ -532,6 +532,36 @@
     .vc-btn.vc-icon-mobile .vc-icon  { display: none; }
   }
 
+  /* Mini mode: revert vc-icon-mobile buttons back to icon-only even on wider
+   * viewports where the 768px rule normally shows their text labels.
+   * Tried before compact to keep the bar on one row without hiding buttons. */
+  .video-controls.row-mini .vc-btn.vc-icon-mobile .vc-label { display: none !important; }
+  .video-controls.row-mini .vc-btn.vc-icon-mobile .vc-icon  { display: inline !important; }
+  .video-controls.row-mini .vc-btn .vc-shortcut              { display: none; }
+
+  /* Compact mode: strip play/pause label + hide fullscreen to reclaim space.
+   * Applied before resorting to a two-row split. */
+  .video-controls.row-compact .vc-btn.vc-always-icon .vc-label { display: none; }
+  .video-controls.row-compact #vcFullscreenBtn               { display: none; }
+
+  /* Predetermined row-break for the controls bar.
+   * Normally invisible; becomes a full-width flex item that pushes everything
+   * after it onto a new row when JS detects the bar would overflow. */
+  .vc-row-break {
+    display: none;
+    flex: 1 0 100%;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+  .video-controls.row-split .vc-row-break {
+    display: block;
+  }
+  /* On the second row the speed group left-aligns (no more push-to-right) */
+  .video-controls.row-split .vc-speed-row {
+    margin-left: 0;
+  }
+
   /* Mobile landscape: all controls in one row, speed right-aligned */
   @media (max-width: 767px) and (orientation: landscape) {
     .video-controls {
@@ -2228,7 +2258,7 @@
         <span class="vc-label">+10s</span>
         <span class="vc-shortcut">(l)</span>
       </button>
-      <button class="vc-btn vc-icon-mobile" onclick="vcFullscreen()" title="Fullscreen">
+      <button class="vc-btn vc-icon-mobile" id="vcFullscreenBtn" onclick="vcFullscreen()" title="Fullscreen">
         <span class="vc-icon">⛶</span>
         <span class="vc-label">⛶ Fullscreen</span>
         <span class="vc-shortcut">(f)</span>
@@ -2237,6 +2267,7 @@
         <span class="vc-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.5"/></svg></span>
         <span class="vc-label">Theater</span>
       </button>
+      <div class="vc-row-break" aria-hidden="true"></div>
       <div class="vc-speed-row" id="vcSpeedRow">
         <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
           <span class="vc-label">0.5×</span>
@@ -4677,6 +4708,45 @@
       });
     }
   });
+
+  // Auto-detect when the controls bar would overflow one row and apply a
+  // predetermined split (action buttons | speed buttons) instead of letting
+  // flex-wrap choose an arbitrary break point.
+  (function() {
+    const bar = document.getElementById('videoControls');
+    if (!bar) return;
+    function checkControlsWrap() {
+      // Start from a clean slate
+      bar.classList.remove('row-mini', 'row-compact', 'row-split');
+      bar.style.flexWrap = 'nowrap';
+
+      if (bar.scrollWidth <= bar.clientWidth) {
+        // Tier 1: natural — full labels, everything visible
+        bar.style.flexWrap = '';
+        return;
+      }
+
+      // Tier 2: mini — vc-icon-mobile buttons go icon-only (overrides 768px rule)
+      bar.classList.add('row-mini');
+      if (bar.scrollWidth <= bar.clientWidth) {
+        bar.style.flexWrap = '';
+        return;
+      }
+
+      // Tier 3: compact — also strip play/pause label and hide fullscreen
+      bar.classList.add('row-compact');
+      if (bar.scrollWidth <= bar.clientWidth) {
+        bar.style.flexWrap = '';
+        return;
+      }
+
+      // Tier 4: split — keep compact + break onto two rows
+      bar.classList.add('row-split');
+      bar.style.flexWrap = '';
+    }
+    checkControlsWrap();
+    new ResizeObserver(checkControlsWrap).observe(bar);
+  })();
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
