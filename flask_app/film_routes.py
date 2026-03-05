@@ -1503,10 +1503,10 @@ def analytics_dashboard():
     # Get all users
     users = User.query.all()
 
-    # Pre-compute leadership/admin usernames so we can attribute notifications
+    # Pre-compute leadership usernames (excludes admin-only users)
     leadership_usernames = set(
         u.username for u in User.query.filter(
-            db.or_(User.is_leadership == True, User.is_admin == True)
+            User.is_leadership == True
         ).all()
     )
 
