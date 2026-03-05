@@ -83,6 +83,10 @@
 
   .film-nav__logout {
     text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .film-nav__link {
@@ -270,7 +274,7 @@
 
   @media (max-width: 900px) {
     .film-nav__wrapper {
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       padding: 0 12px;
     }
 
@@ -295,7 +299,12 @@
       display: none;
     }
 
+    /* On mobile: keep the logout-area visible so the bell shows, but hide only the logout link text */
     .film-nav__logout {
+      display: flex !important;
+    }
+
+    .film-nav__logout .film-nav__logout-link {
       display: none;
     }
 
@@ -352,6 +361,250 @@
     color: #ffd666;
   }
 
+  /* Notification Bell */
+  .notif-bell-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-right: 12px;
+  }
+
+  .notif-bell-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    position: relative;
+    transition: color 0.2s ease, background 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .notif-bell-btn:hover {
+    color: var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+  }
+
+  .notif-bell-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--warm);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    line-height: 1;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .notif-bell-badge[data-count="0"] {
+    opacity: 0;
+  }
+
+  /* Notification dropdown */
+  .notif-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: -8px;
+    width: 340px;
+    max-height: 480px;
+    background: var(--grass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .notif-dropdown.open {
+    display: flex;
+  }
+
+  .notif-dropdown__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .notif-dropdown__title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--lime);
+  }
+
+  .notif-mark-all-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+  }
+
+  .notif-mark-all-btn:hover {
+    color: var(--lime);
+    border-color: var(--lime);
+  }
+
+  .notif-dropdown__list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .notif-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .notif-item:last-child {
+    border-bottom: none;
+  }
+
+  .notif-item:hover {
+    background: rgba(200, 241, 53, 0.06);
+  }
+
+  .notif-item.unread {
+    background: rgba(200, 241, 53, 0.04);
+    border-left: 3px solid var(--lime);
+    padding-left: 13px;
+  }
+
+  .notif-item.unread:hover {
+    background: rgba(200, 241, 53, 0.09);
+  }
+
+  .notif-item__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .notif-item__author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .notif-item__type-badge {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+
+  .notif-item__type-badge.mention  { background: rgba(74,158,219,0.25); color: #4A9EDB; }
+  .notif-item__type-badge.private  { background: rgba(196,90,179,0.25); color: #C45AB3; }
+  .notif-item__type-badge.everyone { background: rgba(255,107,43,0.25);  color: var(--warm); }
+
+  .notif-item__game {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .notif-item__snippet {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.8;
+    line-height: 1.4;
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .notif-item__footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .notif-item__time {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+  }
+
+  .notif-item__vts {
+    font-size: 10px;
+    color: var(--sky);
+    font-family: 'DM Mono', monospace;
+    background: rgba(126,207,255,0.08);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+
+  .notif-mention {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+
+  .notif-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  @media (max-width: 900px) {
+    .notif-bell-wrap { margin-right: 6px; }
+    .notif-dropdown {
+      width: calc(100vw - 16px);
+      right: -4px;
+    }
+  }
+
   {% block extra_style %}{% endblock %}
 </style>
 {% block extra_head %}{% endblock %}
@@ -378,6 +631,22 @@
     </div>
     <div class="film-nav__logout">
       {% if current_user %}
+        <!-- Notification Bell -->
+        <div class="notif-bell-wrap" id="notifBellWrap">
+          <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifDropdown(event)" title="Notifications" aria-label="Notifications">
+            🔔
+            <span class="notif-bell-badge" id="notifBellBadge" data-count="0">0</span>
+          </button>
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-dropdown__header">
+              <span class="notif-dropdown__title">Notifications</span>
+              <!-- <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button> -->
+            </div>
+            <div class="notif-dropdown__list" id="notifList">
+              <div class="notif-empty">Loading…</div>
+            </div>
+          </div>
+        </div>
         <a href="{{ url_for('logout') }}" class="film-nav__logout-link">Logout</a>
       {% endif %}
     </div>
@@ -451,6 +720,149 @@
       toggleMobileMenu();
     });
   });
+
+  // ========================
+  // NOTIFICATION BELL
+  // ========================
+  let _notifData = [];
+
+  async function fetchNotifications() {
+    try {
+      const res = await fetch('/film/api/notifications');
+      if (!res.ok) return;
+      const data = await res.json();
+      _notifData = data.notifications || [];
+      const count = data.unread_count || 0;
+      const badge = document.getElementById('notifBellBadge');
+      if (badge) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.dataset.count = count;
+      }
+      _renderNotifList();
+    } catch (e) { /* silent */ }
+  }
+
+  function _renderNotifList() {
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    if (!_notifData.length) {
+      list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+      return;
+    }
+    list.innerHTML = _notifData.map(n => {
+      const unreadClass = n.is_read ? '' : ' unread';
+      const typeLabel = n.notification_type === 'everyone' ? '@Everyone' :
+                        n.notification_type === 'mention'  ? '@mention' : '🔒 private';
+      const snippet   = _renderMentionSnippet(n.content_snippet);
+      const gameHref  = `/film/games/${n.game_id}?comment=${n.comment_id}`;
+      const timeStr   = _relativeTime(n.created_at_iso);
+      const tsHtml    = n.comment_timestamp != null
+        ? `<span class="notif-item__vts">⏱ ${_formatVideoTs(n.comment_timestamp)}</span>` : '';
+      return `
+        <div class="notif-item${unreadClass}" data-id="${n.id}" data-href="${gameHref}" onclick="handleNotifClick(this)">
+          <div class="notif-item__meta">
+            <span class="notif-item__author">${_escHtml(n.author_name)}</span>
+            <span class="notif-item__type-badge ${n.notification_type}">${typeLabel}</span>
+            <span class="notif-item__game" title="${_escHtml(n.game_title)}">${_escHtml(n.game_title)}</span>
+          </div>
+          <div class="notif-item__snippet">${snippet}</div>
+          <div class="notif-item__footer">${tsHtml}<span class="notif-item__time">${timeStr}</span></div>
+        </div>`;
+    }).join('');
+  }
+
+  function _renderMentionSnippet(raw) {
+    if (!raw) return '';
+    return raw.split(/(@\[[^\]]+\])/g).map(part => {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) return `<span class="notif-mention">@${_escHtml(m[1])}</span>`;
+      return _escHtml(part);
+    }).join('');
+  }
+
+  function _relativeTime(isoStr) {
+    if (!isoStr) return '';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    if (isNaN(diff) || diff < 0) return '';
+    const s = Math.floor(diff / 1000);
+    if (s < 60)  return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60)  return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24)  return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7)   return `${d}d ago`;
+    const wk = Math.floor(d / 7);
+    if (wk < 5)  return `${wk}w ago`;
+    const mo = Math.floor(d / 30);
+    if (mo < 12) return `${mo}mo ago`;
+    return `${Math.floor(mo / 12)}y ago`;
+  }
+
+  function _formatVideoTs(seconds) {
+    const s = Math.floor(seconds);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  async function handleNotifClick(el) {
+    const id = el.dataset.id;
+    const href = el.dataset.href;
+    // Mark as read in backend
+    try {
+      await fetch(`/film/api/notifications/${id}/read`, { method: 'POST' });
+    } catch(e) { /* silent */ }
+    // Update local state
+    const notif = _notifData.find(n => String(n.id) === String(id));
+    if (notif) notif.is_read = true;
+    el.classList.remove('unread');
+    const stillUnread = _notifData.filter(n => !n.is_read).length;
+    const badge = document.getElementById('notifBellBadge');
+    if (badge) {
+      badge.textContent = stillUnread > 99 ? '99+' : String(stillUnread);
+      badge.dataset.count = stillUnread;
+    }
+    // Navigate
+    window.location.href = href;
+  }
+
+  async function markAllNotificationsRead() {
+    try {
+      await fetch('/film/api/notifications/read-all', { method: 'POST' });
+    } catch(e) { /* silent */ }
+    _notifData.forEach(n => n.is_read = true);
+    const badge = document.getElementById('notifBellBadge');
+    if (badge) { badge.textContent = '0'; badge.dataset.count = 0; }
+    _renderNotifList();
+  }
+
+  function toggleNotifDropdown(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('notifDropdown');
+    if (!dd) return;
+    const isOpen = dd.classList.toggle('open');
+    if (isOpen) fetchNotifications();
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('notifBellWrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const dd = document.getElementById('notifDropdown');
+      if (dd) dd.classList.remove('open');
+    }
+  });
+
+  function _escHtml(str) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(str || ''));
+    return d.innerHTML;
+  }
+
+  // Initial fetch + poll every 60 s
+  {% if current_user %}
+  fetchNotifications();
+  setInterval(fetchNotifications, 60000);
+  {% endif %}
 </script>
 
 {% block extra_scripts %}{% endblock %}

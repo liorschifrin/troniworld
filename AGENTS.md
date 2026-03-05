@@ -34,3 +34,16 @@ Primary file: `flask_app/templates/game_player.html` (~4200 lines). Ignore the R
 - Helper JS: `togglePrivacy()`, `renderPrivateChips()`, `addPrivateUser()`, `removePrivateUser()` (and `Edit` variants for the edit form).
 - Rendered private comments/replies show a 🔒 badge next to the author name. If you're the author, a "visible to: you, alice, bob" line appears below the comment text (`.comment-private-recipients`).
 - Edit form includes the same lock toggle + chips, pre-populated from existing `private_to` data.
+
+### Notifications
+- `CommentNotification` DB model (`comment_notifications` table). Fields: `recipient_username`, `comment_id` (FK → comments), `game_id` (FK → games), `notification_type` ('mention' | 'private' | 'everyone'), `is_read` (bool), `created_at`, `read_at` (nullable — analytics timestamp).
+- `_create_notifications_for_comment(comment, game_id, author_username, author_is_leadership)` in `film_routes.py` — called in `create_comment` after `db.session.flush()`. Parses `@mentions` and `private_to` list; creates rows for each recipient.
+- `@everyone` mention: only allowed for leadership users. Notifies **all `is_film_user=True` users** except the author. Reflected in the mention autocomplete dropdown (visually distinct with 📢 icon + orange styling via `.mention-dropdown-item-everyone`).
+- API endpoints in `film_routes.py`:
+  - `GET /film/api/notifications` → `{notifications: [...], unread_count: N}` (last 50, newest first).
+  - `POST /film/api/notifications/<id>/read` → marks one notification read, records `read_at`.
+  - `POST /film/api/notifications/read-all` → bulk-marks all unread for current user.
+- Nav bell: lives in `.film-nav__logout` in `film_base.html`. Bell 🔔 button with orange `.notif-bell-badge` (hides when count=0). Clicking opens `.notif-dropdown` which fetches/renders notifications. Auto-polls every 60 s (`fetchNotifications()`).
+- Clicking a notification calls `handleNotifClick(el)` → marks read via API → navigates to `/film/games/<game_id>?comment=<comment_id>`.
+- `scrollToCommentById(id)` in `game_player.html` — called after `loadComments()` resolves if `?comment=` URL param is present. Adds `.notif-highlight` CSS flash animation and calls `scrollCommentIntoView`.
+- Mobile: `.film-nav__wrapper` uses `1fr auto auto` grid columns on ≤900px so bell stays visible between username and hamburger; only the logout link text is hidden.

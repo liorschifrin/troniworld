@@ -1850,12 +1850,23 @@
     background: rgba(255,107,43,0.12);
     border: 1px solid rgba(255,107,43,0.3);
   }
+  .mention-tag-everyone {
+    color: var(--warm);
+    background: rgba(255,107,43,0.18);
+    border: 1px solid rgba(255,107,43,0.4);
+  }
+  .mention-tag-everyone::before { content: '📢 '; font-style: normal; }
 
-  /* enemy token inside the input */
+  /* enemy/everyone token inside the input */
   .mention-token-enemy {
     background: rgba(255,107,43,0.15);
     color: var(--warm);
     border-color: rgba(255,107,43,0.4);
+  }
+  .mention-token-everyone {
+    background: rgba(255,107,43,0.18);
+    color: var(--warm);
+    border-color: rgba(255,107,43,0.5);
   }
 
   /* enemy avatar in dropdown */
@@ -1865,6 +1876,17 @@
   }
   .mention-dropdown-item-enemy:hover,
   .mention-dropdown-item-enemy.selected {
+    background: rgba(255,107,43,0.12);
+    color: var(--warm);
+  }
+
+  /* @everyone avatar in dropdown (leadership only) */
+  .mention-dropdown-avatar-everyone {
+    background: rgba(255,107,43,0.15);
+    font-size: 14px;
+  }
+  .mention-dropdown-item-everyone:hover,
+  .mention-dropdown-item-everyone.selected {
     background: rgba(255,107,43,0.12);
     color: var(--warm);
   }
@@ -1954,6 +1976,17 @@
       padding: 2px 0;
       color: var(--muted);
     }
+  }
+
+  /* Notification: highlight a comment scrolled-to from the bell */
+  @keyframes notif-flash {
+    0%, 100% { background: transparent; }
+    25%, 75%  { background: rgba(200, 241, 53, 0.15); }
+  }
+  .notif-highlight {
+    animation: notif-flash 1.6s ease 3;
+    border-radius: 6px;
+    scroll-margin-top: 16px;
   }
 {% endblock %}
 
@@ -2286,7 +2319,11 @@
   let activeEditReplyId  = null;        // reply ID currently being edited
   const allUsers = {{ users | tojson }};
   const opponentName = {{ game.opponent | tojson }};
-  const allMentionables = [...allUsers, opponentName];
+  const allMentionables = [
+    ...allUsers,
+    opponentName,
+    ...(isCurrentUserLeadership ? ['Everyone'] : []),
+  ];
 
   // ========================
   // MENTION ENGINE
@@ -2321,9 +2358,12 @@
   }
 
   function makeMentionTokenEl(username) {
-    const isEnemy = username === opponentName;
+    const isEnemy    = username === opponentName;
+    const isEveryone = username === 'Everyone';
     const span = document.createElement('span');
-    span.className = 'mention-token' + (isEnemy ? ' mention-token-enemy' : '');
+    span.className = 'mention-token' +
+      (isEnemy    ? ' mention-token-enemy'    : '') +
+      (isEveryone ? ' mention-token-everyone' : '');
     span.contentEditable = 'false';
     span.dataset.username = username;
     span.appendChild(document.createTextNode(username));
@@ -2356,10 +2396,12 @@
       const m = part.match(/^@\[(.+)\]$/);
       if (m) {
         const username = m[1];
-        const isSelf  = username === currentUserName;
-        const isEnemy = username === opponentName;
-        const cls = isSelf ? 'mention-tag mention-tag-self'
-                  : isEnemy ? 'mention-tag mention-tag-enemy'
+        const isSelf     = username === currentUserName;
+        const isEnemy    = username === opponentName;
+        const isEveryone = username === 'Everyone';
+        const cls = isSelf     ? 'mention-tag mention-tag-self'
+                  : isEnemy    ? 'mention-tag mention-tag-enemy'
+                  : isEveryone ? 'mention-tag mention-tag-everyone'
                   : 'mention-tag';
         return `<span class="${cls}">${escHtml(username)}</span>`;
       }
@@ -2483,11 +2525,20 @@
       mentionDropdownEl.innerHTML = `<div class="mention-dropdown-empty">No users found</div>`;
     } else {
       mentionDropdownEl.innerHTML = users.map((u, i) => {
-        const isEnemy   = u === opponentName;
-        const itemCls   = 'mention-dropdown-item' + (isEnemy ? ' mention-dropdown-item-enemy' : '') + (i === mentionState.selectedIndex ? ' selected' : '');
-        const avatarCls = 'mention-dropdown-avatar' + (isEnemy ? ' mention-dropdown-avatar-enemy' : '');
-        const label     = isEnemy ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` : escHtml(u);
-        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${escHtml(u[0].toUpperCase())}</div>${label}</div>`;
+        const isEnemy    = u === opponentName;
+        const isEveryone = u === 'Everyone';
+        const itemCls   = 'mention-dropdown-item' +
+          (isEnemy    ? ' mention-dropdown-item-enemy'    : '') +
+          (isEveryone ? ' mention-dropdown-item-everyone' : '') +
+          (i === mentionState.selectedIndex ? ' selected' : '');
+        const avatarCls = 'mention-dropdown-avatar' +
+          (isEnemy    ? ' mention-dropdown-avatar-enemy'    : '') +
+          (isEveryone ? ' mention-dropdown-avatar-everyone' : '');
+        const avatarChar = isEveryone ? '📢' : escHtml(u[0].toUpperCase());
+        const label  = isEnemy    ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` :
+                       isEveryone ? `Everyone <span style="font-size:0.65rem;opacity:0.7;">notify all members</span>` :
+                       escHtml(u);
+        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
       }).join('');
     }
     let anchorRect = null;
@@ -2559,8 +2610,36 @@
   }
 
   function handleMentionKeydown(e) {
-    if (!mentionState.active || mentionState.inputEl !== e.currentTarget) return;
-    const users = mentionState.filteredUsers;
+    const inputEl = e.currentTarget;
+    const users   = mentionState.filteredUsers;
+
+    if (e.key === 'Enter') {
+      // Case 1: dropdown is open with suggestions — select the highlighted one
+      if (mentionState.active && mentionState.inputEl === inputEl && users.length > 0) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        selectMention(users[mentionState.selectedIndex]);
+        return;
+      }
+      // Case 2: dropdown not open — check for a bare @word at the caret and auto-tokenise.
+      // We do NOT call stopImmediatePropagation so the submit listener still fires,
+      // meaning the comment posts with the now-tokenised mention in one keystroke.
+      const q = getMentionQuery(inputEl);
+      if (q && q.query) {
+        const match = allMentionables.find(u => u !== 'Everyone' && u.toLowerCase() === q.query.toLowerCase());
+        if (match) {
+          e.preventDefault(); // prevent newline; submit listener still fires
+          mentionState.inputEl    = inputEl;
+          mentionState.node       = q.node;
+          mentionState.atOffset   = q.atOffset;
+          mentionState.caretOffset = q.caretOffset;
+          selectMention(match);
+          return;
+        }
+      }
+      return;
+    }
+
+    if (!mentionState.active || mentionState.inputEl !== inputEl) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault(); e.stopImmediatePropagation();
       mentionState.selectedIndex = Math.min(mentionState.selectedIndex + 1, users.length - 1);
@@ -2569,9 +2648,6 @@
       e.preventDefault(); e.stopImmediatePropagation();
       mentionState.selectedIndex = Math.max(mentionState.selectedIndex - 1, 0);
       renderMentionDropdown(mentionState.inputEl);
-    } else if (e.key === 'Enter' && users.length > 0) {
-      e.preventDefault(); e.stopImmediatePropagation();
-      selectMention(users[mentionState.selectedIndex]);
     } else if (e.key === 'Escape') {
       e.preventDefault(); e.stopImmediatePropagation();
       hideMentionDropdown();
@@ -2599,17 +2675,21 @@
     const wordMatch = beforeCursor.match(/([A-Za-z][A-Za-z0-9_-]{1,})$/);
     if (!wordMatch) return;
     const word      = wordMatch[1];
+    const wordStart  = beforeCursor.length - word.length;
+    const hasAtPrefix = wordStart > 0 && beforeCursor[wordStart - 1] === '@';
     const exactUser = allMentionables.find(u => u === word);
     const caseUser  = !exactUser && allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
     const resolvedUser = exactUser || caseUser;
     if (!resolvedUser) return;
-    const wordStart  = beforeCursor.length - word.length;
+    // 'Everyone' requires an explicit @ prefix to auto-tokenise
+    if (resolvedUser === 'Everyone' && !hasAtPrefix) return;
+    // Consume the @ as well if present, otherwise just keep text before word
+    const beforeAt   = hasAtPrefix ? beforeCursor.slice(0, wordStart - 1) : beforeCursor.slice(0, wordStart);
     const after      = text.slice(wordStart + word.length); // includes the boundary char
-    const before     = text.slice(0, wordStart);
     const parent = node.parentNode;
     const ref    = node.nextSibling;
     parent.removeChild(node);
-    if (before) parent.insertBefore(document.createTextNode(before), ref);
+    if (beforeAt) parent.insertBefore(document.createTextNode(beforeAt), ref);
     parent.insertBefore(makeMentionTokenEl(resolvedUser), ref);
     const afterNode = document.createTextNode(after);
     parent.insertBefore(afterNode, ref);
@@ -3410,6 +3490,8 @@
     const matchedUser = allMentionables.find(u => u === word) ||
                         allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
     if (!matchedUser) return;
+    // 'Everyone' can only be added as a mention via the explicit @Everyone dropdown – never auto-tokenised on submit
+    if (matchedUser === 'Everyone') return;
 
     // Replace the trailing word with a token chip
     const wordStart = text.lastIndexOf(word);
@@ -4136,7 +4218,10 @@
     const cancelBtn = document.getElementById('editCancelBtn');
 
     // Initialize edit privacy state from existing comment
-    editIsPrivate = !!(comment.private_to && comment.private_to.length > 0);
+    // private_to === null  → public
+    // private_to === []    → private, visible to author only
+    // private_to === [..] → private, visible to listed users
+    editIsPrivate = comment.private_to !== null && comment.private_to !== undefined;
     editPrivateToUsers = comment.private_to ? [...comment.private_to] : [];
     if (editIsPrivate) {
       const epBtn = document.getElementById('editPrivacyToggleBtn');
@@ -4470,7 +4555,23 @@
   }
 
   // Load comments when page loads
-  loadComments();
+  loadComments().then(() => {
+    // If navigated here from a notification, scroll to the target comment
+    const _urlParams = new URLSearchParams(window.location.search);
+    const _targetCommentId = _urlParams.get('comment');
+    if (_targetCommentId) {
+      scrollToCommentById(parseInt(_targetCommentId, 10));
+    }
+  });
+
+  function scrollToCommentById(commentId) {
+    const el = document.querySelector(`[data-comment-id="${commentId}"]`);
+    if (!el) return;
+    el.classList.add('notif-highlight');
+    scrollCommentIntoView(el, { smooth: true, toTop: true });
+    // Remove the highlight class after flashing so it can retrigger if needed
+    el.addEventListener('animationend', () => el.classList.remove('notif-highlight'), { once: true });
+  }
 
   // Player sheet column hover effect
   document.addEventListener('DOMContentLoaded', () => {
