@@ -6,7 +6,14 @@ If you change of the below information, or add significantly to the page, update
 
 ## Active work: game_player.html
 
-Primary file: `flask_app/templates/game_player.html` (~4200 lines). Ignore the React rewrite — all work stays in this file.
+Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4200 lines). Ignore the React rewrite — all work stays in this file.
+
+## Template layout (as of reorganization)
+- `flask_app/templates/articles/` — articles section: base.html, index.html, post.html, new_post.html, edit_post.html, login_articles.html, register.html, editor.html
+- `flask_app/templates/film_room/film_base.html` — film room base template
+- `flask_app/templates/film_room/pages/` — user-facing film room pages: games_list, game_player, my_games, tron_data, analytics_dashboard, film_room_app, login
+- `flask_app/templates/film_room/forms/` — film room DB edit forms: new_game, edit_game, new_tournament, upload_game_csv, manage_users
+- `flask_app/templates/unused/` — templates with no active routes: film_login, film_setup, manage_film_users, player
 
 ### Video player
 - Uses YouTube IFrame API. Key globals: `player` (YT.Player instance), `playerReady` (bool).
