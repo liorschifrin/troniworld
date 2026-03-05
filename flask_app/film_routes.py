@@ -1747,10 +1747,10 @@ def user_comment_list(username):
 @app.route('/film/api/user/<username>/leadership-tags')
 @admin_required
 def user_leadership_tags(username):
-    """Return all notifications received by a user that were triggered by leadership/admin comments."""
+    """Return all notifications received by a user that were triggered by leadership comments (excludes admin-only)."""
     leadership_usernames = set(
         u.username for u in User.query.filter(
-            db.or_(User.is_leadership == True, User.is_admin == True)
+            User.is_leadership == True
         ).all()
     )
     rows = (
