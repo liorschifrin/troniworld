@@ -2668,7 +2668,7 @@
   }
 
   function handleMentionKeyup(e) {
-    if (e.key === ' ' || /^[.,!?;]$/.test(e.key)) {
+    if (e.key === ' ' || /^[.,!?;()]$/.test(e.key)) {
       checkWordAtCaret(e.currentTarget);
     }
   }
