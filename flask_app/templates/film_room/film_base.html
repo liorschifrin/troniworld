@@ -984,13 +984,27 @@
   async function handleNotifClick(el) {
     const id = el.dataset.id;
     const href = el.dataset.href;
-    // Mark as read in backend
-    try {
-      await fetch(`/film/api/notifications/${id}/read`, { method: 'POST' });
-    } catch(e) { /* silent */ }
-    // Update local state
-    const notif = _notifData.find(n => String(n.id) === String(id));
-    if (notif) notif.is_read = true;
+
+    // For reply/thread notifications, collect all sibling notifs in the same thread
+    const clicked = _notifData.find(n => String(n.id) === String(id));
+    let toMarkRead = [clicked].filter(Boolean);
+    if (clicked && REPLY_TYPES.has(clicked.notification_type)) {
+      // Thread root = parent_id of the clicked comment, or the comment itself if it's the root
+      const threadRoot = clicked.comment_parent_id ?? clicked.comment_id;
+      toMarkRead = _notifData.filter(n =>
+        REPLY_TYPES.has(n.notification_type) && !n.is_read &&
+        ((n.comment_parent_id ?? n.comment_id) === threadRoot)
+      );
+      if (!toMarkRead.includes(clicked)) toMarkRead.push(clicked);
+    }
+
+    // Mark as read in backend (fire-and-forget in parallel)
+    toMarkRead.forEach(n => {
+      fetch(`/film/api/notifications/${n.id}/read`, { method: 'POST' }).catch(() => {});
+      n.is_read = true;
+    });
+
+    // Update local state & badges
     el.classList.remove('unread');
     const stillUnread = _notifData.filter(n => !n.is_read).length;
     const badge = document.getElementById('notifBellBadge');
@@ -998,6 +1012,7 @@
       badge.textContent = stillUnread > 99 ? '99+' : String(stillUnread);
       badge.dataset.count = stillUnread;
     }
+    _renderNotifList();
     // Navigate
     window.location.href = href;
   }

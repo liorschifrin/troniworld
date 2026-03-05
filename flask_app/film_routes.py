@@ -1624,6 +1624,7 @@ def get_notifications():
             'author_name': n.comment.author_name if n.comment else '',
             'content_snippet': snippet,
             'comment_timestamp': n.comment.timestamp if n.comment else None,
+            'comment_parent_id': n.comment.parent_id if n.comment else None,
         })
 
     unread_count = sum(1 for r in result if not r['is_read'])
