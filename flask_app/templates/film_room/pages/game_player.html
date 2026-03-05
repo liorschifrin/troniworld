@@ -229,6 +229,17 @@
     font-weight: 600;
   }
 
+  /* Current user's own player row */
+  .player-sheet-table tr.ps-my-row td,
+  .ps-pinned-table td.ps-my-name {
+    background: rgba(196, 90, 179, 0.08) !important;
+  }
+  .player-sheet-table .ps-my-name,
+  .ps-pinned-table .ps-my-name {
+    color: #C45AB3 !important;
+    font-weight: 700;
+  }
+
   .player-sheet-table td.clickable,
   .player-sheet-table th.clickable {
     cursor: pointer;
@@ -2162,8 +2173,8 @@
           
           <!-- Player Rows -->
           {% for player_name in player_sheet_data['players'] %}
-          <tr>
-            <td class="player-name">{{ player_name }}</td>
+          <tr{% if current_user and current_user.player and player_name == current_user.player.name %} class="ps-my-row"{% endif %}>
+            <td class="player-name{% if current_user and current_user.player and player_name == current_user.player.name %} ps-my-name{% endif %}">{{ player_name }}</td>
             {% set ns = namespace(player_count=0) %}
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
@@ -2843,6 +2854,12 @@
       icon.classList.add('open');
       // Build the frozen first column on first open
       requestAnimationFrame(buildStickyCol);
+      // Re-sync active column in case a point was already active while sheet was closed
+      const _activePointItem = document.querySelector('.point-item.active');
+      if (_activePointItem) {
+        const _idx = parseInt(_activePointItem.getAttribute('data-point-index'));
+        requestAnimationFrame(() => updatePlayerSheetActiveColumn(_idx));
+      }
     }
   }
 
@@ -3221,7 +3238,7 @@
   }
 
   function updatePlayerSheetActiveColumn(pointIndex) {
-    const table = document.querySelector('.player-sheet-table');
+    const table = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
     if (!table) return;
     table.querySelectorAll('.column-active').forEach(el => el.classList.remove('column-active'));
     if (pointIndex == null) return;
