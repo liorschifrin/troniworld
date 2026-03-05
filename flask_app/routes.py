@@ -141,7 +141,8 @@ def login():
         return redirect(url_for('index'))
 
     template = _login_template(next_url)
-    return render_template(template, next=next_url)
+    all_usernames = [u.username for u in User.query.order_by(User.username).all()]
+    return render_template(template, next=next_url, all_usernames=all_usernames)
 
 
 @app.route('/post/<int:post_id>', methods=['GET'])

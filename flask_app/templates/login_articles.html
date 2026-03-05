@@ -122,6 +122,50 @@
     border-radius: 4px;
     margin-bottom: 16px;
   }
+  .al-username-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .al-ud-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .al-ud-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.85rem;
+    color: #111;
+    transition: background 0.1s;
+  }
+  .al-ud-item:hover, .al-ud-item.active {
+    background: #fff5f5;
+    color: #c8322a;
+  }
+  .al-ud-no-results {
+    padding: 8px 12px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.8rem;
+    color: #888;
+  }
+  .al-ud-no-results a {
+    color: #c8322a;
+    text-decoration: none;
+  }
+  .al-ud-no-results a:hover {
+    text-decoration: underline;
+  }
   @media (max-width: 480px) {
     .al-card { padding: 28px 20px 24px; }
     .al-title { font-size: 1.3rem; }
@@ -154,9 +198,12 @@
       {% endif %}
       <div class="al-group">
         <label class="al-label" for="username">Username</label>
-        <input type="text" id="username" name="username"
-               class="al-input" placeholder="Your username"
-               required autofocus autocomplete="username">
+        <div class="al-username-wrap">
+          <input type="text" id="username" name="username"
+                 class="al-input" placeholder="Your username"
+                 required autofocus autocomplete="off">
+          <div id="alUdDropdown" class="al-ud-dropdown"></div>
+        </div>
       </div>
       <div class="al-group">
         <label class="al-label" for="password">Password</label>
@@ -168,4 +215,72 @@
     </form>
   </div>
 </div>
+
+<script>
+(function() {
+  const allUsers = {{ all_usernames | tojson }};
+  const input    = document.getElementById('username');
+  const drop     = document.getElementById('alUdDropdown');
+  let activeIdx  = -1;
+
+  function showDrop(items) {
+    activeIdx = -1;
+    if (!items) {
+      drop.style.display = 'none';
+      return;
+    }
+    if (items.length === 0) {
+      drop.innerHTML = '<div class="al-ud-no-results">No match &mdash; message <a href="slack://open?team=T090FKX89E1" onclick="var t=setTimeout(function(){window.location=\'https://tron2025-2026.slack.com\';},600);window.addEventListener(\'blur\',function(){clearTimeout(t);},{once:true});">Trek on Slack</a> to get access</div>';
+    } else {
+      drop.innerHTML = items.map((u, i) =>
+        `<div class="al-ud-item" data-idx="${i}" data-user="${u}" onmousedown="event.preventDefault();alUdSelect('${u}')" ontouchend="event.preventDefault();alUdSelect('${u}')">${u}</div>`
+      ).join('');
+      activeIdx = 0;
+      drop.querySelector('.al-ud-item').classList.add('active');
+    }
+    drop.style.display = 'block';
+  }
+
+  window.alUdSelect = function(name) {
+    input.value = name;
+    drop.style.display = 'none';
+  };
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    if (!q) { drop.style.display = 'none'; return; }
+    const matches = allUsers.filter(u => u.toLowerCase().startsWith(q));
+    if (!matches.length) {
+      const fuzzy = allUsers.filter(u => u.toLowerCase().includes(q));
+      showDrop(fuzzy);
+    } else {
+      showDrop(matches);
+    }
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = drop.querySelectorAll('.al-ud-item');
+    if (!items.length || drop.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+    } else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault();
+      alUdSelect(items[activeIdx].dataset.user);
+      return;
+    } else if (e.key === 'Escape') {
+      drop.style.display = 'none'; return;
+    } else { return; }
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    items[activeIdx] && items[activeIdx].scrollIntoView({ block: 'nearest' });
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(() => { drop.style.display = 'none'; }, 200);
+  });
+})();
+</script>
 {% endblock %}
