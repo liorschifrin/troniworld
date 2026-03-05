@@ -535,6 +535,110 @@
   .notif-item__type-badge.mention  { background: rgba(74,158,219,0.25); color: #4A9EDB; }
   .notif-item__type-badge.private  { background: rgba(196,90,179,0.25); color: #C45AB3; }
   .notif-item__type-badge.everyone { background: rgba(255,107,43,0.25);  color: var(--warm); }
+  .notif-item__type-badge.reply    { background: rgba(200,241,53,0.18);  color: var(--lime); }
+  .notif-item__type-badge.thread   { background: rgba(200,241,53,0.08);  color: var(--muted); }
+
+  /* Notification tabs */
+  .notif-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .notif-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .notif-tab-btn:hover { color: var(--text); }
+  .notif-tab-btn.active { color: var(--lime); border-bottom-color: var(--lime); }
+  .notif-tab-unread {
+    background: var(--warm);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .notif-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .notif-panel.active { display: flex; }
+  .notif-item__type-badge.reply    { background: rgba(200,241,53,0.18);  color: var(--lime); }
+  .notif-item__type-badge.thread   { background: rgba(200,241,53,0.08);  color: var(--muted); }
+
+  /* Notification tabs */
+  .notif-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .notif-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .notif-tab-btn:hover { color: var(--text); }
+  .notif-tab-btn.active { color: var(--lime); border-bottom-color: var(--lime); }
+  .notif-tab-unread {
+    background: var(--warm);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .notif-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .notif-panel.active { display: flex; }
 
   .notif-item__game {
     font-size: 11px;
@@ -765,6 +869,8 @@
   // NOTIFICATION BELL
   // ========================
   let _notifData = [];
+  let _activeNotifTab = 'main';
+  const REPLY_TYPES = new Set(['reply', 'thread']);
 
   async function fetchNotifications() {
     try {
@@ -783,16 +889,39 @@
   }
 
   function _renderNotifList() {
-    const list = document.getElementById('notifList');
+    const mainItems    = _notifData.filter(n => !REPLY_TYPES.has(n.notification_type));
+    const repliesItems = _notifData.filter(n =>  REPLY_TYPES.has(n.notification_type));
+
+    const mainUnread    = mainItems.filter(n => !n.is_read).length;
+    const repliesUnread = repliesItems.filter(n => !n.is_read).length;
+    const _setTabBadge = (id, count) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = count > 99 ? '99+' : String(count);
+      el.style.display = count > 0 ? '' : 'none';
+    };
+    _setTabBadge('notifTabMainBadge', mainUnread);
+    _setTabBadge('notifTabRepliesBadge', repliesUnread);
+
+    _renderListItems('notifListMain', mainItems);
+    _renderListItems('notifListReplies', repliesItems);
+  }
+
+  function _renderListItems(listId, items) {
+    const list = document.getElementById(listId);
     if (!list) return;
-    if (!_notifData.length) {
-      list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+    if (!items.length) {
+      list.innerHTML = '<div class="notif-empty">Nothing here yet.</div>';
       return;
     }
-    list.innerHTML = _notifData.map(n => {
+    list.innerHTML = items.map(n => {
       const unreadClass = n.is_read ? '' : ' unread';
-      const typeLabel = n.notification_type === 'everyone' ? '@Everyone' :
-                        n.notification_type === 'mention'  ? '@mention' : '🔒 private';
+      const typeLabel =
+        n.notification_type === 'everyone' ? '@Everyone' :
+        n.notification_type === 'mention'  ? '@mention'  :
+        n.notification_type === 'private'  ? '\uD83D\uDD12 private' :
+        n.notification_type === 'reply'    ? '\u21A9 reply'  :
+        n.notification_type === 'thread'   ? '\u21A9 thread' : n.notification_type;
       const snippet   = _renderMentionSnippet(n.content_snippet);
       const gameHref  = `/film/games/${n.game_id}?comment=${n.comment_id}`;
       const timeStr   = _relativeTime(n.created_at_iso);
@@ -809,6 +938,14 @@
           <div class="notif-item__footer">${tsHtml}<span class="notif-item__time">${timeStr}</span></div>
         </div>`;
     }).join('');
+  }
+
+  function switchNotifTab(tab) {
+    _activeNotifTab = tab;
+    document.getElementById('notifTabMain').classList.toggle('active', tab === 'main');
+    document.getElementById('notifTabReplies').classList.toggle('active', tab === 'replies');
+    document.getElementById('notifPanelMain').classList.toggle('active', tab === 'main');
+    document.getElementById('notifPanelReplies').classList.toggle('active', tab === 'replies');
   }
 
   function _renderMentionSnippet(raw) {
@@ -972,10 +1109,27 @@
 <div class="notif-dropdown" id="notifDropdown">
   <div class="notif-dropdown__header">
     <span class="notif-dropdown__title">Notifications</span>
-    <!-- <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button> -->
+    <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button>
   </div>
-  <div class="notif-dropdown__list" id="notifList">
-    <div class="notif-empty">Loading…</div>
+  <div class="notif-tabs">
+    <button class="notif-tab-btn active" id="notifTabMain" onclick="switchNotifTab('main')">
+      Mentions &amp; Tags
+      <span class="notif-tab-unread" id="notifTabMainBadge" style="display:none">0</span>
+    </button>
+    <button class="notif-tab-btn" id="notifTabReplies" onclick="switchNotifTab('replies')">
+      Replies
+      <span class="notif-tab-unread" id="notifTabRepliesBadge" style="display:none">0</span>
+    </button>
+  </div>
+  <div class="notif-panel active" id="notifPanelMain">
+    <div class="notif-dropdown__list" id="notifListMain">
+      <div class="notif-empty">Loading…</div>
+    </div>
+  </div>
+  <div class="notif-panel" id="notifPanelReplies">
+    <div class="notif-dropdown__list" id="notifListReplies">
+      <div class="notif-empty">Loading…</div>
+    </div>
   </div>
 </div>
 {% endif %}
