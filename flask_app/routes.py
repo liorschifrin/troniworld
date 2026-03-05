@@ -6,7 +6,7 @@ import os
 import uuid
 
 from . import app, db
-from .models import Post, User, LoginEvent, ArticleComment
+from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
 from .utils import get_current_user
 
@@ -205,13 +205,54 @@ def delete_post(post_id):
 # ── Article Comments API ────────────────────────────────────────────────────
 
 from zoneinfo import ZoneInfo as _ZI
-from datetime import timezone as _tz
+from datetime import timezone as _tz, datetime as _datetime
 _EST = _ZI('America/New_York')
 
 def _fmt_est(dt):
     if not dt:
         return ''
     return dt.replace(tzinfo=_tz.utc).astimezone(_EST).strftime('%b %d, %Y %I:%M %p')
+
+
+def _create_article_notifs(comment, post_id, author_username):
+    """Create reply/thread notifications for article comment replies."""
+    if not comment.parent_id:
+        return  # top-level comments don't trigger notifications
+
+    scores = {'reply': 2, 'thread': 1}
+    priority = {}
+
+    def _set(uname, ntype):
+        if uname == author_username:
+            return
+        if scores.get(ntype, 0) > scores.get(priority.get(uname, ''), 0):
+            priority[uname] = ntype
+
+    # Parent author gets a 'reply' notification
+    parent = ArticleComment.query.get(comment.parent_id)
+    if parent:
+        _set(parent.author_name, 'reply')
+
+    # Other users who replied in the same thread get a 'thread' notification
+    siblings = ArticleComment.query.filter(
+        ArticleComment.parent_id == comment.parent_id,
+        ArticleComment.id != comment.id
+    ).all()
+    for s in siblings:
+        _set(s.author_name, 'thread')
+
+    now = _datetime.utcnow()
+    for uname, ntype in priority.items():
+        notif = ArticleCommentNotification(
+            recipient_username=uname,
+            comment_id=comment.id,
+            post_id=post_id,
+            notification_type=ntype,
+            is_read=False,
+            created_at=now,
+        )
+        db.session.add(notif)
+    db.session.commit()
 
 def _serialize_article_comment(c):
     replies = [{
@@ -256,6 +297,7 @@ def create_article_comment(post_id):
     )
     db.session.add(c)
     db.session.commit()
+    _create_article_notifs(c, post_id, current_user.username)
     return jsonify({'success': True, 'comment': _serialize_article_comment(c)}), 201
 
 @app.route('/post/<int:post_id>/comments/<int:comment_id>', methods=['DELETE'])
@@ -337,6 +379,67 @@ def upload_image():
 
     public_url = f"/static/uploads/{unique_name}"
     return jsonify({'url': public_url}), 201
+
+
+# ── Article Comment Notification API ───────────────────────────────────────
+
+@app.route('/api/article-notifications')
+def get_article_notifications():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    notifs = (ArticleCommentNotification.query
+              .filter_by(recipient_username=current_user.username)
+              .order_by(ArticleCommentNotification.created_at.desc())
+              .limit(50).all())
+    unread = (ArticleCommentNotification.query
+              .filter_by(recipient_username=current_user.username, is_read=False)
+              .count())
+
+    def _ser(n):
+        c = n.comment
+        return {
+            'id': n.id,
+            'notification_type': n.notification_type,
+            'is_read': n.is_read,
+            'created_at': _fmt_est(n.created_at),
+            'post_id': n.post_id,
+            'comment_id': n.comment_id,
+            'comment_parent_id': c.parent_id if c else None,
+            'comment_content': (c.content[:120] if c else ''),
+            'author_name': (c.author_name if c else ''),
+            'post_title': (n.post.title if n.post else ''),
+        }
+
+    return jsonify({'notifications': [_ser(n) for n in notifs], 'unread_count': unread})
+
+
+@app.route('/api/article-notifications/<int:notif_id>/read', methods=['POST'])
+def mark_article_notification_read(notif_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    n = ArticleCommentNotification.query.filter_by(
+        id=notif_id, recipient_username=current_user.username
+    ).first_or_404()
+    if not n.is_read:
+        n.is_read = True
+        n.read_at = _datetime.utcnow()
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/article-notifications/read-all', methods=['POST'])
+def mark_all_article_notifications_read():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'error': 'Login required'}), 401
+    now = _datetime.utcnow()
+    ArticleCommentNotification.query.filter_by(
+        recipient_username=current_user.username, is_read=False
+    ).update({'is_read': True, 'read_at': now})
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 @app.route('/logout', methods=['GET', 'POST'])

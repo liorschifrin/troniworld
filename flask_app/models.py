@@ -278,3 +278,30 @@ class CommentNotification(db.Model):
 
     def __repr__(self) -> str:
         return f"<CommentNotification recipient={self.recipient_username} comment_id={self.comment_id} read={self.is_read}>"
+
+
+class ArticleCommentNotification(db.Model):
+    """Notification for a user when someone replies to their article comment or to a thread they're in."""
+    __tablename__ = 'article_comment_notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_username = db.Column(db.String(100), nullable=False, index=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey('article_comments.id', ondelete='CASCADE'), nullable=False, index=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id', ondelete='CASCADE'), nullable=False, index=True)
+    # 'reply' | 'thread'
+    notification_type = db.Column(db.String(20), nullable=False)
+    is_read = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    comment = db.relationship('ArticleComment', backref=db.backref('notifications', passive_deletes=True))
+    post = db.relationship('Post', backref=db.backref('article_comment_notifications', passive_deletes=True))
+
+    __table_args__ = (
+        db.Index('idx_art_notifs_recipient', 'recipient_username'),
+        db.Index('idx_art_notifs_recipient_unread', 'recipient_username', 'is_read'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ArticleCommentNotification recipient={self.recipient_username} comment_id={self.comment_id} read={self.is_read}>"
