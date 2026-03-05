@@ -373,7 +373,18 @@
     if (res.ok) await loadComments();
   };
 
-  loadComments();
+  function scrollToTargetComment() {
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get('comment');
+    if (!targetId) return;
+    const el = document.getElementById('ac-c-' + targetId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ac-flash');
+    el.addEventListener('animationend', () => el.classList.remove('ac-flash'), { once: true });
+  }
+
+  loadComments().then(scrollToTargetComment);
 })();
 </script>
 {% endblock %}
