@@ -3404,6 +3404,8 @@
     // Skip when focus is inside a text input or editable element
     const tag = document.activeElement ? document.activeElement.tagName : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+    // Let browser/OS handle modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     switch (e.key) {
       case 'k':
@@ -4643,6 +4645,8 @@
     const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
     if (tagNamesToIgnore.includes(active.tagName)) return;
     if (active.isContentEditable) return;
+    // Let browser/OS handle any modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     
     // Prevent default for keys we're handling
     const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', ',', '.', 'k', 'K', 'f', 'F'];
