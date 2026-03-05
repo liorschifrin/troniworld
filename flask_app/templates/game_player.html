@@ -956,7 +956,7 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 200px);
@@ -969,6 +969,8 @@
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
+    border-radius: 10px 10px 0 0;
+    overflow: hidden;
   }
 
   .panel-header h2 {
@@ -1003,7 +1005,7 @@
     gap: 10px;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .comment-input-wrap {
@@ -1011,7 +1013,8 @@
     flex-direction: column;
     gap: 8px;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow: visible;
+    position: relative;
     transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
     max-height: 400px;
     opacity: 1;
@@ -1317,6 +1320,7 @@
     padding: 6px 0 2px 0;
     border-top: 1px solid var(--border);
     margin-top: 6px;
+    position: relative;
   }
   .private-to-label {
     font-size: 0.7rem;
@@ -1604,6 +1608,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    position: relative;
   }
 
   .reply-input {
@@ -1759,7 +1764,9 @@
   .mention-suggestion:hover { background: rgba(200,241,53,0.16); }
 
   .mention-dropdown {
-    position: fixed;
+    position: absolute;
+    left: 0;
+    width: 100%;
     background: var(--field);
     border: 1px solid rgba(200,241,53,0.4);
     border-radius: 6px;
@@ -1768,7 +1775,6 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     box-shadow: 0 6px 20px rgba(0,0,0,0.55);
-    min-width: 160px;
   }
   .mention-dropdown::-webkit-scrollbar { width: 4px; }
   .mention-dropdown::-webkit-scrollbar-thumb { background: rgba(200,241,53,0.3); border-radius: 2px; }
@@ -2478,9 +2484,22 @@
         anchorRect = rRect;
       }
     }
-    if (!anchorRect) anchorRect = inputBox;
+    if (!anchorRect) anchorRect = inputBox; // kept for potential future use
+
+    // Reparent the dropdown into the active input's container —
+    // position:absolute + DOM parent = zero coordinate math, works on all devices.
+    const container = inputEl.closest('.comment-input-wrap') ||
+                      inputEl.closest('.reply-input-wrap') ||
+                      inputEl.parentElement;
+    if (container && mentionDropdownEl.parentElement !== container) {
+      container.appendChild(mentionDropdownEl);
+    }
+    // Sit above the container
+    mentionDropdownEl.style.bottom = 'calc(100% + 4px)';
+    mentionDropdownEl.style.top    = 'auto';
+    mentionDropdownEl.style.width  = '100%';
+    mentionDropdownEl.style.left   = '0';
     mentionDropdownEl.style.display = 'block';
-    positionDropdown(mentionDropdownEl, anchorRect);
 
     // Scroll the selected item into view
     const selectedItem = mentionDropdownEl.querySelector('.mention-dropdown-item.selected');
@@ -3510,7 +3529,16 @@
       return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser('${escHtml(u)}');}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
     }).join('');
     privateUserDropdownEl.style.display = 'block';
-    positionDropdown(privateUserDropdownEl, inputEl.getBoundingClientRect());
+    // Reparent into .private-to-wrap so position:absolute places it below the input.
+    const pvContainer = inputEl.closest('.private-to-wrap') || inputEl.parentElement;
+    if (pvContainer && privateUserDropdownEl.parentElement !== pvContainer) {
+      pvContainer.appendChild(privateUserDropdownEl);
+    }
+    privateUserDropdownEl.style.top    = 'calc(100% + 2px)';
+    privateUserDropdownEl.style.bottom = 'auto';
+    privateUserDropdownEl.style.left   = '0';
+    privateUserDropdownEl.style.width  = '100%';
+    privateUserDropdownEl.style.maxHeight = '200px';
     const sel = privateUserDropdownEl.querySelector('.mention-dropdown-item.selected');
     if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
