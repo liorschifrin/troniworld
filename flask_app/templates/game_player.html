@@ -3709,7 +3709,8 @@
     const isTaggedViewer    = isPrivate && currentUserName && c.private_to.includes(currentUserName);
     const isLeadershipViewer = isPrivate && isCurrentUserLeadership && c.is_leadership && c.private_to.length > 0;
     const showPrivateInfo   = isOwnComment || isTaggedViewer || isLeadershipViewer;
-    const recipientsList    = isPrivate ? (c.private_to.length === 0 ? 'you only' : `you${c.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const authorLabel       = c.is_leadership ? 'Leadership' : 'you';
+    const recipientsList    = isPrivate ? (c.private_to.length === 0 ? `${authorLabel} only` : `${authorLabel}${c.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
     const privateInfo       = (isPrivate && showPrivateInfo)
       ? `<div class="comment-private-recipients">🔒 visible to: ${recipientsList}</div>`
       : '';
@@ -3808,7 +3809,8 @@
     const replyAuthorIsLeadership = reply.is_leadership;
     const isReplyLeadershipViewer = replyIsPrivate && isCurrentUserLeadership && replyAuthorIsLeadership && reply.private_to.length > 0;
     const showReplyPrivateInfo    = isOwnReply || isReplyTaggedViewer || isReplyLeadershipViewer;
-    const replyRecipientsList     = replyIsPrivate ? (reply.private_to.length === 0 ? 'you only' : `you${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const replyAuthorLabel        = replyAuthorIsLeadership ? 'leadership' : 'you';
+    const replyRecipientsList     = replyIsPrivate ? (reply.private_to.length === 0 ? `${replyAuthorLabel} only` : `${replyAuthorLabel}${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
     const replyPrivateInfo        = (replyIsPrivate && showReplyPrivateInfo)
       ? `<div class="comment-private-recipients">🔒 visible to: ${replyRecipientsList}</div>`
       : '';
