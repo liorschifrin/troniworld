@@ -611,6 +611,28 @@
     color: var(--muted);
   }
 
+  .mci-private {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: #e0b000;
+    background: rgba(224,176,0,0.1);
+    border: 1px solid rgba(224,176,0,0.25);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .mci-recipients {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    padding: 2px 0 0 0;
+  }
+
+  .mci-recipients-names {
+    color: #e0b000;
+    opacity: 0.85;
+  }
+
   .mci-mention {
     font-family: 'DM Mono', monospace;
     font-size: 0.85em;
@@ -817,9 +839,21 @@
               {% if c.is_reply %}
                 <span class="mci-reply">reply</span>
               {% endif %}
+              {% if c.private_to is not none %}
+                <span class="mci-private">🔒 private</span>
+              {% endif %}
               <span class="mci-date" data-iso="{{ c.created_at_iso }}"></span>
             </div>
             <div class="mci-text">{{ c.content[:140] }}{% if c.content|length > 140 %}…{% endif %}</div>
+            {% if c.private_to is not none %}
+              <div class="mci-recipients">visible to:
+                {% if c.private_to %}
+                  <span class="mci-recipients-names">you{% for u in c.private_to %}, {{ u }}{% endfor %}</span>
+                {% else %}
+                  <span class="mci-recipients-names">only you</span>
+                {% endif %}
+              </div>
+            {% endif %}
           </a>
         {% endfor %}
       </div>
