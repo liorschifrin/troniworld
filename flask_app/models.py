@@ -163,6 +163,7 @@ class Comment(db.Model):
     author_name = db.Column(db.String(100), nullable=False)
     timestamp = db.Column(db.Integer)  # seconds in video (nullable)
     content = db.Column(db.Text, nullable=False)
+    private_to = db.Column(db.Text, nullable=True)  # JSON array of usernames; NULL means public
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
