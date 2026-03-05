@@ -252,3 +252,30 @@ class VideoWatchSession(db.Model):
 
     def __repr__(self) -> str:
         return f"<VideoWatchSession user_id={self.user_id} game_id={self.game_id} duration={self.watch_duration_seconds}s>"
+
+
+class CommentNotification(db.Model):
+    """Notification for a user when they are @mentioned or sent a private comment."""
+    __tablename__ = 'comment_notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_username = db.Column(db.String(100), nullable=False, index=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey('comments.id', ondelete='CASCADE'), nullable=False, index=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
+    # 'mention' | 'private' | 'everyone'
+    notification_type = db.Column(db.String(20), nullable=False)
+    is_read = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    read_at = db.Column(db.DateTime, nullable=True)  # analytics: when the user read it
+
+    # Relationships
+    comment = db.relationship('Comment', backref=db.backref('notifications', passive_deletes=True))
+    game = db.relationship('Game', backref=db.backref('comment_notifications', passive_deletes=True))
+
+    __table_args__ = (
+        db.Index('idx_notifs_recipient', 'recipient_username'),
+        db.Index('idx_notifs_recipient_unread', 'recipient_username', 'is_read'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CommentNotification recipient={self.recipient_username} comment_id={self.comment_id} read={self.is_read}>"

@@ -8,6 +8,7 @@ import csv
 import io
 import json
 import os
+import re
 
 _EST = ZoneInfo('America/New_York')
 
@@ -19,13 +20,64 @@ def fmt_dt_est(dt):
     return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
-from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent
+from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification
 from .utils import get_current_user, login_required, admin_required
 
 
 # =========================
 # HELPER FUNCTIONS
 # =========================
+
+def _create_notifications_for_comment(comment, game_id, author_username, author_is_leadership):
+    """Compute and persist CommentNotification rows for a comment.
+
+    Rules:
+    - Private comment: notify only the explicit private_to recipients ('private').
+      @mentions inside private comments are ignored for notification purposes.
+    - Public comment: notify every @[username] mentioned in the content.
+      @[Everyone] (leadership only) notifies all is_film_user members.
+    Author never notified for their own comment.
+    """
+    notif_map = {}  # username -> notification_type
+
+    is_private = bool(comment.private_to)
+
+    if is_private:
+        # Private: only notify explicit recipients listed in private_to
+        try:
+            private_list = json.loads(comment.private_to)
+        except (ValueError, TypeError):
+            private_list = []
+        for uname in private_list:
+            if uname and uname != author_username:
+                if User.query.filter_by(username=uname).first():
+                    notif_map[uname] = 'private'
+    else:
+        # Public: notify @mentions only (format: @[username])
+        mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
+        for uname in mention_names:
+            if uname == author_username:
+                continue
+            if uname == 'Everyone' and author_is_leadership:
+                # Notify all film users except the author
+                all_users = User.query.filter_by(is_film_user=True).all()
+                for u in all_users:
+                    if u.username != author_username and u.username not in notif_map:
+                        notif_map[u.username] = 'everyone'
+            elif uname not in notif_map:
+                if User.query.filter_by(username=uname).first():
+                    notif_map[uname] = 'mention'
+
+    for uname, ntype in notif_map.items():
+        notif = CommentNotification(
+            recipient_username=uname,
+            comment_id=comment.id,
+            game_id=game_id,
+            notification_type=ntype,
+            is_read=False,
+        )
+        db.session.add(notif)
+
 
 def link_or_create_user_for_player(player):
     """
@@ -938,6 +990,16 @@ def create_comment(game_id):
     
     try:
         db.session.add(new_comment)
+        db.session.flush()  # get new_comment.id before commit
+
+        # Create notifications for mentions / private recipients
+        _create_notifications_for_comment(
+            new_comment,
+            game_id,
+            author_name,
+            bool(current_user and current_user.is_leadership)
+        )
+
         db.session.commit()
 
         private_to_list = json.loads(private_to_stored) if private_to_stored else None
@@ -1017,6 +1079,16 @@ def update_comment(game_id, comment_id):
                 comment.private_to = json.dumps([u.strip() for u in private_to_raw if isinstance(u, str) and u.strip()])
             else:
                 comment.private_to = None
+
+        # Recalculate notifications: wipe existing rows then recreate
+        CommentNotification.query.filter_by(comment_id=comment.id).delete()
+        _create_notifications_for_comment(
+            comment,
+            comment.game_id,
+            current_user.username,
+            current_user.is_leadership
+        )
+
         db.session.commit()
 
         private_to_list = None
@@ -1433,3 +1505,72 @@ def analytics_dashboard():
                           total_unique_users=total_unique_users,
                           total_watch_minutes=round(total_watch_minutes, 1),
                           total_comments=total_comments)
+
+
+# =========================
+# NOTIFICATION ENDPOINTS
+# =========================
+
+@app.route('/film/api/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Return the current user's notifications (newest first, max 50)."""
+    current_user = get_current_user()
+    notifs = (
+        CommentNotification.query
+        .filter_by(recipient_username=current_user.username)
+        .order_by(CommentNotification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    result = []
+    for n in notifs:
+        snippet = ''
+        if n.comment:
+            raw = n.comment.content
+            snippet = (raw[:100] + '…') if len(raw) > 100 else raw
+        result.append({
+            'id': n.id,
+            'comment_id': n.comment_id,
+            'game_id': n.game_id,
+            'game_title': n.game.title if n.game else '',
+            'notification_type': n.notification_type,
+            'is_read': n.is_read,
+            'created_at': fmt_dt_est(n.created_at),
+            'created_at_iso': n.created_at.isoformat() + 'Z' if n.created_at else '',
+            'author_name': n.comment.author_name if n.comment else '',
+            'content_snippet': snippet,
+            'comment_timestamp': n.comment.timestamp if n.comment else None,
+        })
+
+    unread_count = sum(1 for r in result if not r['is_read'])
+    return jsonify({'notifications': result, 'unread_count': unread_count})
+
+
+@app.route('/film/api/notifications/<int:notif_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notif_id):
+    """Mark a single notification as read and record the timestamp for analytics."""
+    current_user = get_current_user()
+    notif = CommentNotification.query.filter_by(
+        id=notif_id, recipient_username=current_user.username
+    ).first_or_404()
+    if not notif.is_read:
+        notif.is_read = True
+        notif.read_at = datetime.utcnow()
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/film/api/notifications/read-all', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    """Mark all unread notifications for the current user as read."""
+    current_user = get_current_user()
+    now = datetime.utcnow()
+    CommentNotification.query.filter_by(
+        recipient_username=current_user.username, is_read=False
+    ).update({'is_read': True, 'read_at': now})
+    db.session.commit()
+    return jsonify({'success': True})
