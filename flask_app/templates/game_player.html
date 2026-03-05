@@ -2918,8 +2918,24 @@
         updateCurrentPlayers(pointIndex);
         updatePlayerSheetActiveColumn(pointIndex);
         
-        // Scroll to show the active point
-        activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        // Scroll to show the active point — on mobile landscape, scroll within the points bar only
+        const isMobileLandscapePoint = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
+        if (!isMobileLandscapePoint) {
+          activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        } else {
+          const scrollContainer = document.querySelector('.point-info-scroll');
+          if (scrollContainer) {
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const pointRect = activePoint.getBoundingClientRect();
+            const overLeft  = containerRect.left - pointRect.left;
+            const overRight = pointRect.right - containerRect.right;
+            if (overLeft > 0) {
+              scrollContainer.scrollBy({ left: -overLeft - 8, behavior: 'smooth' });
+            } else if (overRight > 0) {
+              scrollContainer.scrollBy({ left: overRight + 8, behavior: 'smooth' });
+            }
+          }
+        }
         
         currentActivePointId = activePointId;
       }
@@ -2997,8 +3013,13 @@
         activeComment.classList.add('active');
         activeComment.classList.add('active-pulse');
         
-        // Scroll to show the active comment — within the list only, not the page
-        scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
+        // Scroll to show the active comment — on mobile landscape, scroll within list only (no page scroll)
+        const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
+        if (!isMobileLandscape) {
+          scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
+        } else {
+          scrollCommentIntoView(activeComment, { smooth: true, toTop: false });
+        }
         
         // Remove pulse animation after it completes (1s)
         setTimeout(() => {
