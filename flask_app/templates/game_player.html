@@ -2625,7 +2625,7 @@
       // meaning the comment posts with the now-tokenised mention in one keystroke.
       const q = getMentionQuery(inputEl);
       if (q && q.query) {
-        const match = allMentionables.find(u => u !== 'Everyone' && u.toLowerCase() === q.query.toLowerCase());
+        const match = allMentionables.find(u => u.toLowerCase() === q.query.toLowerCase());
         if (match) {
           e.preventDefault(); // prevent newline; submit listener still fires
           mentionState.inputEl    = inputEl;

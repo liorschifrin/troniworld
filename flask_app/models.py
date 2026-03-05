@@ -7,7 +7,6 @@ class User(db.Model):
     hashed_password = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_leadership = db.Column(db.Boolean, nullable=False, default=False)
-    is_film_user = db.Column(db.Boolean, nullable=False, default=False)
     player_id = db.Column(db.Integer, db.ForeignKey('players.id', ondelete='SET NULL'), nullable=True)
     
     # Relationship
