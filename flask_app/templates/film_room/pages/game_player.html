@@ -4119,7 +4119,7 @@
         ? `<span class="comment-author-leadership">${escHtml(reply.author_name)}</span>`
         : escHtml(reply.author_name);
     return `
-      <div class="thread-reply-item" id="reply-item-${reply.id}">
+      <div class="thread-reply-item" id="reply-item-${reply.id}" data-comment-id="${reply.id}">
         <div class="reply-author">${replyAuthorNameHtml}${replyPrivateBadge}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
         <div class="reply-text">${parseMentions(reply.content)}</div>
         ${replyPrivateInfo}
@@ -4663,6 +4663,16 @@
   });
 
   function scrollToCommentById(commentId) {
+    // If the target is a reply, make sure its parent thread is expanded so the element exists in the DOM
+    for (const c of comments) {
+      if (c.replies && c.replies.some(r => r.id === commentId)) {
+        if (!expandedThreads.has(c.id)) {
+          expandedThreads.add(c.id);
+          renderComments();
+        }
+        break;
+      }
+    }
     const el = document.querySelector(`[data-comment-id="${commentId}"]`);
     if (!el) return;
     // Suppress the auto-scroll from updateActiveComment for 3s so it doesn't

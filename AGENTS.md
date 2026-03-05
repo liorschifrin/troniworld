@@ -6,7 +6,7 @@ If you change of the below information, or add significantly to the page, update
 
 ## Active work: game_player.html
 
-Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4200 lines). Ignore the React rewrite — all work stays in this file.
+Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines). Ignore the React rewrite — all work stays in this file.
 
 ## Template layout (as of reorganization)
 - `flask_app/templates/articles/` — articles section: base.html, index.html, post.html, new_post.html, edit_post.html, login_articles.html, register.html, editor.html
@@ -52,5 +52,15 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4200 line
   - `POST /film/api/notifications/read-all` → bulk-marks all unread for current user.
 - Nav bell: lives in `.film-nav__logout` in `film_base.html`. Bell 🔔 button with orange `.notif-bell-badge` (hides when count=0). Clicking opens `.notif-dropdown` which fetches/renders notifications. Auto-polls every 60 s (`fetchNotifications()`).
 - Clicking a notification calls `handleNotifClick(el)` → marks read via API → navigates to `/film/games/<game_id>?comment=<comment_id>`.
-- `scrollToCommentById(id)` in `game_player.html` — called after `loadComments()` resolves if `?comment=` URL param is present. Adds `.notif-highlight` CSS flash animation and calls `scrollCommentIntoView`.
+- `scrollToCommentById(id)` in `game_player.html` — called after `loadComments()` resolves if `?comment=` URL param is present. If the target is a reply, expands the parent thread first by adding parent ID to `expandedThreads` and calling `renderComments()`. Adds `.notif-highlight` CSS flash animation and calls `scrollCommentIntoView`. Reply items get `data-comment-id` attribute so they are findable after expansion.
 - Mobile: `.film-nav__wrapper` uses `1fr auto auto` grid columns on ≤900px so bell stays visible between username and hamburger; only the logout link text is hidden.
+
+### Analytics dashboard (`analytics_dashboard.html`)
+- Admin-only page at `/film/analytics`.
+- Table columns: User, Logins, Watch Time, Comments, Led Tags, Games Watched.
+- **Comments column**: `<button class="comment-list-btn">` calls `openCommentModal(username, count)` — fetches `GET /film/api/user/<username>/comments` (admin-only), renders list of clickable `<a target="_blank">` links to `/film/games/<id>?comment=<id>`.
+- **Led Tags column**: `<button class="ldr-notif">` (read/total display) calls `openTagsModal(username, total)` — fetches `GET /film/api/user/<username>/leadership-tags` (admin-only), renders list with read/unread badges and author attribution. Links open in new tab.
+- Two modals: `#commentModal` and `#tagsModal`, both use `.modal-overlay` / `.modal-box` structure. Backdrop click closes via `document.addEventListener('click', ...)`.
+- New API endpoints in `film_routes.py`:
+  - `GET /film/api/user/<username>/comments` → all comments by user (newest first), fields: id, content, timestamp, created_at_iso, game_id, is_reply, game_title, game_opponent.
+  - `GET /film/api/user/<username>/leadership-tags` → all notifications for user from leadership/admin authors, fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
