@@ -31,47 +31,68 @@ from .utils import get_current_user, login_required, admin_required
 def _create_notifications_for_comment(comment, game_id, author_username, author_is_leadership):
     """Compute and persist CommentNotification rows for a comment.
 
-    Rules:
-    - Private comment: notify only the explicit private_to recipients ('private').
-      @mentions inside private comments are ignored for notification purposes.
-    - Public comment: notify every @[username] mentioned in the content.
-      @[Everyone] (leadership only) notifies all users except the author.
-    Author never notified for their own comment.
+    Priority order (highest wins per recipient):
+      private > everyone > mention > reply > thread
+
+    Reply notifications (only for comments with a parent_id):
+      - parent comment author  → 'reply'   (someone replied to your comment)
+      - other participants in the thread → 'thread' (someone replied in a thread you're in)
+
+    Mention / private rules (applied on top, can upgrade a reply/thread to mention/private):
+      - Private comment: notify only the explicit private_to recipients ('private').
+      - Public comment: notify every @[username] mentioned in the content.
+        @[Everyone] (leadership only) notifies all film users except the author.
+
+    Author is never notified for their own comment.
     """
 
-    print("Debug: Creatiting notification for comment with text:", comment.content)
+    print("Debug: Creating notification for comment with text:", comment.content)
 
+    PRIORITY = {'private': 5, 'everyone': 4, 'mention': 3, 'reply': 2, 'thread': 1}
     notif_map = {}  # username -> notification_type
 
+    def _set(uname, ntype):
+        if not uname or uname == author_username:
+            return
+        existing = notif_map.get(uname)
+        if existing is None or PRIORITY.get(ntype, 0) > PRIORITY.get(existing, 0):
+            notif_map[uname] = ntype
+
+    # ── Reply-thread notifications ────────────────────────────────────────
+    if comment.parent_id is not None:
+        parent = Comment.query.get(comment.parent_id)
+        if parent:
+            _set(parent.author_name, 'reply')
+            # Everyone else who already replied in this thread
+            siblings = Comment.query.filter(
+                Comment.parent_id == comment.parent_id,
+                Comment.id != comment.id,
+            ).all()
+            for sib in siblings:
+                _set(sib.author_name, 'thread')
+
+    # ── Mention / private notifications (can override reply/thread) ────────
     is_private = bool(comment.private_to)
 
     if is_private:
-        # Private: only notify explicit recipients listed in private_to
         try:
             private_list = json.loads(comment.private_to)
         except (ValueError, TypeError):
             private_list = []
         for uname in private_list:
-            if uname and uname != author_username:
-                if User.query.filter_by(username=uname).first():
-                    notif_map[uname] = 'private'
+            if uname and User.query.filter_by(username=uname).first():
+                _set(uname, 'private')
     else:
-        # Public: notify @mentions only (format: @[username])
         mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
         print("Debug: Found mention names in comment:", mention_names)
         for uname in mention_names:
-            if uname == author_username:
-                continue
             if uname == 'Everyone' and author_is_leadership:
-                # Notify all film users except the author
                 print("Debug: Author is leadership and mentioned @Everyone, adding notifications for all film users except the author.")
-                all_users = User.query.all()
-                for u in all_users:
-                    if u.username != author_username and u.username not in notif_map:
-                        notif_map[u.username] = 'everyone'
-            elif uname not in notif_map:
+                for u in User.query.all():
+                    _set(u.username, 'everyone')
+            else:
                 if User.query.filter_by(username=uname).first():
-                    notif_map[uname] = 'mention'
+                    _set(uname, 'mention')
 
     for uname, ntype in notif_map.items():
         notif = CommentNotification(
