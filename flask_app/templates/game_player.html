@@ -1747,6 +1747,7 @@
     z-index: 99999;
     max-height: 200px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 6px 20px rgba(0,0,0,0.55);
     min-width: 160px;
   }
@@ -2190,10 +2191,7 @@
           <div class="private-to-wrap" id="privateToWrap">
             <div class="private-to-label">Also visible to:</div>
             <div class="private-to-chips" id="privateToChips">
-              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…"
-                oninput="handlePrivateUserInput(this, addPrivateUser, privateToUsers)"
-                onkeydown="handlePrivateUserKeydown(event, addPrivateUser)"
-                onblur="setTimeout(hidePrivateUserDropdown, 150)" />
+              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…" />
             </div>
           </div>
         </div>
@@ -2250,6 +2248,8 @@
     el.className = 'mention-dropdown';
     el.style.display = 'none';
     el.id = 'globalMentionDropdown';
+    el.addEventListener('touchstart', _dropTouchStart, { passive: true });
+    el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
     document.body.appendChild(el);
     return el;
   })();
@@ -2395,6 +2395,40 @@
     mentionState.inputEl = null;
   }
 
+  // Touch-scroll guard: if finger moves > 8px between touchstart and touchend, ignore the touchend
+  let _dropTouchStartY = 0;
+  let _dropTouchScrolled = false;
+
+  function _dropTouchStart(e) {
+    _dropTouchStartY = e.touches[0].clientY;
+    _dropTouchScrolled = false;
+  }
+  function _dropTouchMove(e) {
+    if (Math.abs(e.touches[0].clientY - _dropTouchStartY) > 8) _dropTouchScrolled = true;
+  }
+
+  function positionDropdown(dropEl, anchorRect) {
+    // Use visualViewport.height so iOS keyboard is accounted for.
+    // getBoundingClientRect() is already in visual-viewport coords on iOS.
+    const vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const spaceBelow = vh - anchorRect.bottom;
+    const spaceAbove = anchorRect.top;
+    if (spaceBelow >= 100 || spaceBelow >= spaceAbove) {
+      // Show below
+      const maxH = Math.min(200, Math.max(spaceBelow - 8, 40));
+      dropEl.style.maxHeight = `${maxH}px`;
+      dropEl.style.top = `${anchorRect.bottom + 4}px`;
+    } else {
+      // Flip above — position so bottom edge sits just above the anchor
+      const maxH = Math.min(200, Math.max(spaceAbove - 8, 40));
+      dropEl.style.maxHeight = `${maxH}px`;
+      dropEl.style.top = `${Math.max(4, anchorRect.top - maxH - 4)}px`;
+    }
+    const elW = Math.min(dropEl.offsetWidth || 180, vw - 8);
+    dropEl.style.left = `${Math.max(4, Math.min(anchorRect.left - 8, vw - elW - 4))}px`;
+  }
+
   function renderMentionDropdown(inputEl) {
     const users = mentionState.filteredUsers;
     if (users.length === 0) {
@@ -2405,28 +2439,25 @@
         const itemCls   = 'mention-dropdown-item' + (isEnemy ? ' mention-dropdown-item-enemy' : '') + (i === mentionState.selectedIndex ? ' selected' : '');
         const avatarCls = 'mention-dropdown-avatar' + (isEnemy ? ' mention-dropdown-avatar-enemy' : '');
         const label     = isEnemy ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` : escHtml(u);
-        return `<div class="${itemCls}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')"><div class="${avatarCls}">${escHtml(u[0].toUpperCase())}</div>${label}</div>`;
+        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${escHtml(u[0].toUpperCase())}</div>${label}</div>`;
       }).join('');
     }
+    let anchorRect = null;
+    // Validate caret rect — on iOS it can return (0,0) for contenteditable, so only use
+    // it if it actually overlaps the input element's bounding box.
+    const inputBox = inputEl.getBoundingClientRect();
     const sel = window.getSelection();
-    let top, left;
     if (sel && sel.rangeCount > 0) {
       const r = sel.getRangeAt(0).cloneRange();
       r.collapse(true);
-      const rect = r.getBoundingClientRect();
-      if (rect.width !== 0 || rect.height !== 0) {
-        top  = rect.bottom + window.scrollY + 4;
-        left = rect.left   + window.scrollX;
+      const rRect = r.getBoundingClientRect();
+      if (rRect.height > 0 && rRect.top >= inputBox.top - 4 && rRect.bottom <= inputBox.bottom + 4) {
+        anchorRect = rRect;
       }
     }
-    if (!top) {
-      const rect = inputEl.getBoundingClientRect();
-      top  = rect.bottom + window.scrollY + 4;
-      left = rect.left   + window.scrollX;
-    }
+    if (!anchorRect) anchorRect = inputBox;
     mentionDropdownEl.style.display = 'block';
-    mentionDropdownEl.style.top  = `${top}px`;
-    mentionDropdownEl.style.left = `${Math.max(4, left - 8)}px`;
+    positionDropdown(mentionDropdownEl, anchorRect);
 
     // Scroll the selected item into view
     const selectedItem = mentionDropdownEl.querySelector('.mention-dropdown-item.selected');
@@ -2455,12 +2486,15 @@
   function handleMentionInput(e) {
     const inputEl = e.currentTarget;
     updatePlaceholder(inputEl);
-    const q = getMentionQuery(inputEl);
-    if (q) {
-      showMentionDropdown(inputEl, q);
-    } else if (mentionState.active && mentionState.inputEl === inputEl) {
-      hideMentionDropdown();
-    }
+    // Defer by one tick so iOS Safari has updated the selection before we read it
+    setTimeout(() => {
+      const q = getMentionQuery(inputEl);
+      if (q) {
+        showMentionDropdown(inputEl, q);
+      } else if (mentionState.active && mentionState.inputEl === inputEl) {
+        hideMentionDropdown();
+      }
+    }, 0);
   }
 
   function handleMentionKeydown(e) {
@@ -3374,6 +3408,8 @@
     el.className = 'mention-dropdown';
     el.style.display = 'none';
     el.id = 'privateUserDropdown';
+    el.addEventListener('touchstart', _dropTouchStart, { passive: true });
+    el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
     document.body.appendChild(el);
     return el;
   })();
@@ -3401,12 +3437,10 @@
     }
     privateUserDropdownEl.innerHTML = users.map((u, i) => {
       const cls = 'mention-dropdown-item' + (i === privateUserDropState.selectedIndex ? ' selected' : '');
-      return `<div class="${cls}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
+      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser('${escHtml(u)}');}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
     }).join('');
-    const rect = inputEl.getBoundingClientRect();
     privateUserDropdownEl.style.display = 'block';
-    privateUserDropdownEl.style.top  = `${rect.bottom + window.scrollY + 4}px`;
-    privateUserDropdownEl.style.left = `${Math.max(4, rect.left + window.scrollX - 8)}px`;
+    positionDropdown(privateUserDropdownEl, inputEl.getBoundingClientRect());
     const sel = privateUserDropdownEl.querySelector('.mention-dropdown-item.selected');
     if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
@@ -3939,10 +3973,7 @@
         <div class="private-to-wrap" id="editPrivateToWrap">
           <div class="private-to-label">Also visible to:</div>
           <div class="private-to-chips" id="editPrivateToChips">
-            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Search users…"
-              oninput="handlePrivateUserInput(this, addEditPrivateUser, editPrivateToUsers)"
-              onkeydown="handlePrivateUserKeydown(event, addEditPrivateUser)"
-              onblur="setTimeout(hidePrivateUserDropdown, 150)" />
+            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Search users…" />
           </div>
         </div>
       </div>
@@ -3963,6 +3994,16 @@
       if (epBtn) epBtn.classList.add('active');
       if (epWrap) epWrap.style.display = 'flex';
       renderEditPrivateChips();
+    }
+
+    // Bind edit private-to input programmatically (inline oninput unreliable on iOS)
+    const _editPrivateInput = document.getElementById('editPrivateToInput');
+    if (_editPrivateInput) {
+      _editPrivateInput.addEventListener('input', () => {
+        handlePrivateUserInput(_editPrivateInput, addEditPrivateUser, editPrivateToUsers);
+      });
+      _editPrivateInput.addEventListener('keydown', e => handlePrivateUserKeydown(e, addEditPrivateUser));
+      _editPrivateInput.addEventListener('blur', () => setTimeout(hidePrivateUserDropdown, 200));
     }
 
     loadContentWithMentions(textarea, currentText);
@@ -4374,6 +4415,17 @@
   // Bind mention engine to the main comment input, then register submit shortcut
   const _commentInputEl = document.getElementById('commentInput');
   bindMentionInput(_commentInputEl);
+
+  // Bind private-user autocomplete to the static private-to input programmatically
+  // (inline oninput can be unreliable on iOS Safari for inputs inside hidden-then-shown wrappers)
+  const _privateToInput = document.getElementById('privateToInput');
+  if (_privateToInput) {
+    _privateToInput.addEventListener('input', () => {
+      handlePrivateUserInput(_privateToInput, addPrivateUser, privateToUsers);
+    });
+    _privateToInput.addEventListener('keydown', e => handlePrivateUserKeydown(e, addPrivateUser));
+    _privateToInput.addEventListener('blur', () => setTimeout(hidePrivateUserDropdown, 200));
+  }
 
   // Allow Enter to submit comment (Shift+Enter for new line)
   _commentInputEl.addEventListener('keydown', e => {
