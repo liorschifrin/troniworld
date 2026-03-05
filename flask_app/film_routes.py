@@ -325,7 +325,17 @@ def tron_data():
     """Team-wide game data and statistics page."""
     current_user = get_current_user()
 
-    games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+    all_games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+    all_tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name).all()
+
+    # ── Filter by selected game IDs (default = all) ─────────────────
+    selected_ids = request.args.getlist('game_ids', type=int)
+    if selected_ids:
+        selected_id_set = set(selected_ids)
+        games = [g for g in all_games if g.id in selected_id_set]
+    else:
+        selected_id_set = {g.id for g in all_games}
+        games = all_games
 
     # ── Per-game stats ──────────────────────────────────────────────
     games_with_stats = []
@@ -370,7 +380,7 @@ def tron_data():
     players = Player.query.filter_by(active=True).order_by(Player.name).all()
     player_stats = []
     for player in players:
-        all_pts   = list(player.points)
+        all_pts   = [p for p in player.points if p.game_id in selected_id_set]
         if not all_pts:
             continue
         o_pts     = [p for p in all_pts if p.tron_o]
@@ -392,7 +402,7 @@ def tron_data():
     player_stats.sort(key=lambda x: x['total_pts'], reverse=True)
 
     # ── Tendency breakdowns (all games combined) ────────────────────
-    all_pts = Point.query.all()
+    all_pts = [p for p in Point.query.all() if p.game_id in selected_id_set]
 
     pull_play_counts = {}
     for p in all_pts:
@@ -454,6 +464,9 @@ def tron_data():
         defense_breakdown=defense_breakdown,
         offense_faced_breakdown=offense_faced_breakdown,
         pull_breakdown=pull_breakdown,
+        all_games=all_games,
+        all_tournaments=all_tournaments,
+        selected_ids=selected_ids,
     )
 
 
