@@ -488,6 +488,146 @@
       gap: 10px;
     }
   }
+
+  /* ── My Comments section ───────────────────────────────── */
+  .my-comments-section {
+    margin-top: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .my-comments-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .my-comments-header:hover {
+    background: rgba(200,241,53,0.05);
+  }
+
+  .my-comments-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  .my-comments-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: 12px;
+  }
+
+  .my-comments-toggle {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .comments-caret {
+    display: inline-block;
+    transition: transform 0.3s ease;
+  }
+
+  .my-comments-section.open .comments-caret {
+    transform: rotate(180deg);
+  }
+
+  .my-comments-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .my-comments-section.open .my-comments-body {
+    display: block;
+  }
+
+  .mci-item {
+    display: block;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+  }
+
+  .mci-item:last-child { border-bottom: none; }
+  .mci-item:hover { background: rgba(255,255,255,0.03); }
+
+  .mci-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .mci-game {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--sky);
+    font-weight: 600;
+  }
+
+  .mci-ts {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--lime);
+    background: rgba(200,241,53,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .mci-reply {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--warm);
+    background: rgba(255,107,43,0.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .mci-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .mci-vs {
+    color: var(--muted);
+  }
+
+  .mci-mention {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+
+  .mci-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    opacity: 0.85;
+    line-height: 1.45;
+  }
 {% endblock %}
 
 {% block content %}
@@ -653,5 +793,79 @@
       </p>
     </div>
   {% endif %}
+
+  {% if my_comments %}
+    <div class="my-comments-section" id="myCommentsSection">
+      <div class="my-comments-header" onclick="toggleMyComments()">
+        <div>
+          <span class="my-comments-heading">My Comments</span>
+          <span class="my-comments-count">{{ my_comments|length }} comment{{ 's' if my_comments|length != 1 else '' }}</span>
+        </div>
+        <div class="my-comments-toggle">
+          <span>show all</span>
+          <span class="comments-caret">▼</span>
+        </div>
+      </div>
+      <div class="my-comments-body">
+        {% for c in my_comments %}
+          <a class="mci-item" href="{{ url_for('view_game', game_id=c.game_id) }}?comment={{ c.id }}">
+            <div class="mci-meta">
+              <span class="mci-game">{{ c.game_title }}<span class="mci-vs"> vs {{ c.game_opponent }}</span></span>
+              {% if c.timestamp_str %}
+                <span class="mci-ts">⏱ {{ c.timestamp_str }}</span>
+              {% endif %}
+              {% if c.is_reply %}
+                <span class="mci-reply">reply</span>
+              {% endif %}
+              <span class="mci-date" data-iso="{{ c.created_at_iso }}"></span>
+            </div>
+            <div class="mci-text">{{ c.content[:140] }}{% if c.content|length > 140 %}…{% endif %}</div>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
 </div>
+<script>
+function toggleMyComments() {
+  document.getElementById('myCommentsSection').classList.toggle('open');
+}
+
+// ── Comment rendering helpers ───────────────────────────────────────────
+function _mciRelativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  if (isNaN(diff) || diff < 0) return '';
+  const s = Math.floor(diff / 1000);
+  if (s < 60)  return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)   return `${d}d ago`;
+  const wk = Math.floor(d / 7);
+  if (wk < 5)  return `${wk}w ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+function _mciRenderMentions(el) {
+  const raw = el.textContent;
+  if (!raw.includes('@[')) return;
+  el.innerHTML = raw.split(/(@\[[^\]]+\])/g).map(part => {
+    const m = part.match(/^@\[(.+)\]$/);
+    if (m) return `<span class="mci-mention">@${m[1].replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</span>`;
+    return part.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mci-date[data-iso]').forEach(el => {
+    el.textContent = _mciRelativeTime(el.dataset.iso);
+  });
+  document.querySelectorAll('.mci-text').forEach(_mciRenderMentions);
+});
+</script>
 {% endblock %}

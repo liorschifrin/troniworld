@@ -364,16 +364,51 @@ def my_games():
     # Calculate total percentages
     total_hold_pct = (total_o_scored / total_o_points * 100) if total_o_points > 0 else 0
     total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else 0
-    
-    return render_template('film_room/pages/my_games.html', 
-                         current_user=current_user, 
+
+    # Fetch all comments by this user for the "My Comments" section
+    my_comments_rows = (
+        db.session.query(
+            Comment.id,
+            Comment.content,
+            Comment.timestamp,
+            Comment.created_at,
+            Comment.game_id,
+            Comment.parent_id,
+            Game.title.label('game_title'),
+            Game.opponent.label('game_opponent'),
+        )
+        .join(Game, Comment.game_id == Game.id)
+        .filter(Comment.author_name == current_user.username)
+        .order_by(Comment.created_at.desc())
+        .all()
+    )
+    my_comments = [
+        {
+            'id': r.id,
+            'content': r.content,
+            'timestamp': r.timestamp,
+            'timestamp_str': (f'{r.timestamp // 60}:{r.timestamp % 60:02d}'
+                              if r.timestamp is not None else None),
+            'created_at': fmt_dt_est(r.created_at),
+            'created_at_iso': r.created_at.isoformat() + 'Z' if r.created_at else '',
+            'game_id': r.game_id,
+            'is_reply': r.parent_id is not None,
+            'game_title': r.game_title,
+            'game_opponent': r.game_opponent,
+        }
+        for r in my_comments_rows
+    ]
+
+    return render_template('film_room/pages/my_games.html',
+                         current_user=current_user,
                          games_with_stats=games_with_stats,
                          total_o_points=total_o_points,
                          total_o_scored=total_o_scored,
                          total_hold_pct=total_hold_pct,
                          total_d_points=total_d_points,
                          total_d_scored=total_d_scored,
-                         total_break_pct=total_break_pct)
+                         total_break_pct=total_break_pct,
+                         my_comments=my_comments)
 
 
 @app.route('/film/data')
@@ -1444,7 +1479,14 @@ def analytics_dashboard():
     
     # Get all users
     users = User.query.all()
-    
+
+    # Pre-compute leadership/admin usernames so we can attribute notifications
+    leadership_usernames = set(
+        u.username for u in User.query.filter(
+            db.or_(User.is_leadership == True, User.is_admin == True)
+        ).all()
+    )
+
     # Build analytics data for each user
     user_analytics = []
     
@@ -1487,13 +1529,27 @@ def analytics_dashboard():
         # Count comments made by this user
         # Comments store author_name, so we match by username
         comment_count = Comment.query.filter_by(author_name=user.username).count()
-        
+
+        # Leadership notifications: comments sent to this user by leadership/admin
+        _ldr_q = (
+            CommentNotification.query
+            .join(Comment, CommentNotification.comment_id == Comment.id)
+            .filter(
+                CommentNotification.recipient_username == user.username,
+                Comment.author_name.in_(leadership_usernames),
+            )
+        )
+        leadership_notif_total = _ldr_q.count()
+        leadership_notif_read  = _ldr_q.filter(CommentNotification.is_read == True).count()
+
         user_analytics.append({
             'user': user,
             'login_count': login_count,
             'total_watch_minutes': round(total_watch_minutes, 1),
             'game_breakdown': game_breakdown,
-            'comment_count': comment_count
+            'comment_count': comment_count,
+            'leadership_notif_total': leadership_notif_total,
+            'leadership_notif_read':  leadership_notif_read,
         })
     
     # Sort by total watch minutes (most engaged users first)
@@ -1579,3 +1635,141 @@ def mark_all_notifications_read():
     ).update({'is_read': True, 'read_at': now})
     db.session.commit()
     return jsonify({'success': True})
+
+
+@app.route('/film/api/user/<username>/comments')
+@admin_required
+def user_comment_list(username):
+    """Return comments written by a user (newest first).
+    Private comments are only visible if: they are public, the author is leadership/admin,
+    or the current admin is a recipient in private_to.
+    For replies, the parent comment's privacy is also checked — if the admin can't see
+    the parent thread, the reply is hidden too."""
+    current_user = get_current_user()
+
+    leadership_usernames = set(
+        u.username for u in User.query.filter(
+            db.or_(User.is_leadership == True, User.is_admin == True)
+        ).all()
+    )
+    author_is_leadership = username in leadership_usernames
+
+    ParentComment = db.aliased(Comment)
+
+    rows = (
+        db.session.query(
+            Comment.id,
+            Comment.content,
+            Comment.timestamp,
+            Comment.created_at,
+            Comment.game_id,
+            Comment.parent_id,
+            Comment.private_to,
+            ParentComment.private_to.label('parent_private_to'),
+            ParentComment.author_name.label('parent_author_name'),
+            Game.title.label('game_title'),
+            Game.opponent.label('game_opponent'),
+        )
+        .join(Game, Comment.game_id == Game.id)
+        .outerjoin(ParentComment, Comment.parent_id == ParentComment.id)
+        .filter(Comment.author_name == username)
+        .order_by(Comment.created_at.desc())
+        .all()
+    )
+
+    def _admin_can_see_private(private_to_raw, author_name):
+        """Return (visible, parsed_list). visible=True if the admin can see a comment
+        with this private_to value written by author_name."""
+        if private_to_raw is None:
+            return True, None
+        try:
+            pt_list = json.loads(private_to_raw)
+        except Exception:
+            pt_list = []
+        author_is_ldr = author_name in leadership_usernames
+        if not author_is_ldr and current_user.username not in pt_list:
+            return False, pt_list
+        return True, pt_list
+
+    result = []
+    for r in rows:
+        # Check own comment's privacy
+        own_visible, private_to_list = _admin_can_see_private(r.private_to, username)
+        if not own_visible:
+            continue
+
+        # For replies, also check parent thread privacy
+        if r.parent_id is not None and r.parent_private_to is not None:
+            parent_visible, _ = _admin_can_see_private(r.parent_private_to, r.parent_author_name or '')
+            if not parent_visible:
+                continue
+
+        result.append({
+            'id': r.id,
+            'content': r.content,
+            'timestamp': r.timestamp,
+            'created_at': fmt_dt_est(r.created_at),
+            'created_at_iso': r.created_at.isoformat() + 'Z' if r.created_at else '',
+            'game_id': r.game_id,
+            'is_reply': r.parent_id is not None,
+            'game_title': r.game_title,
+            'game_opponent': r.game_opponent,
+            'private_to': private_to_list,
+        })
+
+    return jsonify({'username': username, 'comments': result})
+
+
+@app.route('/film/api/user/<username>/leadership-tags')
+@admin_required
+def user_leadership_tags(username):
+    """Return all notifications received by a user that were triggered by leadership/admin comments."""
+    leadership_usernames = set(
+        u.username for u in User.query.filter(
+            db.or_(User.is_leadership == True, User.is_admin == True)
+        ).all()
+    )
+    rows = (
+        db.session.query(
+            CommentNotification.id.label('notif_id'),
+            CommentNotification.is_read,
+            CommentNotification.notification_type,
+            CommentNotification.created_at,
+            Comment.id.label('comment_id'),
+            Comment.content,
+            Comment.timestamp,
+            Comment.author_name,
+            Comment.game_id,
+            Comment.parent_id,
+            Game.title.label('game_title'),
+            Game.opponent.label('game_opponent'),
+        )
+        .join(Comment, CommentNotification.comment_id == Comment.id)
+        .join(Game, Comment.game_id == Game.id)
+        .filter(
+            CommentNotification.recipient_username == username,
+            Comment.author_name.in_(leadership_usernames),
+        )
+        .order_by(CommentNotification.created_at.desc())
+        .all()
+    )
+    return jsonify({
+        'username': username,
+        'tags': [
+            {
+                'notif_id': r.notif_id,
+                'is_read': r.is_read,
+                'notification_type': r.notification_type,
+                'comment_id': r.comment_id,
+                'content': r.content,
+                'timestamp': r.timestamp,
+                'created_at_iso': r.created_at.isoformat() + 'Z' if r.created_at else '',
+                'author_name': r.author_name,
+                'game_id': r.game_id,
+                'is_reply': r.parent_id is not None,
+                'game_title': r.game_title,
+                'game_opponent': r.game_opponent,
+            }
+            for r in rows
+        ]
+    })
