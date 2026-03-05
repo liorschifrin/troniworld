@@ -2309,6 +2309,7 @@
   const isCurrentUserLeadership = {% if current_user and current_user.is_leadership %}true{% else %}false{% endif %};
   let currentActivePointId = null;
   let currentActiveCommentId = null;
+  let _suppressAutoScroll = false;  // set true briefly after a notification scroll
   let selectedCommentType = 'Comment';
   let isPrivateComment = false;
   let privateToUsers = [];
@@ -3207,11 +3208,13 @@
         activeComment.classList.add('active-pulse');
         
         // Scroll to show the active comment — on mobile landscape, scroll within list only (no page scroll)
-        const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
-        if (!isMobileLandscape) {
-          scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
-        } else {
-          scrollCommentIntoView(activeComment, { smooth: true, toTop: false });
+        if (!_suppressAutoScroll) {
+          const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
+          if (!isMobileLandscape) {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
+          } else {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: false });
+          }
         }
         
         // Remove pulse animation after it completes (1s)
@@ -4567,6 +4570,11 @@
   function scrollToCommentById(commentId) {
     const el = document.querySelector(`[data-comment-id="${commentId}"]`);
     if (!el) return;
+    // Suppress the auto-scroll from updateActiveComment for 3s so it doesn't
+    // immediately override the notification scroll.
+    _suppressAutoScroll = true;
+    clearTimeout(window._suppressAutoScrollTimer);
+    window._suppressAutoScrollTimer = setTimeout(() => { _suppressAutoScroll = false; }, 3000);
     el.classList.add('notif-highlight');
     scrollCommentIntoView(el, { smooth: true, toTop: true });
     // Remove the highlight class after flashing so it can retrigger if needed
