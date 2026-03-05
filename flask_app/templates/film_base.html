@@ -72,6 +72,10 @@
     font-weight: 600;
     font-size: 14px;
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
   }
 
   .film-nav__container {
@@ -607,6 +611,49 @@
     }
   }
 
+  /* ── Nav overflow tiers (applied by JS ResizeObserver) ───────────────── */
+  /* Tier: compact — shrink columns to auto so links get maximum 1fr space */
+  .film-nav__wrapper.nav-compact {
+    grid-template-columns: auto 1fr auto;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__user-greeting {
+    display: none;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__user-name {
+    max-width: 70px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .film-nav__wrapper.nav-compact .notif-bell-wrap {
+    margin-right: 4px;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__logout-link {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  /* Tier: hamburger — hide user text + links, reveal hamburger; user div stays
+     as a grid spacer (1fr) so bell + hamburger are pushed to the right */
+  .film-nav__wrapper.nav-hamburger {
+    grid-template-columns: 1fr auto auto;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__user-greeting,
+  .film-nav__wrapper.nav-hamburger .film-nav__user-name {
+    display: none;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__container {
+    display: none !important;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__logout .film-nav__logout-link {
+    display: none;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__hamburger {
+    display: block;
+  }
+  /* ─────────────────────────────────────────────────────────────────────── */
+
   {% block extra_style %}{% endblock %}
 </style>
 {% block extra_head %}{% endblock %}
@@ -874,6 +921,50 @@
   fetchNotifications();
   setInterval(fetchNotifications, 60000);
   {% endif %}
+
+  // ── Nav overflow prevention ────────────────────────────────────────────
+  // Never allow the nav bar to become two rows.
+  // Tier 1 (nav-compact): hide "Hello,", shrink username & logout.
+  // Tier 2 (nav-hamburger): hide all links and user; show hamburger.
+  (function () {
+    const wrapper = document.querySelector('.film-nav__wrapper');
+    if (!wrapper) return;
+
+    // Primary overflow signal: do the nav links overflow their column?
+    // Secondary: has the wrapper grown taller than a single row?
+    let _singleRowH = 0;
+
+    function _linksOverflow() {
+      const links = wrapper.querySelector('.film-nav__container');
+      return !!(links && links.scrollWidth > links.clientWidth + 2);
+    }
+
+    function _heightOverflow() {
+      return _singleRowH > 0 &&
+             wrapper.getBoundingClientRect().height > _singleRowH + 4;
+    }
+
+    function checkNavOverflow() {
+      // 1. Reset to natural state and capture single-row height
+      wrapper.classList.remove('nav-compact', 'nav-hamburger');
+      _singleRowH = wrapper.getBoundingClientRect().height;
+
+      if (!_linksOverflow() && !_heightOverflow()) return; // ✓ fits
+
+      // 2. Try compact tier (columns shrink to auto → links get more 1fr space)
+      wrapper.classList.add('nav-compact');
+      if (!_linksOverflow() && !_heightOverflow()) return; // ✓ compact fits
+
+      // 3. Fall back to hamburger tier
+      wrapper.classList.remove('nav-compact');
+      wrapper.classList.add('nav-hamburger');
+    }
+
+    const navRO = new ResizeObserver(checkNavOverflow);
+    navRO.observe(wrapper);
+    requestAnimationFrame(checkNavOverflow);
+  })();
+  // ──────────────────────────────────────────────────────────────────────
 </script>
 
 {% if current_user %}
