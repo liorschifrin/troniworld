@@ -107,7 +107,7 @@ def login():
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
         # Check password against shared passwords based on role
-        if user.is_admin:
+        if user.is_admin or user.is_leadership:
             expected_password = os.getenv('FILM_ADMIN_PASSWORD')
         else:
             expected_password = os.getenv('FILM_USER_PASSWORD')
@@ -117,8 +117,8 @@ def login():
             flash('Authentication system not configured properly.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
-        # Verify against hashed password (which was created from shared password)
-        if not check_password_hash(user.hashed_password, password):
+        # Verify entered password matches the expected shared password for this role
+        if password != expected_password.lower():
             print("Invalid username or password attempt for user:", username)
             flash('Invalid username or password.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
