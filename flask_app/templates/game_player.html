@@ -1440,6 +1440,17 @@
     align-items: center;
   }
 
+  /* While a comment is being edited, hide the action buttons and let the form take full width */
+  .comment-item.is-editing {
+    flex-direction: column;
+  }
+  .comment-item.is-editing .comment-actions {
+    display: none;
+  }
+  .comment-item.is-editing .comment-content-wrapper {
+    width: 100%;
+  }
+
   .comment-text {
     color: var(--text);
     font-size: 0.85rem;
@@ -2310,6 +2321,7 @@
   let currentActivePointId = null;
   let currentActiveCommentId = null;
   let _suppressAutoScroll = false;  // set true briefly after a notification scroll
+  let _isEditingComment  = false;   // set true while the inline edit form is open
   let selectedCommentType = 'Comment';
   let isPrivateComment = false;
   let privateToUsers = [];
@@ -3208,7 +3220,7 @@
         activeComment.classList.add('active-pulse');
         
         // Scroll to show the active comment — on mobile landscape, scroll within list only (no page scroll)
-        if (!_suppressAutoScroll) {
+        if (!_suppressAutoScroll && !_isEditingComment) {
           const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
           if (!isMobileLandscape) {
             scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
@@ -4180,6 +4192,10 @@
     const commentWrapper = commentItem.querySelector('.comment-content-wrapper');
     
     if (!commentWrapper) return;
+
+    // Mark as editing: hide action buttons, full-width form, suppress auto-scroll
+    commentItem.classList.add('is-editing');
+    _isEditingComment = true;
     
     // Store original content
     const originalHTML = commentWrapper.innerHTML;
@@ -4256,6 +4272,8 @@
     
     // Cancel function
     const cancelEdit = () => {
+      commentItem.classList.remove('is-editing');
+      _isEditingComment = false;
       commentWrapper.innerHTML = originalHTML;
     };
     
@@ -4282,15 +4300,20 @@
         });
         
         if (response.ok) {
+          _isEditingComment = false;
           await loadComments();
         } else {
           const error = await response.json();
           alert('Error updating comment: ' + (error.error || 'Unknown error'));
+          commentItem.classList.remove('is-editing');
+          _isEditingComment = false;
           commentWrapper.innerHTML = originalHTML;
         }
       } catch (error) {
         console.error('Error updating comment:', error);
         alert('Error updating comment. Please try again.');
+        commentItem.classList.remove('is-editing');
+        _isEditingComment = false;
         commentWrapper.innerHTML = originalHTML;
       }
     };
