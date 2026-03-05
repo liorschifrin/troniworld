@@ -64,3 +64,14 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - New API endpoints in `film_routes.py`:
   - `GET /film/api/user/<username>/comments` → all comments by user (newest first), fields: id, content, timestamp, created_at_iso, game_id, is_reply, game_title, game_opponent.
   - `GET /film/api/user/<username>/leadership-tags` → all notifications for user from leadership/admin authors, fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
+
+### Article comment notifications (`routes.py` + `articles/base.html`)
+- `ArticleCommentNotification` DB model (`article_comment_notifications` table). Fields: `recipient_username`, `comment_id` (FK → article_comments), `post_id` (FK → post), `notification_type` ('reply' | 'thread'), `is_read` (bool), `created_at`, `read_at` (nullable).
+- `_create_article_notifs(comment, post_id, author_username)` in `routes.py` — called in `create_article_comment` after `db.session.commit()`. Only fires for replies (skips top-level). Parent author → `reply`; other users who replied in same thread → `thread`.
+- API endpoints in `routes.py`:
+  - `GET /api/article-notifications` → `{notifications: [...], unread_count: N}` (last 50, newest first). Each item includes: `id`, `notification_type`, `is_read`, `created_at`, `post_id`, `comment_id`, `comment_parent_id`, `comment_content` (120-char), `author_name`, `post_title`.
+  - `POST /api/article-notifications/<id>/read` → marks one notification read.
+  - `POST /api/article-notifications/read-all` → bulk-marks all unread for current user.
+- Nav bell: lives in `articles/base.html`. 🔔 button in its own `<li class="art-notif-wrap">` before `.js-user-menu` in the desktop nav; also in mobile alt-menu. Orange `.art-notif-badge` (hides when count=0). Clicking opens `.art-notif-dropdown` which fetches/renders notifications. Auto-polls every 60s (`fetchArtNotifications()`). Both desktop and mobile badges update together via `.art-notif-badge, .art-notif-badge-mobile` selector.
+- Clicking a notification (`handleArtNotifClick`) marks it + thread siblings read → navigates to `/post/<post_id>?comment=<comment_id>`.
+- Migration: `g2h3i4j5k6l7` (down_revision: prior head).

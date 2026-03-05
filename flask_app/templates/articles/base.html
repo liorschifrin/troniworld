@@ -41,6 +41,121 @@
             gap: 6px;
             white-space: nowrap;
         }
+        /* ── Article notification bell ── */
+        .art-notif-wrap { position: relative; }
+        .art-notif-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #fff;
+            font-size: 14px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s;
+            line-height: 1;
+        }
+        .art-notif-btn:hover { background: rgba(255,255,255,0.15); }
+        .art-notif-badge {
+            background: #e05c00;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 8px;
+            padding: 1px 5px;
+            min-width: 16px;
+            text-align: center;
+            line-height: 14px;
+        }
+        .art-notif-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            width: 320px;
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .art-notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        .art-notif-mark-all {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 11px;
+            color: #7eaaff;
+            padding: 0;
+        }
+        .art-notif-mark-all:hover { text-decoration: underline; }
+        .art-notif-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .art-notif-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .art-notif-item:hover { background: rgba(255,255,255,0.06); }
+        .art-notif-item.unread { background: rgba(126,170,255,0.07); }
+        .art-notif-item.unread:hover { background: rgba(126,170,255,0.13); }
+        .art-notif-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #9090aa;
+            margin-bottom: 3px;
+        }
+        .art-notif-type-badge {
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 4px;
+            padding: 1px 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .art-notif-type-reply { background: rgba(126,170,255,0.2); color: #7eaaff; }
+        .art-notif-type-thread { background: rgba(120,200,120,0.18); color: #7dc87d; }
+        .art-notif-author { font-weight: 600; color: #c8c8e0; font-size: 12px; }
+        .art-notif-snippet {
+            font-size: 12px;
+            color: #b0b0c8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .art-notif-post {
+            font-size: 11px;
+            color: #6a6a88;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .art-notif-empty {
+            padding: 20px 14px;
+            text-align: center;
+            color: #6a6a88;
+            font-size: 13px;
+        }
     </style>
 <body>
     <header class="header">
@@ -64,6 +179,20 @@
                         <li class="inline-list__item">
                             <a class="action-menu__link" href="https://docs.google.com/forms/d/e/1FAIpQLScyI90G6MT2JOh4771IHaJI9Nx8keZOPcv4NbZGKkdi2nzMvg/viewform?pli=1" target="_blank"><i class="fa fa-fw fa-comment-o"></i> Feedback</a>
                         </li>
+                        {% if current_user %}
+                        <li class="inline-list__item art-notif-wrap">
+                            <button class="art-notif-btn" onclick="toggleArtNotifDropdown(event)" aria-label="Notifications">
+                                🔔 <span class="art-notif-badge" id="artNotifBadge" style="display:none;">0</span>
+                            </button>
+                            <div class="art-notif-dropdown" id="artNotifDropdown" style="display:none;">
+                                <div class="art-notif-header">
+                                    <span>Notifications</span>
+                                    <button class="art-notif-mark-all" onclick="markAllArtNotifsRead(event)">Mark all read</button>
+                                </div>
+                                <ul class="art-notif-list" id="artNotifList"></ul>
+                            </div>
+                        </li>
+                        {% endif %}
                         <li class="inline-list__item js-user-menu">
                             <!-- User menu will be dynamically loaded by JavaScript -->
                         </li>
@@ -135,6 +264,13 @@
 
                 <div class="alt-menu__right">
                     <ul class="inline-list inline-list--rtl">
+                        {% if current_user %}
+                        <li class="inline-list__item art-notif-wrap" style="position:relative;">
+                            <button class="art-notif-btn" onclick="toggleArtNotifDropdown(event)" aria-label="Notifications">
+                                🔔 <span class="art-notif-badge art-notif-badge-mobile" style="display:none;">0</span>
+                            </button>
+                        </li>
+                        {% endif %}
                         <li class="inline-list__item js-alt-sign-in">
                             <a href="{{ url_for('login', next=request.path) }}"><i class="fa fa-fw fa-user-circle"></i> Sign In</a>
                         </li>
@@ -222,6 +358,146 @@
     })();
     </script>
     
+{% if current_user %}
+    <script>
+    (function () {
+        var _artNotifOpen = false;
+
+        function _escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function _relTime(isoStr) {
+            if (!isoStr) return '';
+            // Dates come back as formatted EST strings, not ISO — just return as-is
+            return isoStr;
+        }
+
+        function _updateBadge(count) {
+            var badges = document.querySelectorAll('.art-notif-badge, .art-notif-badge-mobile');
+            badges.forEach(function(b) {
+                if (count > 0) {
+                    b.textContent = count > 99 ? '99+' : count;
+                    b.style.display = 'inline-block';
+                } else {
+                    b.style.display = 'none';
+                }
+            });
+        }
+
+        function _renderList(notifs) {
+            var list = document.getElementById('artNotifList');
+            if (!list) return;
+            if (!notifs || notifs.length === 0) {
+                list.innerHTML = '<li class="art-notif-empty">No notifications yet.</li>';
+                return;
+            }
+            list.innerHTML = notifs.map(function(n) {
+                var typeLabel = n.notification_type === 'reply' ? 'Reply' : 'Thread';
+                var typeClass = n.notification_type === 'reply' ? 'art-notif-type-reply' : 'art-notif-type-thread';
+                var unreadClass = n.is_read ? '' : ' unread';
+                return '<li class="art-notif-item' + unreadClass + '" ' +
+                    'data-notif-id="' + n.id + '" ' +
+                    'data-post-id="' + n.post_id + '" ' +
+                    'data-comment-id="' + n.comment_id + '" ' +
+                    'data-parent-id="' + (n.comment_parent_id || '') + '" ' +
+                    'onclick="handleArtNotifClick(this)">' +
+                    '<div class="art-notif-meta">' +
+                        '<span class="art-notif-type-badge ' + typeClass + '">' + typeLabel + '</span>' +
+                        '<span class="art-notif-author">' + _escHtml(n.author_name) + '</span>' +
+                        '<span style="margin-left:auto;font-size:11px;color:#6a6a88;">' + _escHtml(n.created_at) + '</span>' +
+                    '</div>' +
+                    '<div class="art-notif-snippet">' + _escHtml(n.comment_content) + '</div>' +
+                    '<div class="art-notif-post">' + _escHtml(n.post_title) + '</div>' +
+                    '</li>';
+            }).join('');
+        }
+
+        window.fetchArtNotifications = function() {
+            jQuery.getJSON('/api/article-notifications', function(data) {
+                _updateBadge(data.unread_count || 0);
+                if (_artNotifOpen) {
+                    _renderList(data.notifications || []);
+                }
+            });
+        };
+
+        window.toggleArtNotifDropdown = function(e) {
+            e.stopPropagation();
+            var dropdown = document.getElementById('artNotifDropdown');
+            if (!dropdown) return;
+            _artNotifOpen = !_artNotifOpen;
+            dropdown.style.display = _artNotifOpen ? 'block' : 'none';
+            if (_artNotifOpen) {
+                jQuery.getJSON('/api/article-notifications', function(data) {
+                    _updateBadge(data.unread_count || 0);
+                    _renderList(data.notifications || []);
+                });
+            }
+        };
+
+        window.handleArtNotifClick = function(el) {
+            var notifId = el.getAttribute('data-notif-id');
+            var postId = el.getAttribute('data-post-id');
+            var commentId = el.getAttribute('data-comment-id');
+            var parentId = el.getAttribute('data-parent-id');
+            var threadId = parentId || commentId;
+
+            // Mark clicked notif read
+            jQuery.post('/api/article-notifications/' + notifId + '/read');
+
+            // Also mark sibling thread notifications read
+            var list = document.getElementById('artNotifList');
+            if (list) {
+                list.querySelectorAll('.art-notif-item').forEach(function(item) {
+                    var ip = item.getAttribute('data-parent-id');
+                    var ic = item.getAttribute('data-comment-id');
+                    var iThread = ip || ic;
+                    if (iThread === threadId && item !== el) {
+                        jQuery.post('/api/article-notifications/' + item.getAttribute('data-notif-id') + '/read');
+                        item.classList.remove('unread');
+                    }
+                });
+                el.classList.remove('unread');
+            }
+
+            // Navigate to the post
+            var url = '/post/' + postId;
+            if (commentId) url += '?comment=' + commentId;
+            window.location.href = url;
+        };
+
+        window.markAllArtNotifsRead = function(e) {
+            if (e) e.stopPropagation();
+            jQuery.post('/api/article-notifications/read-all', function() {
+                _updateBadge(0);
+                var list = document.getElementById('artNotifList');
+                if (list) {
+                    list.querySelectorAll('.art-notif-item.unread').forEach(function(i) {
+                        i.classList.remove('unread');
+                    });
+                }
+            });
+        };
+
+        // Close dropdown on outside click
+        document.addEventListener('click', function(e) {
+            if (!_artNotifOpen) return;
+            var dropdown = document.getElementById('artNotifDropdown');
+            if (dropdown && !dropdown.contains(e.target)) {
+                _artNotifOpen = false;
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Initial fetch + poll every 60s
+        jQuery(function() {
+            fetchArtNotifications();
+            setInterval(fetchArtNotifications, 60000);
+        });
+    })();
+    </script>
+{% endif %}
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
