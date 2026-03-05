@@ -182,17 +182,15 @@
     </header>
 
     <main>
-        {% block flash_messages %}
-        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% with messages = get_flashed_messages() %}
             {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="flash-messages__item flash-messages__item--{{ category or 'info' }}">{{ message }}</div>
+                <ul class="flash-messages">
+                    {% for message in messages %}
+                        <li>{{ message }}</li>
                     {% endfor %}
-                </div>
+                </ul>
             {% endif %}
         {% endwith %}
-        {% endblock %}
 
         {% block content %}{% endblock %}
     </main>
