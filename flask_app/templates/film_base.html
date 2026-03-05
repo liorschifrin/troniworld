@@ -414,11 +414,10 @@
     opacity: 0;
   }
 
-  /* Notification dropdown */
+  /* Notification dropdown — fixed so it is never clipped */
   .notif-dropdown {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: -8px;
+    position: fixed;
+    /* top / left / right set inline by JS */
     width: 340px;
     max-height: 480px;
     background: var(--grass);
@@ -599,9 +598,12 @@
 
   @media (max-width: 900px) {
     .notif-bell-wrap { margin-right: 6px; }
+  }
+  /* On narrow screens the dropdown goes full width */
+  @media (max-width: 600px) {
     .notif-dropdown {
-      width: calc(100vw - 16px);
-      right: -4px;
+      width: 100vw !important;
+      border-radius: 0 0 8px 8px;
     }
   }
 
@@ -637,15 +639,6 @@
             🔔
             <span class="notif-bell-badge" id="notifBellBadge" data-count="0">0</span>
           </button>
-          <div class="notif-dropdown" id="notifDropdown">
-            <div class="notif-dropdown__header">
-              <span class="notif-dropdown__title">Notifications</span>
-              <!-- <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button> -->
-            </div>
-            <div class="notif-dropdown__list" id="notifList">
-              <div class="notif-empty">Loading…</div>
-            </div>
-          </div>
         </div>
         <a href="{{ url_for('logout') }}" class="film-nav__logout-link">Logout</a>
       {% endif %}
@@ -840,15 +833,33 @@
     const dd = document.getElementById('notifDropdown');
     if (!dd) return;
     const isOpen = dd.classList.toggle('open');
-    if (isOpen) fetchNotifications();
+    if (isOpen) {
+      // Position below the bell button using fixed coords
+      const btn = document.getElementById('notifBellBtn');
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth;
+      dd.style.top = (rect.bottom + 6) + 'px';
+      if (vw <= 600) {
+        // Full width, flush left
+        dd.style.left = '0';
+        dd.style.right = '0';
+      } else {
+        // Right-align to the button
+        dd.style.right = (vw - rect.right) + 'px';
+        dd.style.left = 'auto';
+      }
+      fetchNotifications();
+    }
   }
 
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('notifBellWrap');
-    if (wrap && !wrap.contains(e.target)) {
-      const dd = document.getElementById('notifDropdown');
-      if (dd) dd.classList.remove('open');
+    const dd = document.getElementById('notifDropdown');
+    const btn = document.getElementById('notifBellBtn');
+    if (dd && dd.classList.contains('open')) {
+      if (!dd.contains(e.target) && !(btn && btn.contains(e.target))) {
+        dd.classList.remove('open');
+      }
     }
   });
 
@@ -865,6 +876,18 @@
   {% endif %}
 </script>
 
+{% if current_user %}
+<!-- Notification dropdown — body-level so it is never clipped by overflow:hidden ancestors -->
+<div class="notif-dropdown" id="notifDropdown">
+  <div class="notif-dropdown__header">
+    <span class="notif-dropdown__title">Notifications</span>
+    <!-- <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button> -->
+  </div>
+  <div class="notif-dropdown__list" id="notifList">
+    <div class="notif-empty">Loading…</div>
+  </div>
+</div>
+{% endif %}
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
