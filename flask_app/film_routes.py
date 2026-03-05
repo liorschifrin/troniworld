@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 import csv
 import io
+import json
 import os
 
 _EST = ZoneInfo('America/New_York')
@@ -797,14 +798,37 @@ def edit_game(game_id):
 def get_comments(game_id):
     """Get all comments for a game"""
     game = Game.query.get_or_404(game_id)
+    current_user = get_current_user()
+    viewer_username = current_user.username if current_user else None
+
     # Sort by timestamp (nulls last), then by created_at for comments without timestamps
     comments = Comment.query.filter_by(game_id=game_id, parent_id=None).order_by(
         Comment.timestamp.asc().nullslast(),
         Comment.created_at.asc()
     ).all()
     
+    def can_see(comment):
+        """Return True if the current viewer is allowed to see this comment."""
+        if not comment.private_to:
+            return True
+        if viewer_username is None:
+            return False
+        try:
+            allowed = json.loads(comment.private_to)
+        except (ValueError, TypeError):
+            allowed = []
+        return viewer_username == comment.author_name or viewer_username in allowed
+
     comments_list = []
     for comment in comments:
+        if not can_see(comment):
+            continue
+        private_to_list = None
+        if comment.private_to:
+            try:
+                private_to_list = json.loads(comment.private_to)
+            except (ValueError, TypeError):
+                private_to_list = []
         comment_author = User.query.filter_by(username=comment.author_name).first()
         comment_data = {
             'id': comment.id,
@@ -814,19 +838,29 @@ def get_comments(game_id):
             'comment_type': comment.comment_type,
             'timestamp': comment.timestamp,
             'created_at': fmt_dt_est(comment.created_at),
+            'private_to': private_to_list,
             'replies': []
         }
         
         # Get replies (1-level nesting)
         replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
         for reply in replies:
+            if not can_see(reply):
+                continue
+            reply_private_to = None
+            if reply.private_to:
+                try:
+                    reply_private_to = json.loads(reply.private_to)
+                except (ValueError, TypeError):
+                    reply_private_to = []
             reply_author = User.query.filter_by(username=reply.author_name).first()
             comment_data['replies'].append({
                 'id': reply.id,
                 'author_name': reply.author_name,
                 'is_leadership': bool(reply_author and reply_author.is_leadership),
                 'content': reply.content,
-                'created_at': fmt_dt_est(reply.created_at)
+                'created_at': fmt_dt_est(reply.created_at),
+                'private_to': reply_private_to
             })
         
         comments_list.append(comment_data)
@@ -851,7 +885,14 @@ def create_comment(game_id):
     parent_id = data.get('parent_id')
     timestamp = data.get('timestamp')
     point_id = data.get('point_id')
-    
+    private_to_raw = data.get('private_to')  # list of usernames or None
+
+    # Normalize private_to to a JSON string or None
+    if private_to_raw and isinstance(private_to_raw, list) and len(private_to_raw) > 0:
+        private_to_stored = json.dumps([u.strip() for u in private_to_raw if u.strip()])
+    else:
+        private_to_stored = None
+
     # Content is required for non-Event types
     if not content and comment_type != 'Event':
         return jsonify({'error': 'Content is required'}), 400
@@ -868,13 +909,15 @@ def create_comment(game_id):
         comment_type=comment_type,
         author_name=author_name,
         timestamp=timestamp,
-        content=content
+        content=content,
+        private_to=private_to_stored
     )
     
     try:
         db.session.add(new_comment)
         db.session.commit()
-        
+
+        private_to_list = json.loads(private_to_stored) if private_to_stored else None
         return jsonify({
             'success': True,
             'comment': {
@@ -885,7 +928,8 @@ def create_comment(game_id):
                 'comment_type': new_comment.comment_type,
                 'timestamp': new_comment.timestamp,
                 'created_at': fmt_dt_est(new_comment.created_at),
-                'parent_id': new_comment.parent_id
+                'parent_id': new_comment.parent_id,
+                'private_to': private_to_list
             }
         }), 201
     except Exception as e:
@@ -929,7 +973,8 @@ def update_comment(game_id, comment_id):
     data = request.get_json()
     new_content = data.get('content', '').strip()
     new_comment_type = data.get('comment_type')
-    
+    private_to_raw = data.get('private_to', '__unchanged__')  # sentinel to detect omission
+
     # Content is required for non-Event types
     if not new_content and (not new_comment_type or new_comment_type != 'Event'):
         return jsonify({'error': 'Content is required'}), 400
@@ -943,7 +988,20 @@ def update_comment(game_id, comment_id):
         comment.content = new_content
         if new_comment_type:
             comment.comment_type = new_comment_type
+        # Update private_to only if key was present in the request
+        if private_to_raw != '__unchanged__':
+            if private_to_raw and isinstance(private_to_raw, list) and len(private_to_raw) > 0:
+                comment.private_to = json.dumps([u.strip() for u in private_to_raw if u.strip()])
+            else:
+                comment.private_to = None
         db.session.commit()
+
+        private_to_list = None
+        if comment.private_to:
+            try:
+                private_to_list = json.loads(comment.private_to)
+            except (ValueError, TypeError):
+                private_to_list = []
         return jsonify({
             'success': True,
             'comment': {
@@ -953,7 +1011,8 @@ def update_comment(game_id, comment_id):
                 'comment_type': comment.comment_type,
                 'timestamp': comment.timestamp,
                 'created_at': fmt_dt_est(comment.created_at),
-                'parent_id': comment.parent_id
+                'parent_id': comment.parent_id,
+                'private_to': private_to_list
             }
         }), 200
     except Exception as e:

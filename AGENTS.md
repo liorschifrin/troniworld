@@ -22,3 +22,15 @@ Primary file: `flask_app/templates/game_player.html` (~4200 lines). Ignore the R
 ### Comments
 - Sidebar panel. Input box is always visible on desktop; on mobile it's hidden by default and revealed by a `+ Comment` button (`toggleCommentInput()`). Auto-hides after a successful post.
 - `scrollCommentIntoView(el, opts)` — scrolls within `#commentsList` only. Pass `{ toTop: true }` to also nudge the page scroll on single-column layouts (shows 250px of the list from the bottom of the viewport).
+- Comment type UI removed — `comment_type` is hardcoded to `'Comment'` everywhere.
+- Author styling: own name → `.comment-author-self` (purple `#C45AB3`); leadership → `.comment-author-leadership` (blue `#4A9EDB`, ★ prefix). Both get a border-bottom.
+
+### Private comments
+- `Comment.private_to` DB column (Text, nullable) stores a JSON list of allowed usernames (e.g. `["alice","bob"]`). `null` = public.
+- Server-side filtering in `get_comments()` (`film_routes.py`): a comment is returned only if `private_to` is NULL, or the viewer is the author, or the viewer's username is in the list. Same filter applied to replies.
+- `create_comment` / `update_comment` accept `private_to` (list or null) in the request body.
+- Frontend globals: `isPrivateComment` (bool), `privateToUsers` (array), `editIsPrivate`, `editPrivateToUsers`.
+- UI: 🔒 lock button (`.privacy-toggle-btn`) in `.comment-controls`. When active (yellow border), a chip-input section (`.private-to-wrap`) appears. Users type a username and press Enter/comma to add a chip; click × to remove.
+- Helper JS: `togglePrivacy()`, `renderPrivateChips()`, `addPrivateUser()`, `removePrivateUser()` (and `Edit` variants for the edit form).
+- Rendered private comments/replies show a 🔒 badge next to the author name. If you're the author, a "visible to: you, alice, bob" line appears below the comment text (`.comment-private-recipients`).
+- Edit form includes the same lock toggle + chips, pre-populated from existing `private_to` data.

@@ -1273,6 +1273,93 @@
     border-bottom: 1px solid rgba(74,158,219,0.5);
   }
 
+  /* ---- Privacy styles ---- */
+  .privacy-toggle-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 3px 7px;
+    transition: color 0.2s, border-color 0.2s;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .privacy-toggle-btn.active {
+    color: #f0c040;
+    border-color: rgba(240,192,64,0.5);
+    background: rgba(240,192,64,0.08);
+  }
+  .private-to-wrap {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 0 2px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 6px;
+  }
+  .private-to-label {
+    font-size: 0.7rem;
+    color: rgba(240,192,64,0.7);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .private-to-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+  }
+  .private-to-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(240,192,64,0.12);
+    border: 1px solid rgba(240,192,64,0.4);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: #f0c040;
+    font-family: 'DM Mono', monospace;
+  }
+  .chip-remove {
+    background: none;
+    border: none;
+    color: #f0c040;
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.7;
+  }
+  .chip-remove:hover { opacity: 1; }
+  .private-to-input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.8rem;
+    outline: none;
+    min-width: 150px;
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+  }
+  .private-to-input::placeholder { color: var(--muted); font-style: italic; }
+  .comment-private-badge {
+    font-size: 0.75rem;
+    opacity: 0.75;
+    cursor: default;
+    margin-left: 2px;
+  }
+  .comment-private-recipients {
+    font-size: 0.7rem;
+    color: rgba(240,192,64,0.65);
+    font-style: italic;
+    margin-top: 2px;
+    padding: 0 2px;
+  }
+
   .comment-delete-btn {
     background: transparent;
     border: none;
@@ -2097,7 +2184,15 @@
         <div class="comment-input-wrap" id="commentInputWrap">
           <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
           <div class="comment-controls">
+            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒</button>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
+          </div>
+          <div class="private-to-wrap" id="privateToWrap">
+            <div class="private-to-label">Visible only to:</div>
+            <div class="private-to-chips" id="privateToChips">
+              <input type="text" class="private-to-input" id="privateToInput" placeholder="Add username, press Enter"
+                onkeydown="if((event.key==='Enter'||event.key===',')&&this.value.trim()){event.preventDefault();addPrivateUser(this.value);}" />
+            </div>
           </div>
         </div>
         <div class="comments-list" id="commentsList">
@@ -2133,6 +2228,10 @@
   let currentActivePointId = null;
   let currentActiveCommentId = null;
   let selectedCommentType = 'Comment';
+  let isPrivateComment = false;
+  let privateToUsers = [];
+  let editIsPrivate = false;
+  let editPrivateToUsers = [];
   const expandedThreads = new Set();   // comment IDs whose replies are shown
   let activeReplyInputId = null;        // comment ID currently being replied to
   let activeEditReplyId  = null;        // reply ID currently being edited
@@ -3172,6 +3271,96 @@
     }
   }
 
+  function togglePrivacy() {
+    isPrivateComment = !isPrivateComment;
+    const btn  = document.getElementById('privacyToggleBtn');
+    const wrap = document.getElementById('privateToWrap');
+    if (isPrivateComment) {
+      btn.classList.add('active');
+      wrap.style.display = 'flex';
+      document.getElementById('privateToInput')?.focus();
+    } else {
+      btn.classList.remove('active');
+      wrap.style.display = 'none';
+      privateToUsers = [];
+      renderPrivateChips();
+    }
+  }
+
+  function renderPrivateChips() {
+    const container = document.getElementById('privateToChips');
+    const input = document.getElementById('privateToInput');
+    if (!container || !input) return;
+    container.querySelectorAll('.private-to-chip').forEach(c => c.remove());
+    privateToUsers.forEach((username, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'private-to-chip';
+      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removePrivateUser(${idx})" title="Remove">×</button>`;
+      container.insertBefore(chip, input);
+    });
+  }
+
+  function addPrivateUser(username) {
+    username = username.trim();
+    if (!username) return;
+    if (!privateToUsers.includes(username)) {
+      privateToUsers.push(username);
+      renderPrivateChips();
+    }
+    const inp = document.getElementById('privateToInput');
+    if (inp) inp.value = '';
+  }
+
+  function removePrivateUser(idx) {
+    privateToUsers.splice(idx, 1);
+    renderPrivateChips();
+  }
+
+  function toggleEditPrivacy() {
+    editIsPrivate = !editIsPrivate;
+    const btn  = document.getElementById('editPrivacyToggleBtn');
+    const wrap = document.getElementById('editPrivateToWrap');
+    if (editIsPrivate) {
+      btn.classList.add('active');
+      wrap.style.display = 'flex';
+      document.getElementById('editPrivateToInput')?.focus();
+    } else {
+      btn.classList.remove('active');
+      wrap.style.display = 'none';
+      editPrivateToUsers = [];
+      renderEditPrivateChips();
+    }
+  }
+
+  function renderEditPrivateChips() {
+    const container = document.getElementById('editPrivateToChips');
+    const input = document.getElementById('editPrivateToInput');
+    if (!container || !input) return;
+    container.querySelectorAll('.private-to-chip').forEach(c => c.remove());
+    editPrivateToUsers.forEach((username, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'private-to-chip';
+      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removeEditPrivateUser(${idx})" title="Remove">×</button>`;
+      container.insertBefore(chip, input);
+    });
+  }
+
+  function addEditPrivateUser(username) {
+    username = username.trim();
+    if (!username) return;
+    if (!editPrivateToUsers.includes(username)) {
+      editPrivateToUsers.push(username);
+      renderEditPrivateChips();
+    }
+    const inp = document.getElementById('editPrivateToInput');
+    if (inp) inp.value = '';
+  }
+
+  function removeEditPrivateUser(idx) {
+    editPrivateToUsers.splice(idx, 1);
+    renderEditPrivateChips();
+  }
+
   async function addComment() {
     const input = document.getElementById('commentInput');
     // Auto-tokenize the last word if it matches a mentionable name
@@ -3206,7 +3395,8 @@
           content: commentContent,
           author_name: currentUserName || 'Anonymous',
           comment_type: 'Comment',
-          timestamp: timestamp
+          timestamp: timestamp,
+          private_to: (isPrivateComment && privateToUsers.length > 0) ? privateToUsers : null
         })
       });
       
@@ -3215,6 +3405,14 @@
         const newId = newData.comment && newData.comment.id;
         input.innerHTML = '';
         updatePlaceholder(input);
+        // Reset privacy state after posting
+        isPrivateComment = false;
+        privateToUsers = [];
+        const privBtn = document.getElementById('privacyToggleBtn');
+        if (privBtn) privBtn.classList.remove('active');
+        const privWrap = document.getElementById('privateToWrap');
+        if (privWrap) privWrap.style.display = 'none';
+        renderPrivateChips();
         toggleCommentInput(false); // hide form on mobile after posting
         await loadComments();  // Reload comments from server
         if (newId) {
@@ -3355,8 +3553,13 @@
       : c.is_leadership
         ? `<span class="comment-author-leadership">★ ${escHtml(c.author_name)}</span>`
         : escHtml(c.author_name);
-    const authorLine   = `<div class="comment-author">${authorNameHtml}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
-    const contentPrefix= '';
+    const isPrivate     = c.private_to && c.private_to.length > 0;
+    const privateBadge  = isPrivate ? `<span class="comment-private-badge" title="Private comment">🔒</span>` : '';
+    const authorLine    = `<div class="comment-author">${authorNameHtml}${privateBadge}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
+    const contentPrefix = '';
+    const privateInfo   = (isPrivate && isOwnComment)
+      ? `<div class="comment-private-recipients">🔒 visible to: you${c.private_to.map(u => `, ${escHtml(u)}`).join('')}</div>`
+      : '';
 
     // Footer: Reply button (only when no replies yet) + thread toggle
     const threadToggle = replyCount > 0 ? `
@@ -3380,6 +3583,7 @@
         <div class="comment-content-wrapper">
           ${authorLine}
           <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${parseMentions(c.content)}</div>
+          ${privateInfo}
           ${commentFooter}
         </div>
         <div class="comment-actions">
@@ -3444,6 +3648,11 @@
     const deleteBtn = canDelete
       ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
       : '';
+    const replyIsPrivate    = reply.private_to && reply.private_to.length > 0;
+    const replyPrivateBadge = replyIsPrivate ? `<span class="comment-private-badge" title="Private reply">🔒</span>` : '';
+    const replyPrivateInfo  = (replyIsPrivate && isOwnReply)
+      ? `<div class="comment-private-recipients">🔒 visible to: you${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}</div>`
+      : '';
     const replyAuthorNameHtml = isOwnReply
       ? `<span class="comment-author-self">${escHtml(reply.author_name)}</span>`
       : reply.is_leadership
@@ -3451,8 +3660,9 @@
         : escHtml(reply.author_name);
     return `
       <div class="thread-reply-item" id="reply-item-${reply.id}">
-        <div class="reply-author">${replyAuthorNameHtml}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
+        <div class="reply-author">${replyAuthorNameHtml}${replyPrivateBadge}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
         <div class="reply-text">${parseMentions(reply.content)}</div>
+        ${replyPrivateInfo}
         ${editBtn}
         ${deleteBtn}
       </div>`;
@@ -3615,8 +3825,16 @@
       <div class="comment-edit-wrap">
         <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
         <div class="comment-controls">
+          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private">🔒</button>
           <button class="comment-btn" id="editSaveBtn">Save</button>
           <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
+        </div>
+        <div class="private-to-wrap" id="editPrivateToWrap">
+          <div class="private-to-label">Visible only to:</div>
+          <div class="private-to-chips" id="editPrivateToChips">
+            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Add username, press Enter"
+              onkeydown="if((event.key==='Enter'||event.key===',')&&this.value.trim()){event.preventDefault();addEditPrivateUser(this.value);}" />
+          </div>
         </div>
       </div>
     `;
@@ -3626,6 +3844,17 @@
     const textarea = document.getElementById('editCommentInput');
     const saveBtn = document.getElementById('editSaveBtn');
     const cancelBtn = document.getElementById('editCancelBtn');
+
+    // Initialize edit privacy state from existing comment
+    editIsPrivate = !!(comment.private_to && comment.private_to.length > 0);
+    editPrivateToUsers = comment.private_to ? [...comment.private_to] : [];
+    if (editIsPrivate) {
+      const epBtn = document.getElementById('editPrivacyToggleBtn');
+      const epWrap = document.getElementById('editPrivateToWrap');
+      if (epBtn) epBtn.classList.add('active');
+      if (epWrap) epWrap.style.display = 'flex';
+      renderEditPrivateChips();
+    }
 
     loadContentWithMentions(textarea, currentText);
     bindMentionInput(textarea);
@@ -3659,7 +3888,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             content: commentContent,
-            comment_type: 'Comment'
+            comment_type: 'Comment',
+            private_to: (editIsPrivate && editPrivateToUsers.length > 0) ? editPrivateToUsers : null
           })
         });
         
