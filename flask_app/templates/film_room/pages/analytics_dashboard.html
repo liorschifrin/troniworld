@@ -715,16 +715,21 @@ async function _fetchTagsDetail(username, listEl) {
       const readBadge  = t.is_read
         ? '<span class="cm-read">✓ read</span>'
         : '<span class="cm-unread">● unread</span>';
+      const privateBadge = t.private_to !== null && t.private_to !== undefined
+        ? '<span class="cm-private">🔒 private</span>' : '';
+      const recipientsHtml = t.private_to !== null && t.private_to !== undefined && t.private_to.length > 0
+        ? `<div class="cm-recipients">visible to: ${['you', ...t.private_to.map(u => _escHtml(u))].join(', ')}</div>` : '';
       const snippet    = t.content.length > 140 ? t.content.slice(0, 140) + '…' : t.content;
       const href       = `/film/games/${t.game_id}?comment=${t.comment_id}`;
       return `
         <a href="${href}" class="cm-item" target="_blank">
           <div class="cm-meta">
             <span class="cm-game">${_escHtml(t.game_title)}<span class="cm-vs"> vs ${_escHtml(t.game_opponent)}</span></span>
-            ${tsHtml}${replyBadge}${readBadge}
+            ${tsHtml}${replyBadge}${readBadge}${privateBadge}
             <span class="cm-date">${_relativeTime(t.created_at_iso)}</span>
           </div>
           <div class="cm-text">${_renderMentions(snippet)}</div>
+          ${recipientsHtml}
           <div class="cm-author">— ${_escHtml(t.author_name)}</div>
         </a>`;
     }).join('');
