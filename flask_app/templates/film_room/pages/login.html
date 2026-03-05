@@ -1,0 +1,276 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}Log in - Troniworld{% endblock %}
+
+{% block extra_style %}
+  .login-container {
+    max-width: 420px;
+    margin: 60px auto;
+    padding: 40px;
+  }
+
+  .login-box {
+    background: rgba(26, 58, 26, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .login-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1;
+  }
+
+  .login-subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 8px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: var(--lime);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(200, 241, 53, 0.1);
+  }
+
+  .form-input::placeholder {
+    color: var(--muted);
+  }
+
+  .username-field-wrap {
+    position: relative;
+  }
+
+  .ud-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    background: #0d1f0d;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+
+  .ud-item {
+    padding: 9px 14px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.84rem;
+    color: var(--text);
+    transition: background 0.1s;
+  }
+
+  .ud-item:hover, .ud-item.active {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+  }
+
+  .ud-no-results {
+    padding: 9px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .ud-no-results a {
+    color: var(--lime);
+    text-decoration: none;
+  }
+
+  .ud-no-results a:hover {
+    text-decoration: underline;
+  }
+
+  .login-button {
+    width: 100%;
+    padding: 14px;
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+  }
+
+  .login-button:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(200, 241, 53, 0.3);
+  }
+
+  .login-button:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    .login-container {
+      margin: 30px 16px;
+      padding: 0;
+    }
+
+    .login-box {
+      padding: 30px 24px;
+    }
+
+    .login-title {
+      font-size: 2rem;
+    }
+  }
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+  <div class="login-box">
+    <h1 class="login-title">Film Login</h1>
+    <p class="login-subtitle">Access Film Room</p>
+    
+    <form method="post">
+      <div class="form-group">
+        <label class="form-label" for="username">Username</label>
+        <div class="username-field-wrap">
+          <input 
+            type="text" 
+            id="username"
+            name="username" 
+            class="form-input"
+            placeholder="Enter your username"
+            required
+            autofocus
+            autocomplete="off"
+          >
+          <div id="udDropdown" class="ud-dropdown"></div>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input 
+          type="password" 
+          id="password"
+          name="password" 
+          class="form-input"
+          placeholder="Enter your password"
+          required
+        >
+      </div>
+      
+      <button type="submit" class="login-button">Log In</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  const allUsers = {{ all_usernames | tojson }};
+  const input    = document.getElementById('username');
+  const drop     = document.getElementById('udDropdown');
+  let activeIdx  = -1;
+
+  function showDrop(items) {
+    activeIdx = -1;
+    if (!items) {
+      drop.style.display = 'none';
+      return;
+    }
+    if (items.length === 0) {
+      drop.innerHTML = '<div class="ud-no-results">No match &mdash; message <a href="slack://open?team=T090FKX89E1" onclick="var t=setTimeout(function(){window.location=\'https://tron2025-2026.slack.com\';},600);window.addEventListener(\'blur\',function(){clearTimeout(t);},{once:true});">Trek on Slack</a> to get access</div>';
+    } else {
+      drop.innerHTML = items.map((u, i) =>
+        `<div class="ud-item" data-idx="${i}" data-user="${u}" onmousedown="event.preventDefault();udSelect('${u}')" ontouchend="event.preventDefault();udSelect('${u}')">${u}</div>`
+      ).join('');
+      activeIdx = 0;
+      drop.querySelector('.ud-item').classList.add('active');
+    }
+    drop.style.display = 'block';
+  }
+
+  window.udSelect = function(name) {
+    input.value = name;
+    drop.style.display = 'none';
+  };
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    if (!q) { drop.style.display = 'none'; return; }
+    const matches = allUsers.filter(u => u.toLowerCase().startsWith(q));
+    if (!matches.length) {
+      // fallback: includes match
+      const fuzzy = allUsers.filter(u => u.toLowerCase().includes(q));
+      showDrop(fuzzy);
+    } else {
+      showDrop(matches);
+    }
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = drop.querySelectorAll('.ud-item');
+    if (!items.length || drop.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+    } else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault();
+      udSelect(items[activeIdx].dataset.user);
+      return;
+    } else if (e.key === 'Escape') {
+      drop.style.display = 'none'; return;
+    } else { return; }
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    items[activeIdx] && items[activeIdx].scrollIntoView({ block: 'nearest' });
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(() => { drop.style.display = 'none'; }, 200);
+  });
+})();
+</script>
+{% endblock %}

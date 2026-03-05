@@ -1,0 +1,781 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}Analytics Dashboard - Tron Film Room{% endblock %}
+
+{% block extra_style %}
+<style>
+  :root {
+    --grass: #1a3a1a;
+    --field: #0f2410;
+    --lime: #c8f135;
+    --disc: #f8f8f8;
+    --sky: #7ecfff;
+    --warm: #ff6b2b;
+    --text: #e8f5d0;
+    --muted: #6a8a5a;
+    --card: rgba(26, 58, 26, 0.3);
+    --border: rgba(200, 241, 53, 0.2);
+  }
+
+  body {
+    background: var(--field);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  .analytics-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 30px 20px 20px;
+  }
+
+  .page-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 2.5px;
+    color: var(--lime);
+    margin-bottom: 8px;
+  }
+
+  .page-subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .summary-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .summary-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+  }
+
+  .summary-unit {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+
+  .table-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .analytics-table th {
+    background: rgba(26, 58, 26, 0.6);
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--lime);
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .analytics-table th.centered {
+    text-align: center;
+  }
+
+  .analytics-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s ease;
+  }
+
+  .analytics-table tbody tr:hover {
+    background: rgba(200, 241, 53, 0.05);
+  }
+
+  .analytics-table td {
+    padding: 10px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  .analytics-table td.centered {
+    text-align: center;
+  }
+
+  .user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .user-name {
+    font-weight: 600;
+    color: var(--lime);
+    font-size: 0.9rem;
+  }
+
+  .user-badges {
+    display: flex;
+    gap: 4px;
+  }
+
+  .role-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .role-badge.admin {
+    background: rgba(200, 241, 53, 0.2);
+    color: var(--lime);
+    border: 1px solid var(--lime);
+  }
+
+  .role-badge.leadership {
+    background: rgba(126, 207, 255, 0.2);
+    color: var(--sky);
+    border: 1px solid var(--sky);
+  }
+
+  .metric-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: var(--lime);
+    letter-spacing: 0.5px;
+  }
+
+  .expand-btn {
+    background: rgba(200, 241, 53, 0.1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--lime);
+    transition: all 0.2s ease;
+  }
+
+  .expand-btn:hover {
+    background: rgba(200, 241, 53, 0.2);
+  }
+
+  .expand-btn .icon {
+    transition: transform 0.3s ease;
+    display: inline-block;
+    margin-left: 4px;
+  }
+
+  .expand-btn.open .icon {
+    transform: rotate(180deg);
+  }
+
+  .breakdown-row {
+    display: none;
+  }
+
+  .breakdown-row.open {
+    display: table-row;
+  }
+
+  .breakdown-row td {
+    padding: 0;
+    background: rgba(15, 36, 16, 0.6);
+  }
+
+  .breakdown-content {
+    padding: 16px;
+  }
+
+  .game-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .game-item {
+    background: rgba(15, 36, 16, 0.8);
+    border: 1px solid rgba(200, 241, 53, 0.1);
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .game-info {
+    flex: 1;
+  }
+
+  .game-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .game-opponent {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .game-minutes {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    color: var(--lime);
+    letter-spacing: 0.5px;
+  }
+
+  .no-games {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+  }
+
+  /* Clickable comment count */
+  .comment-list-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-bottom: 1px dashed rgba(200,241,53,0.4);
+    transition: border-color 0.2s;
+  }
+  .comment-list-btn:hover { border-bottom-color: var(--lime); }
+  .comment-list-btn .metric-number { pointer-events: none; }
+
+  /* Leadership notif cell */
+  .ldr-notif {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid transparent;
+    padding: 2px 4px;
+    cursor: pointer;
+    transition: border-bottom-color 0.15s;
+    margin: 0 auto;
+  }
+  .ldr-notif:hover { border-bottom-color: var(--sky); }
+  .ldr-notif * { pointer-events: none; }
+  .ldr-notif-counts {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 0.5px;
+  }
+  .ldr-notif-counts .read  { color: var(--lime); }
+  .ldr-notif-counts .sep   { color: var(--muted); font-size: 1rem; }
+  .ldr-notif-counts .total { color: var(--sky); }
+  .ldr-notif-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .cm-read   { font-family:'DM Mono',monospace; font-size:0.65rem; background:rgba(200,241,53,0.12); color:var(--lime); border-radius:3px; padding:1px 5px; }
+  .cm-unread { font-family:'DM Mono',monospace; font-size:0.65rem; background:rgba(249,115,22,0.15); color:#f97316; border-radius:3px; padding:1px 5px; }
+  .cm-author { font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); margin-top:4px; }
+
+  /* Inline detail rows (comments / tags) */
+  .inline-detail-row {
+    display: none;
+  }
+  .inline-detail-row.open {
+    display: table-row;
+  }
+  .inline-detail-row > td {
+    padding: 0;
+    background: rgba(5, 20, 6, 0.9);
+    border-bottom: 2px solid var(--border);
+  }
+  .inline-detail-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+  .inline-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .inline-detail-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--lime);
+  }
+  .inline-detail-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+  }
+  .inline-detail-close:hover { color: var(--text); }
+  .inline-detail-list {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .cm-item {
+    display: block;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+  }
+  .cm-item:last-child { border-bottom: none; }
+  .cm-item:hover { background: rgba(200,241,53,0.06); }
+  .cm-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 5px;
+  }
+  .cm-game {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--sky);
+    font-weight: 600;
+  }
+  .cm-ts {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--lime);
+    background: rgba(200,241,53,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .cm-reply {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--warm);
+    background: rgba(255,107,43,0.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .cm-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .cm-vs {
+    color: var(--muted);
+  }
+  .cm-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--text);
+    opacity: 0.85;
+    line-height: 1.45;
+  }
+  .cm-loading {
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+  }
+  .cm-private { font-family:'DM Mono',monospace; font-size:0.65rem; background:rgba(196,90,179,0.15); color:#C45AB3; border-radius:3px; padding:1px 5px; }
+  .cm-recipients { font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); margin-top:3px; }
+  .detail-active { border-bottom-color: var(--lime) !important; color: var(--lime); }
+
+  @media (max-width: 900px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .analytics-table {
+      min-width: 920px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+  <h1 class="page-title">Analytics Dashboard</h1>
+  <p class="page-subtitle">User engagement and viewing metrics</p>
+
+  <!-- Summary Statistics -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">Total Unique Users</div>
+      <div class="summary-value">{{ total_unique_users }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Watch Time</div>
+      <div class="summary-value">
+        {{ total_watch_minutes }}
+        <span class="summary-unit">min</span>
+      </div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Comments</div>
+      <div class="summary-value">{{ total_comments }}</div>
+    </div>
+  </div>
+
+  <!-- Analytics Table -->
+  {% if user_analytics %}
+    <div class="table-container">
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th class="centered">Logins</th>
+            <th class="centered">Watch Time</th>
+            <th class="centered">Comments</th>
+            <th class="centered">Tags by Leadership</th>
+            <th class="centered">Games Watched</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for data in user_analytics %}
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <span class="user-name">{{ data.user.username }}</span>
+                  <div class="user-badges">
+                    {% if data.user.is_admin %}
+                      <span class="role-badge admin">Admin</span>
+                    {% endif %}
+                    {% if data.user.is_leadership %}
+                      <span class="role-badge leadership">Leader</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td class="centered">
+                <span class="metric-number">{{ data.login_count }}</span>
+              </td>
+              <td class="centered">
+                <span class="metric-number">{{ data.total_watch_minutes }} min</span>
+              </td>
+              <td class="centered">
+                <button class="comment-list-btn" data-detail-target="comments-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','comments',{{ data.comment_count }})">
+                  <span class="metric-number">{{ data.comment_count }}</span>
+                </button>
+              </td>
+              <td class="centered">
+                {% if data.leadership_notif_total > 0 %}
+                  <button class="ldr-notif" data-detail-target="tags-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','tags',{{ data.leadership_notif_total }})">
+                    <div class="ldr-notif-counts">
+                      <span class="read">{{ data.leadership_notif_read }}</span>
+                      <span class="sep">/</span>
+                      <span class="total">{{ data.leadership_notif_total }}</span>
+                    </div>
+                    <span class="ldr-notif-label">read / total</span>
+                  </button>
+                {% else %}
+                  <span class="no-games">—</span>
+                {% endif %}
+              </td>
+              <td class="centered">
+                {% if data.game_breakdown %}
+                  <button class="expand-btn" onclick="toggleRow({{ data.user.id }})">
+                    {{ data.game_breakdown|length }} games
+                    <span class="icon">▼</span>
+                  </button>
+                {% else %}
+                  <span class="no-games">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% if data.game_breakdown %}
+              <tr class="breakdown-row" id="breakdown-{{ data.user.id }}">
+                <td colspan="6">
+                  <div class="breakdown-content">
+                    <div class="game-list">
+                      {% for game in data.game_breakdown %}
+                        <div class="game-item">
+                          <div class="game-info">
+                            <div class="game-title">{{ game.title }}</div>
+                            <div class="game-opponent">vs {{ game.opponent }}</div>
+                          </div>
+                          <div class="game-minutes">
+                            {{ game.minutes_watched|round(1) }} min
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+            <tr class="inline-detail-row" id="comments-detail-{{ data.user.id }}" data-loaded="false">
+              <td colspan="6">
+                <div class="inline-detail-wrap">
+                  <div class="inline-detail-header">
+                    <span class="inline-detail-title">Comments by <strong>{{ data.user.username }}</strong></span>
+                    <button class="inline-detail-close" onclick="closeInlineDetail('comments-detail-{{ data.user.id }}')">×</button>
+                  </div>
+                  <div class="inline-detail-list" id="comments-detail-{{ data.user.id }}-list"></div>
+                </div>
+              </td>
+            </tr>
+            {% if data.leadership_notif_total > 0 %}
+            <tr class="inline-detail-row" id="tags-detail-{{ data.user.id }}" data-loaded="false">
+              <td colspan="6">
+                <div class="inline-detail-wrap">
+                  <div class="inline-detail-header">
+                    <span class="inline-detail-title">Tags by Leadership — <strong>{{ data.user.username }}</strong></span>
+                    <button class="inline-detail-close" onclick="closeInlineDetail('tags-detail-{{ data.user.id }}')">×</button>
+                  </div>
+                  <div class="inline-detail-list" id="tags-detail-{{ data.user.id }}-list"></div>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="no-data">No users found</div>
+  {% endif %}
+</div>
+
+
+
+<script>
+function toggleRow(userId) {
+  const row = document.getElementById(`breakdown-${userId}`);
+  const btn = event.currentTarget;
+  if (row.classList.contains('open')) {
+    row.classList.remove('open');
+    btn.classList.remove('open');
+  } else {
+    row.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+
+let _activeDetailRow = null;
+let _activeDetailBtn = null;
+
+function toggleInlineDetail(btn, username, type, count) {
+  const targetId  = btn.dataset.detailTarget;
+  const targetRow = document.getElementById(targetId);
+  if (!targetRow) return;
+  const isOpen = targetRow.classList.contains('open');
+  // Close any other open detail row
+  if (_activeDetailRow && _activeDetailRow !== targetRow) {
+    _activeDetailRow.classList.remove('open');
+    if (_activeDetailBtn) _activeDetailBtn.classList.remove('detail-active');
+    _activeDetailRow = null;
+    _activeDetailBtn = null;
+  }
+  if (isOpen) {
+    targetRow.classList.remove('open');
+    btn.classList.remove('detail-active');
+    _activeDetailRow = null;
+    _activeDetailBtn = null;
+    return;
+  }
+  if (count === 0) return;
+  targetRow.classList.add('open');
+  btn.classList.add('detail-active');
+  _activeDetailRow = targetRow;
+  _activeDetailBtn = btn;
+  if (targetRow.dataset.loaded === 'false') {
+    targetRow.dataset.loaded = 'true';
+    const listEl = document.getElementById(`${targetId}-list`);
+    listEl.innerHTML = '<div class="cm-loading">Loading…</div>';
+    if (type === 'comments') _fetchCommentDetail(username, listEl);
+    else if (type === 'tags') _fetchTagsDetail(username, listEl);
+  }
+}
+
+function closeInlineDetail(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.classList.remove('open');
+  if (_activeDetailRow === row) {
+    if (_activeDetailBtn) _activeDetailBtn.classList.remove('detail-active');
+    _activeDetailRow = null;
+    _activeDetailBtn = null;
+  }
+}
+
+async function _fetchCommentDetail(username, listEl) {
+  try {
+    const res  = await fetch(`/film/api/user/${encodeURIComponent(username)}/comments`);
+    const data = await res.json();
+    if (!data.comments.length) {
+      listEl.innerHTML = '<div class="cm-loading">No visible comments.</div>';
+      return;
+    }
+    listEl.innerHTML = data.comments.map(c => {
+      const tsHtml       = c.timestamp != null
+        ? `<span class="cm-ts">⏱ ${_fmtTs(c.timestamp)}</span>` : '';
+      const replyBadge   = c.is_reply ? '<span class="cm-reply">reply</span>' : '';
+      const privateBadge = c.private_to !== null
+        ? '<span class="cm-private">🔒 private</span>' : '';
+      const recipientsHtml = c.private_to !== null && c.private_to.length > 0
+        ? `<div class="cm-recipients">visible to: ${c.private_to.map(u => _escHtml(u)).join(', ')}</div>` : '';
+      const snippet   = c.content.length > 140 ? c.content.slice(0, 140) + '…' : c.content;
+      const href      = `/film/games/${c.game_id}?comment=${c.id}`;
+      return `
+        <a href="${href}" class="cm-item" target="_blank">
+          <div class="cm-meta">
+            <span class="cm-game">${_escHtml(c.game_title)}<span class="cm-vs"> vs ${_escHtml(c.game_opponent)}</span></span>
+            ${tsHtml}${replyBadge}${privateBadge}
+            <span class="cm-date">${_relativeTime(c.created_at_iso)}</span>
+          </div>
+          <div class="cm-text">${_renderMentions(snippet)}</div>
+          ${recipientsHtml}
+        </a>`;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div class="cm-loading">Failed to load comments.</div>';
+  }
+}
+
+async function _fetchTagsDetail(username, listEl) {
+  try {
+    const res  = await fetch(`/film/api/user/${encodeURIComponent(username)}/leadership-tags`);
+    const data = await res.json();
+    if (!data.tags.length) {
+      listEl.innerHTML = '<div class="cm-loading">No tags yet.</div>';
+      return;
+    }
+    listEl.innerHTML = data.tags.map(t => {
+      const tsHtml     = t.timestamp != null
+        ? `<span class="cm-ts">⏱ ${_fmtTs(t.timestamp)}</span>` : '';
+      const replyBadge = t.is_reply ? '<span class="cm-reply">reply</span>' : '';
+      const readBadge  = t.is_read
+        ? '<span class="cm-read">✓ read</span>'
+        : '<span class="cm-unread">● unread</span>';
+      const privateBadge = t.private_to !== null && t.private_to !== undefined
+        ? '<span class="cm-private">🔒 private</span>' : '';
+      const recipientsHtml = t.private_to !== null && t.private_to !== undefined && t.private_to.length > 0
+        ? `<div class="cm-recipients">visible to: ${['you', ...t.private_to.map(u => _escHtml(u))].join(', ')}</div>` : '';
+      const snippet    = t.content.length > 140 ? t.content.slice(0, 140) + '…' : t.content;
+      const href       = `/film/games/${t.game_id}?comment=${t.comment_id}`;
+      return `
+        <a href="${href}" class="cm-item" target="_blank">
+          <div class="cm-meta">
+            <span class="cm-game">${_escHtml(t.game_title)}<span class="cm-vs"> vs ${_escHtml(t.game_opponent)}</span></span>
+            ${tsHtml}${replyBadge}${readBadge}${privateBadge}
+            <span class="cm-date">${_relativeTime(t.created_at_iso)}</span>
+          </div>
+          <div class="cm-text">${_renderMentions(snippet)}</div>
+          ${recipientsHtml}
+          <div class="cm-author">— ${_escHtml(t.author_name)}</div>
+        </a>`;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div class="cm-loading">Failed to load data.</div>';
+  }
+}
+
+function _fmtTs(s) {
+  const sec = Math.floor(s);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function _relativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  if (isNaN(diff) || diff < 0) return '';
+  const s = Math.floor(diff / 1000);
+  if (s < 60)  return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)   return `${d}d ago`;
+  const wk = Math.floor(d / 7);
+  if (wk < 5)  return `${wk}w ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+function _renderMentions(raw) {
+  if (!raw || !raw.includes('@[')) return _escHtml(raw);
+  return raw.split(/(@\[[^\]]+\])/g).map(part => {
+    const m = part.match(/^@\[(.+)\]$/);
+    if (m) return `<span class="notif-mention">@${_escHtml(m[1])}</span>`;
+    return _escHtml(part);
+  }).join('');
+}
+
+function _escHtml(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str || ''));
+  return d.innerHTML;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "articles/base.html" %}
+
+{% block title %}Register - Troniworld{% endblock %}
+
+{% block content %}
+<h2>Register</h2>
+
+<div style="background: #e7f3ff; padding: 15px; margin-bottom: 20px; border-radius: 4px; border-left: 4px solid #007bff; max-width: 500px;">
+  <p style="margin: 0; font-size: 14px; color: #004085;">
+    <strong>Note:</strong> Users share passwords based on role:<br>
+    • Regular users use <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">FILM_USER_PASSWORD</code><br>
+    • Admin users use <code style="background: #fff; padding: 2px 6px; border-radius: 3px;">FILM_ADMIN_PASSWORD</code><br>
+    (Set in .env file)
+  </p>
+</div>
+
+<form method="post">
+  <label>
+    Username
+    <input type="text" name="username" required>
+  </label>
+  <br>
+  <label>
+    <input type="checkbox" name="is_admin" value="1">
+    Is admin
+  </label>
+  <br>
+  <button type="submit">Register</button>
+</form>
+
+<a href="{{ url_for('login') }}">Log in</a>
+{% endblock %}

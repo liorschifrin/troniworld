@@ -244,16 +244,30 @@
     list-style: none;
     padding: 0;
     margin: 1rem auto;
-    max-width: 600px;
+    max-width: 800px;
 }
 
-.flash-messages li {
+.flash-messages li,
+.flash-messages__item {
     background: #C8252C;
     color: white;
     padding: 1rem 1.5rem;
     margin-bottom: 0.5rem;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.flash-messages__item--success {
+    background: #2d8a4e;
+}
+
+.flash-messages__item--warning {
+    background: #856404;
+    color: #fff3cd;
+}
+
+.flash-messages__item--error {
+    background: #C8252C;
 }
 
 /* Form and Editor Styles */

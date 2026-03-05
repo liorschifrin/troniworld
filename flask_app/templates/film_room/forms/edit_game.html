@@ -1,0 +1,287 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}Edit Game - Troniworld{% endblock %}
+
+{% block extra_style %}
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .container {
+    padding: 20px 32px 32px;
+    max-width: 700px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+  }
+
+  .form-content {
+    padding: 24px 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--lime);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .form-group label .required {
+    color: var(--warm);
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input::placeholder {
+    color: var(--muted);
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--lime);
+  }
+
+  .form-group input[type="date"] {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+  }
+
+  .form-group input[type="number"] {
+    font-family: 'DM Mono', monospace;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 24px;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(200,241,53,0.2);
+    opacity: 1;
+  }
+
+  .flash-messages {
+    margin: 0 0 20px 0;
+  }
+
+  .flash {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    border: 1px solid;
+  }
+
+  .flash.success {
+    background: rgba(200,241,53,0.1);
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  .flash.error {
+    background: rgba(255,107,43,0.1);
+    border-color: var(--warm);
+    color: var(--warm);
+  }
+
+  @media (max-width: 768px) {
+    header h1 { font-size: 2rem; }
+    .container { padding: 16px; }
+    .form-actions { flex-direction: column; }
+    .btn, .btn-secondary { width: 100%; }
+  }
+{% endblock %}
+
+{% block content %}
+<header>
+  <h1>Edit Game</h1>
+  <span>Film Room Management</span>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Game Details</h2>
+    </div>
+    
+    <form id="game-form" method="POST" action="{{ url_for('edit_game', game_id=game.id) }}">
+      <div class="form-content">
+        <div class="form-group">
+          <label>Title <span class="required">*</span></label>
+          <input type="text" name="title" placeholder="e.g., Tron vs. Polar Bears - Week 1" value="{{ game.title }}" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Opponent <span class="required">*</span></label>
+          <input type="text" name="opponent" placeholder="e.g., Polar Bears" value="{{ game.opponent }}" required>
+        </div>
+        
+        <div class="form-group">
+          <label>YouTube Video ID</label>
+          <input type="text" name="youtube_id" placeholder="e.g., dQw4w9WgXcQ" value="{{ game.youtube_id if game.youtube_id else '' }}">
+        </div>
+        
+        <div class="form-group">
+          <label>Game Date</label>
+          <input type="date" name="game_date" value="{{ game.game_date if game.game_date else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label>Tournament</label>
+          <select name="tournament_id" id="tournament-select">
+            <option value="">No tournament</option>
+            {% for tournament in tournaments %}
+            <option value="{{ tournament.id }}" {% if game.tournament_id == tournament.id %}selected{% endif %}>
+              {{ tournament.name }}{% if tournament.start_date %} ({{ tournament.start_date }}){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          {% if current_user and current_user.is_admin %}
+          <div style="margin-top: 8px;">
+            <a href="{{ url_for('new_tournament') }}" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.9rem;">+ Create Tournament</a>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Tournament Game Number</label>
+          <input type="number" name="tournament_game_number" id="tournament-game-number" min="1" placeholder="e.g., 1" value="{{ game.tournament_game_number if game.tournament_game_number is not none else '' }}">
+        </div>
+        
+        <div class="form-group">
+          <label>Final Score - Tron</label>
+          <input type="number" name="final_score_tron" min="0" placeholder="0" value="{{ game.final_score_tron if game.final_score_tron is not none else '' }}">
+        </div>
+        
+        <div class="form-group">
+          <label>Final Score - Opponent</label>
+          <input type="number" name="final_score_opponent" min="0" placeholder="0" value="{{ game.final_score_opponent if game.final_score_opponent is not none else '' }}">
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Update Game</button>
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="btn btn-secondary" id="back-link">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let hasUnsavedChanges = false;
+
+  // Track changes in form inputs
+  document.querySelectorAll('#game-form input, #game-form select').forEach(function(input) {
+    const eventType = input.tagName.toLowerCase() === 'select' ? 'change' : 'input';
+    input.addEventListener(eventType, function() {
+      hasUnsavedChanges = true;
+    });
+  });
+
+  // Warn before leaving page
+  window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  });
+
+  // Warn when clicking back button
+  document.getElementById('back-link').addEventListener('click', function(e) {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        e.preventDefault();
+      }
+    }
+  });
+
+  // Reset flag on form submit
+  document.getElementById('game-form').addEventListener('submit', function() {
+    hasUnsavedChanges = false;
+  });
+</script>
+{% endblock %}

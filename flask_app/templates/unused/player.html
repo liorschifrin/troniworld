@@ -1,0 +1,796 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}My Games - Troniworld{% endblock %}
+
+{% block extra_style %}
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    padding: 20px 32px 32px;
+  }
+
+  .sidebar {
+    width: 340px;
+  }
+
+  /* URL input bar */
+  .url-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .url-bar input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-bar input::placeholder { color: var(--muted); }
+  .url-bar input:focus { border-color: var(--lime); }
+
+  .url-bar button, .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .url-bar button:hover, .btn:hover { opacity: 0.85; }
+  .url-bar button:active, .btn:active { transform: scale(0.97); }
+
+  /* Player */
+  .player-wrap {
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    position: relative;
+  }
+
+
+
+  #player {
+    width: 100%;
+    height: 100%;
+  }
+
+  .player-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+  }
+
+  .disc-icon {
+    width: 64px;
+    height: 64px;
+    border: 3px solid var(--muted);
+    border-radius: 50%;
+    position: relative;
+    animation: spin 4s linear infinite;
+  }
+
+  .disc-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: var(--muted);
+    border-radius: 2px;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Highlight controls */
+  .highlight-controls {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .highlight-controls input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .highlight-controls input::placeholder { color: var(--muted); }
+  .highlight-controls input:focus { border-color: var(--lime); }
+
+  .btn-highlight {
+    background: var(--warm);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn-highlight:hover { opacity: 0.85; }
+  .btn-highlight:active { transform: scale(0.97); }
+  .btn-highlight:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Sidebar */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-header h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+  }
+
+  .count-badge {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .highlights-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .highlights-list::-webkit-scrollbar { width: 4px; }
+  .highlights-list::-webkit-scrollbar-track { background: transparent; }
+  .highlights-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    group: true;
+  }
+
+  .highlight-item:hover {
+    background: rgba(200,241,53,0.07);
+    border-color: rgba(200,241,53,0.2);
+  }
+
+  .timestamp-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .highlight-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .highlight-item:hover .delete-btn { opacity: 1; }
+  .delete-btn:hover { color: var(--warm); }
+
+  /* Export panel */
+  .export-area {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .export-text {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    min-height: 80px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .btn-sm {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-sm:hover { background: rgba(200,241,53,0.2); }
+
+  /* Flash animation for new highlight */
+  @keyframes flashIn {
+    0% { background: rgba(200,241,53,0.25); border-color: var(--lime); }
+    100% { background: rgba(255,255,255,0.03); border-color: transparent; }
+  }
+
+  .flash { animation: flashIn 0.8s ease-out; }
+
+  /* Comments panel */
+  .comments-area {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .comment-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .comment-input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    resize: vertical;
+    min-height: 60px;
+    transition: border-color 0.2s;
+  }
+
+  .comment-input::placeholder { color: var(--muted); }
+  .comment-input:focus { border-color: var(--lime); }
+
+  .comment-btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    align-self: flex-end;
+  }
+
+  .comment-btn:hover { opacity: 0.85; }
+  .comment-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .comments-list {
+    max-height: 250px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .comments-list::-webkit-scrollbar { width: 4px; }
+  .comments-list::-webkit-scrollbar-track { background: transparent; }
+  .comments-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .comment-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(200,241,53,0.1);
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .comment-text {
+    color: var(--text);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+
+  .comment-timestamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Responsive */
+  @media (max-width: 930px) {
+    .layout { 
+      grid-template-columns: 1fr;
+      padding: 16px;
+    }
+    header h1 { font-size: 2rem; }
+    .sidebar {
+      width: 100%;
+    }
+  }
+{% endblock %}
+
+{% block content %}
+<header>
+  <h1>Disc Highlights</h1>
+  <span>Ultimate Frisbee Clip Tool</span>
+</header>
+
+<div class="layout">
+  <div class="main">
+    <div class="url-bar">
+      <input type="text" id="videoUrl" placeholder="Paste YouTube video URL or ID..." value="">
+      <button onclick="loadVideo()">Load Game</button>
+    </div>
+
+    <div class="player-wrap">
+      <div class="player-placeholder" id="placeholder">
+        <div class="disc-icon"></div>
+        <p style="font-family:'DM Mono',monospace;font-size:0.8rem;letter-spacing:1px;">PASTE A YOUTUBE URL ABOVE</p>
+      </div>
+      <div id="player"></div>
+    </div>
+
+    <!-- <div class="highlight-controls">
+      <input type="text" id="labelInput" placeholder="Describe the play (optional)..." maxlength="80">
+      <button class="btn-highlight" id="markBtn" onclick="markHighlight()" disabled>⬤ Mark Highlight</button>
+    </div> -->
+  </div>
+
+  <div class="sidebar">
+    <!-- <div class="panel">
+      <div class="panel-header">
+        <h2>Highlights</h2>
+        <span class="count-badge" id="countBadge">0</span>
+      </div>
+      <div class="highlights-list" id="highlightsList">
+        <div class="empty-state">No highlights yet.<br>Load a game and hit<br><strong style="color:var(--warm)">⬤ Mark Highlight</strong> during a great play.</div>
+      </div>
+    </div> -->
+
+    <!-- <div class="panel">
+      <div class="panel-header">
+        <h2>Export</h2>
+      </div>
+      <div class="export-area">
+        <div class="export-text" id="exportText">Load a video and add highlights to export.</div>
+        <button class="btn-sm" onclick="copyExport()">Copy to Clipboard</button>
+        <button class="btn-sm" onclick="clearHighlights()">Clear All Highlights</button>
+      </div> 
+    </div> -->
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Comments</h2>
+        <span class="count-badge" id="commentCountBadge">0</span>
+      </div>
+      <div class="comments-area">
+        <div class="comment-input-wrap">
+          <textarea class="comment-input" id="commentInput" placeholder="Share your thoughts about this game..."></textarea>
+          <button class="comment-btn" onclick="addComment()">Post Comment</button>
+        </div>
+        <div class="comments-list" id="commentsList">
+          <div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  let player = null;
+  let playerReady = false;
+  let highlights = [];
+  let comments = [];
+  let currentVideoId = null;
+
+  // Load YouTube IFrame API
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+
+  window.onYouTubeIframeAPIReady = function() {
+    // API ready, player will be created on video load
+  };
+
+  function extractVideoId(input) {
+    input = input.trim();
+    // Already just an ID (11 chars, no slashes)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+    // youtu.be/ID
+    let m = input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    // youtube.com/watch?v=ID
+    m = input.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    // youtube.com/embed/ID
+    m = input.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    return null;
+  }
+
+  function loadVideo() {
+    const input = document.getElementById('videoUrl').value;
+    const videoId = extractVideoId(input);
+    if (!videoId) {
+      alert('Could not find a YouTube video ID in that URL. Try pasting the full YouTube link.');
+      return;
+    }
+    currentVideoId = videoId;
+    document.getElementById('placeholder').style.display = 'none';
+
+    if (player) {
+      player.loadVideoById(videoId);
+    } else {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => {
+            playerReady = true;
+            document.getElementById('markBtn').disabled = false;
+          }
+        }
+      });
+    }
+
+    // Reset highlights for new video
+    highlights = [];
+    renderHighlights();
+  }
+
+  function formatTime(seconds) {
+    seconds = Math.floor(seconds);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function markHighlight() {
+    if (!playerReady || !player) return;
+    const t = player.getCurrentTime();
+    const label = document.getElementById('labelInput').value.trim() || 'Highlight';
+    highlights.push({ time: t, label });
+    highlights.sort((a, b) => a.time - b.time);
+    document.getElementById('labelInput').value = '';
+    renderHighlights();
+  }
+
+  function seekTo(seconds) {
+    if (player && playerReady) {
+      player.seekTo(seconds, true);
+      player.playVideo();
+    }
+  }
+
+  function togglePlayPause() {
+    if (!player || !playerReady) return;
+    const state = player.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+  }
+
+  function seekRelative(seconds) {
+    if (!player || !playerReady) return;
+    const current = player.getCurrentTime();
+    player.seekTo(current + seconds, true);
+  }
+
+  function deleteHighlight(index) {
+    highlights.splice(index, 1);
+    renderHighlights();
+  }
+
+  function renderHighlights() {
+    const list = document.getElementById('highlightsList');
+    const badge = document.getElementById('countBadge');
+    badge.textContent = highlights.length;
+
+    if (highlights.length === 0) {
+      list.innerHTML = `<div class="empty-state">No highlights yet.<br>Load a game and hit<br><strong style="color:var(--warm)">⬤ Mark Highlight</strong> during a great play.</div>`;
+      updateExport();
+      return;
+    }
+
+    list.innerHTML = highlights.map((h, i) => `
+      <div class="highlight-item flash" onclick="seekTo(${h.time})">
+        <span class="timestamp-badge">${formatTime(h.time)}</span>
+        <span class="highlight-label">${escHtml(h.label)}</span>
+        <button class="delete-btn" onclick="event.stopPropagation(); deleteHighlight(${i})" title="Remove">✕</button>
+      </div>
+    `).join('');
+
+    // Only flash the newest one
+    const items = list.querySelectorAll('.highlight-item');
+    items.forEach(el => el.classList.remove('flash'));
+    // Find index of latest-added (won't be perfect after sort, but close enough)
+    setTimeout(() => {
+      if (items.length) {
+        const last = [...items].find(el => el.querySelector('.timestamp-badge').textContent === formatTime(highlights[highlights.length-1].time));
+        if (last) last.classList.add('flash');
+      }
+    }, 10);
+
+    updateExport();
+  }
+
+  function updateExport() {
+    const exportEl = document.getElementById('exportText');
+    if (highlights.length === 0) {
+      exportEl.textContent = 'Load a video and add highlights to export.';
+      return;
+    }
+    const base = currentVideoId ? `https://youtu.be/${currentVideoId}` : '[video url]';
+    const lines = highlights.map(h => `${formatTime(h.time)} — ${h.label}\n${base}?t=${Math.floor(h.time)}`);
+    exportEl.textContent = lines.join('\n\n');
+  }
+
+  function copyExport() {
+    const text = document.getElementById('exportText').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = event.target;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy to Clipboard', 1500);
+    });
+  }
+
+  function clearHighlights() {
+    if (highlights.length === 0) return;
+    if (confirm('Clear all highlights?')) {
+      highlights = [];
+      renderHighlights();
+    }
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Comments functionality
+  function addComment() {
+    const input = document.getElementById('commentInput');
+    const text = input.value.trim();
+    
+    if (!text) return;
+    
+    const now = new Date();
+    const comment = {
+      text: text,
+      timestamp: now.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+    };
+    
+    comments.push(comment);
+    input.value = '';
+    renderComments();
+  }
+
+  function renderComments() {
+    const list = document.getElementById('commentsList');
+    const badge = document.getElementById('commentCountBadge');
+    badge.textContent = comments.length;
+
+    if (comments.length === 0) {
+      list.innerHTML = '<div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>';
+      return;
+    }
+
+    list.innerHTML = comments.map((c, i) => `
+      <div class="comment-item">
+        <div class="comment-text">${escHtml(c.text)}</div>
+        <div class="comment-timestamp">${escHtml(c.timestamp)}</div>
+      </div>
+    `).reverse().join('');
+  }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
+    if (tagNamesToIgnore.includes(document.activeElement.tagName)) return;
+    
+    // Prevent default for keys we're handling
+    const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 
+                            'k', 'K', 'j', 'J', 'l', 'L', ',', '.', 'h', 'H', 'f', 'F'];
+    if (keysToPrevent.includes(e.key)) {
+      e.preventDefault();
+    }
+
+    // Play/Pause: Space or K
+    if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+      togglePlayPause();
+    }
+    
+    // Seek 5 seconds: Arrow keys
+    else if (e.key === 'ArrowLeft') {
+      seekRelative(-5);
+    }
+    else if (e.key === 'ArrowRight') {
+      seekRelative(5);
+    }
+    
+    // Seek 10 seconds: J/L
+    else if (e.key === 'j' || e.key === 'J') {
+      seekRelative(-10);
+    }
+    else if (e.key === 'l' || e.key === 'L') {
+      seekRelative(10);
+    }
+    
+    // Frame by frame (approx 1/30 second): Comma/Period
+    else if (e.key === ',') {
+      seekRelative(-1/30);
+    }
+    else if (e.key === '.') {
+      seekRelative(1/30);
+    }
+    
+    // Mark highlight: H
+    else if (e.key === 'h' || e.key === 'H') {
+      markHighlight();
+    }
+    
+    // Fullscreen: F
+    else if (e.key === 'f' || e.key === 'F') {
+      if (player) {
+        const iframe = player.getIframe();
+        if (!document.fullscreenElement) {
+          iframe.requestFullscreen().catch(err => {
+            console.log('Error attempting to enable fullscreen:', err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    }
+  });
+
+  // Allow Enter to submit comment (Shift+Enter for new line)
+  document.getElementById('commentInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addComment();
+    }
+  });
+  document.getElementById('videoUrl').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadVideo();
+    }
+  });
+  document.getElementById('labelInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      markHighlight();
+    }
+  });
+</script>
+{% endblock %}
