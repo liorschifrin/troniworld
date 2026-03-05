@@ -1,0 +1,317 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}Games - Troniworld{% endblock %}
+
+{% block extra_style %}
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .container {
+    padding: 20px 32px 32px;
+    max-width: 1400px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+    margin: 30px 0 10px;
+  }
+
+  .section-subtitle {
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+  }
+
+  .game-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .game-card:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(200,241,53,0.3);
+    transform: translateY(-2px);
+  }
+
+  .game-thumbnail {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .game-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+  }
+
+  .game-thumbnail.no-video {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+  }
+
+  .disc-icon {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--muted);
+    border-radius: 50%;
+    position: relative;
+  }
+
+  .disc-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: var(--muted);
+    border-radius: 2px;
+  }
+
+  .game-info {
+    padding: 16px;
+  }
+
+  .game-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .game-opponent {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  .game-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .score {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .score.win {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+  }
+
+  .score.loss {
+    background: rgba(255,107,43,0.1);
+    color: var(--warm);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+    margin-bottom: 12px;
+  }
+
+  .empty-state p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 768px) {
+    header h1 { font-size: 2rem; }
+    .container { padding: 16px; }
+    .games-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+{% endblock %}
+
+{% block content %}
+<header>
+  <div class="header-left">
+    <h1>Games</h1>
+    <span>Film Room Library</span>
+  </div>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    {% if current_user and current_user.is_admin %}
+    <a href="{{ url_for('new_tournament') }}" class="btn">+ New Tournament</a>
+    <a href="{{ url_for('new_game') }}" class="btn">+ New Game</a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="container">
+  {% if tournament_sections or standalone_games %}
+    {% for section in tournament_sections %}
+      <div class="section-title">{{ section.tournament.name }}</div>
+      <div class="section-subtitle">
+        {% if section.tournament.start_date %}{{ section.tournament.start_date }}{% endif %}
+      </div>
+      <div class="games-grid">
+        {% for game in section.games %}
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card">
+          <div class="game-thumbnail {% if not game.youtube_id %}no-video{% endif %}">
+            {% if game.youtube_id %}
+              <img src="https://img.youtube.com/vi/{{ game.youtube_id }}/maxresdefault.jpg" alt="{{ game.title }}">
+            {% else %}
+              <div class="disc-icon"></div>
+            {% endif %}
+          </div>
+          <div class="game-info">
+            <div class="game-title">
+              {% if game.tournament_game_number is not none %}Game {{ game.tournament_game_number }}: {% endif %}{{ game.title }}
+            </div>
+            <div class="game-opponent">vs {{ game.opponent }}</div>
+            <div class="game-meta">
+              {% if game.final_score_tron is not none and game.final_score_opponent is not none %}
+              <span class="score {% if game.final_score_tron > game.final_score_opponent %}win{% elif game.final_score_tron < game.final_score_opponent %}loss{% endif %}">
+                {{ game.final_score_tron }} - {{ game.final_score_opponent }}
+              </span>
+              {% endif %}
+              {% if game.game_date %}
+              <span class="meta-item">{{ game.game_date }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    {% if standalone_games %}
+      <div class="section-title">Standalone Games</div>
+      <div class="section-subtitle">Not Assigned To A Tournament</div>
+      <div class="games-grid">
+        {% for game in standalone_games %}
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card">
+          <div class="game-thumbnail {% if not game.youtube_id %}no-video{% endif %}">
+            {% if game.youtube_id %}
+              <img src="https://img.youtube.com/vi/{{ game.youtube_id }}/maxresdefault.jpg" alt="{{ game.title }}">
+            {% else %}
+              <div class="disc-icon"></div>
+            {% endif %}
+          </div>
+          <div class="game-info">
+            <div class="game-title">{{ game.title }}</div>
+            <div class="game-opponent">vs {{ game.opponent }}</div>
+            <div class="game-meta">
+              {% if game.final_score_tron is not none and game.final_score_opponent is not none %}
+              <span class="score {% if game.final_score_tron > game.final_score_opponent %}win{% elif game.final_score_tron < game.final_score_opponent %}loss{% endif %}">
+                {{ game.final_score_tron }} - {{ game.final_score_opponent }}
+              </span>
+              {% endif %}
+              {% if game.game_date %}
+              <span class="meta-item">{{ game.game_date }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="empty-state">
+      <h2>No Games Yet</h2>
+      <p>No games have been added to the film room yet.</p>
+      {% if current_user and current_user.is_admin %}
+      <p style="margin-top: 20px;">
+        <a href="{{ url_for('new_tournament') }}" class="btn">+ Add Your First Tournament</a>
+      </p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

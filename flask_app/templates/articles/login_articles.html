@@ -1,0 +1,286 @@
+{% extends "articles/base.html" %}
+
+{% block title %}Log In - Troniworld{% endblock %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .al-wrap {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: #f5f5f5;
+  }
+  .al-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 40px 40px 36px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+  .al-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .al-eyebrow-bar {
+    width: 28px;
+    height: 3px;
+    background: #c8322a;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .al-eyebrow-text {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #c8322a;
+  }
+  .al-title {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .al-sub {
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 28px;
+  }
+  .al-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 0 0 24px;
+  }
+  .al-group {
+    margin-bottom: 18px;
+  }
+  .al-label {
+    display: block;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #444;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .al-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.88rem;
+    color: #111;
+    background: #fafafa;
+    transition: border-color .15s, box-shadow .15s;
+    box-sizing: border-box;
+  }
+  .al-input:focus {
+    outline: none;
+    border-color: #c8322a;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(200,50,42,0.08);
+  }
+  .al-input::placeholder { color: #bbb; }
+  .al-btn {
+    width: 100%;
+    padding: 11px;
+    margin-top: 8px;
+    background: #c8322a;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .al-btn:hover { background: #a82820; }
+  .al-btn:active { transform: translateY(1px); }
+  .al-flash {
+    background: #fff3f3;
+    border: 1px solid #f5c6c6;
+    color: #a82820;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.78rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .al-username-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .al-ud-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .al-ud-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.85rem;
+    color: #111;
+    transition: background 0.1s;
+  }
+  .al-ud-item:hover, .al-ud-item.active {
+    background: #fff5f5;
+    color: #c8322a;
+  }
+  .al-ud-no-results {
+    padding: 8px 12px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.8rem;
+    color: #888;
+  }
+  .al-ud-no-results a {
+    color: #c8322a;
+    text-decoration: none;
+  }
+  .al-ud-no-results a:hover {
+    text-decoration: underline;
+  }
+  @media (max-width: 480px) {
+    .al-card { padding: 28px 20px 24px; }
+    .al-title { font-size: 1.3rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="al-wrap">
+  <div class="al-card">
+    <div class="al-eyebrow">
+      <span class="al-eyebrow-bar"></span>
+      <span class="al-eyebrow-text">Troniworld</span>
+    </div>
+    <h1 class="al-title">Sign in to your account</h1>
+    <p class="al-sub">Leave comments and interact with articles.</p>
+    <hr class="al-divider">
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="al-flash"><i class="fa fa-exclamation-circle"></i> {{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      {% if next %}
+        <input type="hidden" name="next_hidden" value="{{ next }}">
+      {% endif %}
+      <div class="al-group">
+        <label class="al-label" for="username">Username</label>
+        <div class="al-username-wrap">
+          <input type="text" id="username" name="username"
+                 class="al-input" placeholder="Your username"
+                 required autofocus autocomplete="off">
+          <div id="alUdDropdown" class="al-ud-dropdown"></div>
+        </div>
+      </div>
+      <div class="al-group">
+        <label class="al-label" for="password">Password</label>
+        <input type="password" id="password" name="password"
+               class="al-input" placeholder="Your password"
+               required autocomplete="current-password">
+      </div>
+      <button type="submit" class="al-btn">Log In</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  const allUsers = {{ all_usernames | tojson }};
+  const input    = document.getElementById('username');
+  const drop     = document.getElementById('alUdDropdown');
+  let activeIdx  = -1;
+
+  function showDrop(items) {
+    activeIdx = -1;
+    if (!items) {
+      drop.style.display = 'none';
+      return;
+    }
+    if (items.length === 0) {
+      drop.innerHTML = '<div class="al-ud-no-results">No match &mdash; message <a href="slack://open?team=T090FKX89E1" onclick="var t=setTimeout(function(){window.location=\'https://tron2025-2026.slack.com\';},600);window.addEventListener(\'blur\',function(){clearTimeout(t);},{once:true});">Trek on Slack</a> to get access</div>';
+    } else {
+      drop.innerHTML = items.map((u, i) =>
+        `<div class="al-ud-item" data-idx="${i}" data-user="${u}" onmousedown="event.preventDefault();alUdSelect('${u}')" ontouchend="event.preventDefault();alUdSelect('${u}')">${u}</div>`
+      ).join('');
+      activeIdx = 0;
+      drop.querySelector('.al-ud-item').classList.add('active');
+    }
+    drop.style.display = 'block';
+  }
+
+  window.alUdSelect = function(name) {
+    input.value = name;
+    drop.style.display = 'none';
+  };
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    if (!q) { drop.style.display = 'none'; return; }
+    const matches = allUsers.filter(u => u.toLowerCase().startsWith(q));
+    if (!matches.length) {
+      const fuzzy = allUsers.filter(u => u.toLowerCase().includes(q));
+      showDrop(fuzzy);
+    } else {
+      showDrop(matches);
+    }
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = drop.querySelectorAll('.al-ud-item');
+    if (!items.length || drop.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+    } else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault();
+      alUdSelect(items[activeIdx].dataset.user);
+      return;
+    } else if (e.key === 'Escape') {
+      drop.style.display = 'none'; return;
+    } else { return; }
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    items[activeIdx] && items[activeIdx].scrollIntoView({ block: 'nearest' });
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(() => { drop.style.display = 'none'; }, 200);
+  });
+})();
+</script>
+{% endblock %}

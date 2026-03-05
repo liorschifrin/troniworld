@@ -1,0 +1,82 @@
+{% extends "articles/base.html" %}
+
+{% block title %}Film Setup - Troniworld{% endblock %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 50px auto; padding: 20px;">
+  <h1 style="text-align: center; color: #007bff;">🎬 Film Room Setup</h1>
+  <p style="text-align: center; color: #666; margin-bottom: 30px;">
+    Create your first admin user to access the film room
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash-message {{ category }}" style="padding: 12px; margin-bottom: 15px; border-radius: 4px; {% if category == 'error' %}background-color: #fee; color: #c33; border-left: 4px solid #c33;{% elif category == 'warning' %}background-color: #fff3cd; color: #856404; border-left: 4px solid #ffc107;{% else %}background-color: #d4edda; color: #155724; border-left: 4px solid #28a745;{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div style="background: #f9f9f9; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <form method="post">
+      <div style="margin-bottom: 20px;">
+        <label for="username" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+          Username *
+        </label>
+        <input 
+          type="text" 
+          id="username"
+          name="username" 
+          required 
+          autofocus
+          placeholder="Choose a username"
+          style="width: 100%; padding: 10px; font-size: 16px; border: 2px solid #ddd; border-radius: 4px; box-sizing: border-box;"
+        >
+        <small style="color: #666; font-size: 13px;">This will be your login username</small>
+      </div>
+      
+      <div style="margin-bottom: 25px;">
+        <label for="player_name" style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">
+          Associated Player (optional)
+        </label>
+        <select 
+          id="player_name"
+          name="player_name"
+          style="width: 100%; padding: 10px; font-size: 16px; border: 2px solid #ddd; border-radius: 4px; box-sizing: border-box;"
+        >
+          <option value="">-- No Player --</option>
+          {% for player in all_players %}
+            <option value="{{ player.name }}">{{ player.name }}{% if player.jersey_number %} (#{{ player.jersey_number }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <small style="color: #666; font-size: 13px;">Link this admin account to a player (optional)</small>
+      </div>
+
+      <div style="background: #e7f3ff; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #007bff;">
+        <p style="margin: 0; font-size: 14px; color: #004085;">
+          <strong>Password:</strong> Your password is set to <code style="background: #fff; padding: 2px 6px; border-radius: 3px; color: #c33;">FILM_ADMIN_PASSWORD</code> from your .env file.
+        </p>
+      </div>
+      
+      <button 
+        type="submit"
+        style="width: 100%; padding: 12px; font-size: 18px; font-weight: bold; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;"
+        onmouseover="this.style.backgroundColor='#0056b3'"
+        onmouseout="this.style.backgroundColor='#007bff'"
+      >
+        Create Admin User
+      </button>
+    </form>
+  </div>
+
+  <div style="margin-top: 20px; text-align: center;">
+    <p style="color: #999; font-size: 14px;">
+      This page is only accessible when no admin user exists
+    </p>
+  </div>
+</div>
+{% endblock %}

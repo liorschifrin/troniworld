@@ -1,0 +1,392 @@
+{% extends "articles/base.html" %}
+
+{% block title %}{{ post.title }} - Troniworld{% endblock %}
+
+{% block extra_head %}
+<style>
+  .article-content {
+    max-width: 760px;
+    margin: 32px auto;
+    padding: 0 20px;
+  }
+  /* ── Comments ── */
+  .article-comments {
+    max-width: 760px;
+    margin: 32px auto 48px;
+    padding: 0 20px;
+    font-family: 'Open Sans', sans-serif;
+  }
+  .article-comments h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #c8322a;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+  }
+  .ac-comment-list { display: flex; flex-direction: column; gap: 8px; }
+  .ac-comment {
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 8px 10px;
+    position: relative;
+  }
+  .ac-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .ac-author { font-weight: 600; font-size: 0.72rem; color: #c8322a; }
+  .ac-time   { font-size: 0.65rem; color: #999; }
+  .ac-body   { font-size: 0.78rem; color: #222; line-height: 1.5; white-space: pre-wrap; }
+  .ac-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .ac-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.67rem;
+    color: #999;
+    padding: 1px 5px;
+    border-radius: 3px;
+    transition: color .15s, background .15s;
+  }
+  .ac-btn:hover { color: #c8322a; background: rgba(200,50,42,0.07); }
+  .ac-btn-delete:hover { color: #c00; background: rgba(200,0,0,0.07); }
+  .ac-replies {
+    margin-top: 7px;
+    margin-left: 0;
+    padding-left: 10px;
+    border-left: 2px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .ac-reply {
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 3px;
+    padding: 6px 9px;
+    position: relative;
+  }
+  textarea.ac-input, .ac-input {
+    width: 100%;
+    min-height: 52px;
+    padding: 7px 9px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.78rem;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-top: 3px;
+  }
+  textarea.ac-input:focus { outline: none; border-color: #c8322a; }
+  .ac-submit-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .ac-submit-btn {
+    background: #c8322a;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 5px 14px;
+    font-size: 0.73rem;
+    cursor: pointer;
+    font-family: 'Open Sans', sans-serif;
+    transition: background .15s;
+  }
+  .ac-submit-btn:hover { background: #a82820; }
+  .ac-submit-btn:disabled { opacity: .6; cursor: default; }
+  .ac-cancel-btn {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 5px 10px;
+    font-size: 0.73rem;
+    cursor: pointer;
+    color: #666;
+    font-family: 'Open Sans', sans-serif;
+  }
+  .ac-login-notice {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 10px;
+  }
+  .ac-login-notice a { color: #c8322a; }
+  .ac-empty { font-size: 0.75rem; color: #999; font-style: italic; padding: 6px 0; }
+  @keyframes ac-flash {
+    0%   { background: rgba(200,50,42,0.12); }
+    100% { background: transparent; }
+  }
+  .ac-flash { animation: ac-flash 1.4s ease-out forwards; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Post page -->
+<div class="article-content">
+  <h2>{{ post.title }}</h2>
+  <p><i class="fa fa-user"></i> {{ post.author }} | <i class="fa fa-calendar"></i> {{ post.created_at.strftime('%-m/%-d/%y') }}</p>
+  <div>{{ post.content | safe }}</div>
+  
+  {% if current_user and current_user.is_admin %}
+    <a href="{{ url_for('edit_post', post_id=post.id) }}"><i class="fa fa-edit"></i> Edit</a>
+  {% endif %}
+  
+  <a href="{{ url_for('index') }}"><i class="fa fa-arrow-left"></i> Back</a>
+</div>
+
+<!-- Comments -->
+<section class="article-comments">
+  <h3>Comments <span id="acCount" style="font-weight:400;color:#999;font-size:0.85rem;"></span></h3>
+
+  <div class="ac-comment-list" id="acList">
+    <div class="ac-empty">Loading comments…</div>
+  </div>
+
+  {% if current_user %}
+  <div style="margin-top:24px;">
+    <strong style="font-size:0.85rem;">Leave a comment</strong>
+    <textarea class="ac-input" id="acNewInput" placeholder="Write your comment…" rows="3"></textarea>
+    <div class="ac-submit-row">
+      <button class="ac-submit-btn" id="acNewBtn" onclick="acSubmitNew()">Post Comment</button>
+    </div>
+  </div>
+  {% else %}
+  <p class="ac-login-notice">
+    <a href="{{ url_for('login', next=request.path) }}">Log in</a> to leave a comment.
+  </p>
+  {% endif %}
+</section>
+
+{% block extra_scripts %}
+<script>
+(function() {
+  const POST_ID       = {{ post.id }};
+  const CURRENT_USER  = {{ (current_user.username | tojson) if current_user else 'null' }};
+  const IS_ADMIN      = {{ 'true' if current_user and current_user.is_admin else 'false' }};
+
+  let comments = [];
+  let activeReplyId   = null;   // comment id we're replying to
+  let activeEditId    = null;   // comment id we're editing
+
+  function relTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    const sec = Math.floor((Date.now() - d) / 1000);
+    if (sec < 60)  return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60)  return min + 'm ago';
+    const hr = Math.floor(min / 60);
+    if (hr < 24)   return hr + 'h ago';
+    const day = Math.floor(hr / 24);
+    if (day < 7)   return day + 'd ago';
+    return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadComments() {
+    const res = await fetch(`/post/${POST_ID}/comments`);
+    const data = await res.json();
+    comments = data.comments || [];
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById('acList');
+    const countEl = document.getElementById('acCount');
+    const total = comments.reduce((n, c) => n + 1 + (c.replies ? c.replies.length : 0), 0);
+    countEl.textContent = total ? `(${total})` : '';
+    if (!comments.length) {
+      list.innerHTML = '<div class="ac-empty">No comments yet. Be the first!</div>';
+      return;
+    }
+    list.innerHTML = comments.map(c => renderComment(c)).join('');
+
+    // Rebind active reply input
+    if (activeReplyId !== null) {
+      const el = document.getElementById(`ac-reply-input-${activeReplyId}`);
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
+    if (activeEditId !== null) {
+      const el = document.getElementById(`ac-edit-input-${activeEditId}`);
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
+  }
+
+  function renderComment(c) {
+    const isOwn   = CURRENT_USER && c.author_name === CURRENT_USER;
+    const canDel  = IS_ADMIN || isOwn;
+    const isEditing = activeEditId === c.id;
+    const isReplying = activeReplyId === c.id;
+
+    const bodyHtml = isEditing ? `
+      <textarea class="ac-input" id="ac-edit-input-${c.id}" rows="3">${esc(c.content)}</textarea>
+      <div class="ac-submit-row">
+        <button class="ac-cancel-btn" onclick="acCancelEdit()">Cancel</button>
+        <button class="ac-submit-btn" onclick="acSaveEdit(${c.id})">Save</button>
+      </div>` : `<div class="ac-body">${esc(c.content)}</div>`;
+
+    const actions = !isEditing ? `
+      <div class="ac-actions">
+        ${CURRENT_USER ? `<button class="ac-btn" onclick="acStartReply(${c.id})">↩ Reply</button>` : ''}
+        ${isOwn        ? `<button class="ac-btn" onclick="acStartEdit(${c.id}, this)">✎ Edit</button>` : ''}
+        ${canDel       ? `<button class="ac-btn ac-btn-delete" onclick="acDelete(${c.id})">✕</button>` : ''}
+      </div>` : '';
+
+    const repliesHtml = (c.replies && c.replies.length) ? `
+      <div class="ac-replies">
+        ${c.replies.map(r => renderReply(r)).join('')}
+      </div>` : '';
+
+    const replyFormHtml = isReplying ? `
+      <div style="margin-top:10px;padding-left:14px;border-left:2px solid #e0e0e0;">
+        <textarea class="ac-input" id="ac-reply-input-${c.id}" rows="2" placeholder="Write a reply…"></textarea>
+        <div class="ac-submit-row">
+          <button class="ac-cancel-btn" onclick="acCancelReply()">Cancel</button>
+          <button class="ac-submit-btn" onclick="acSubmitReply(${c.id})">Reply</button>
+        </div>
+      </div>` : '';
+
+    return `<div class="ac-comment" id="ac-c-${c.id}">
+      <div class="ac-meta">
+        <span class="ac-author">${esc(c.author_name)}</span>
+        <span class="ac-time">${relTime(c.created_at)}</span>
+      </div>
+      ${bodyHtml}
+      ${actions}
+      ${repliesHtml}
+      ${replyFormHtml}
+    </div>`;
+  }
+
+  function renderReply(r) {
+    const isOwn  = CURRENT_USER && r.author_name === CURRENT_USER;
+    const canDel = IS_ADMIN || isOwn;
+    const isEditing = activeEditId === r.id;
+
+    const bodyHtml = isEditing ? `
+      <textarea class="ac-input" id="ac-edit-input-${r.id}" rows="2">${esc(r.content)}</textarea>
+      <div class="ac-submit-row">
+        <button class="ac-cancel-btn" onclick="acCancelEdit()">Cancel</button>
+        <button class="ac-submit-btn" onclick="acSaveEdit(${r.id})">Save</button>
+      </div>` : `<div class="ac-body">${esc(r.content)}</div>`;
+
+    const actions = !isEditing ? `
+      <div class="ac-actions">
+        ${isOwn  ? `<button class="ac-btn" onclick="acStartEdit(${r.id}, this)">✎ Edit</button>` : ''}
+        ${canDel ? `<button class="ac-btn ac-btn-delete" onclick="acDelete(${r.id})">✕</button>` : ''}
+      </div>` : '';
+
+    return `<div class="ac-reply" id="ac-c-${r.id}">
+      <div class="ac-meta">
+        <span class="ac-author">${esc(r.author_name)}</span>
+        <span class="ac-time">${relTime(r.created_at)}</span>
+      </div>
+      ${bodyHtml}
+      ${actions}
+    </div>`;
+  }
+
+  window.acStartReply = function(id) {
+    activeReplyId = id;
+    activeEditId  = null;
+    render();
+  };
+  window.acCancelReply = function() { activeReplyId = null; render(); };
+
+  window.acStartEdit = function(id) {
+    activeEditId  = id;
+    activeReplyId = null;
+    render();
+  };
+  window.acCancelEdit = function() { activeEditId = null; render(); };
+
+  window.acSubmitNew = async function() {
+    const input = document.getElementById('acNewInput');
+    const content = input.value.trim();
+    if (!content) return;
+    const btn = document.getElementById('acNewBtn');
+    btn.disabled = true; btn.textContent = 'Posting…';
+    try {
+      const res = await fetch(`/post/${POST_ID}/comments`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content})
+      });
+      if (res.ok) {
+        const data = await res.json();
+        input.value = '';
+        await loadComments();
+        const newEl = document.getElementById(`ac-c-${data.comment.id}`);
+        if (newEl) { newEl.scrollIntoView({behavior:'smooth', block:'nearest'}); newEl.classList.add('ac-flash'); newEl.addEventListener('animationend', () => newEl.classList.remove('ac-flash'), {once:true}); }
+      }
+    } finally { btn.disabled = false; btn.textContent = 'Post Comment'; }
+  };
+
+  window.acSubmitReply = async function(parentId) {
+    const input = document.getElementById(`ac-reply-input-${parentId}`);
+    const content = input.value.trim();
+    if (!content) return;
+    const res = await fetch(`/post/${POST_ID}/comments`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content, parent_id: parentId})
+    });
+    if (res.ok) {
+      activeReplyId = null;
+      await loadComments();
+      const data = await res.json();
+      const newEl = document.getElementById(`ac-c-${data.comment.id}`);
+      if (newEl) { newEl.scrollIntoView({behavior:'smooth', block:'nearest'}); newEl.classList.add('ac-flash'); newEl.addEventListener('animationend', () => newEl.classList.remove('ac-flash'), {once:true}); }
+    }
+  };
+
+  window.acSaveEdit = async function(id) {
+    const input = document.getElementById(`ac-edit-input-${id}`);
+    const content = input.value.trim();
+    if (!content) return;
+    const res = await fetch(`/post/${POST_ID}/comments/${id}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content})
+    });
+    if (res.ok) { activeEditId = null; await loadComments(); }
+  };
+
+  window.acDelete = async function(id) {
+    if (!confirm('Delete this comment?')) return;
+    const res = await fetch(`/post/${POST_ID}/comments/${id}`, {method:'DELETE'});
+    if (res.ok) await loadComments();
+  };
+
+  function scrollToTargetComment() {
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get('comment');
+    if (!targetId) return;
+    const el = document.getElementById('ac-c-' + targetId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ac-flash');
+    el.addEventListener('animationend', () => el.classList.remove('ac-flash'), { once: true });
+  }
+
+  loadComments().then(scrollToTargetComment);
+})();
+</script>
+{% endblock %}
+{% endblock %}
+

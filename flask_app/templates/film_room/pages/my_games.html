@@ -1,0 +1,905 @@
+{% extends "film_room/film_base.html" %}
+
+{% block title %}My Games - Troniworld{% endblock %}
+
+{% block extra_style %}
+  header {
+    padding: 24px 32px 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 3px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .container {
+    padding: 20px 32px 32px;
+    max-width: 1400px;
+  }
+
+  .player-info-banner {
+    background: rgba(200,241,53,0.05);
+    border: 1px solid rgba(200,241,53,0.2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .player-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(200,241,53,0.15);
+    border: 2px solid var(--lime);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .player-info-text {
+    flex: 1;
+  }
+
+  .player-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+    line-height: 1.2;
+  }
+
+  .player-stats {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .games-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .games-table thead {
+    background: rgba(0,0,0,0.3);
+  }
+
+  .games-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .games-table th.stat-col {
+    text-align: center;
+  }
+
+  .games-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.9rem;
+  }
+
+  .games-table tbody tr {
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+
+  .games-table tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .games-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .game-title-cell {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    color: var(--lime);
+  }
+
+  .game-opponent {
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+
+  .game-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .score-cell {
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+  }
+
+  .score-cell.win {
+    color: var(--lime);
+  }
+
+  .score-cell.loss {
+    color: var(--warm);
+  }
+
+  .stat-col {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .stat-count {
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .stat-pct {
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .stat-pct.good {
+    color: var(--lime);
+  }
+
+  .totals-row {
+    background: rgba(200,241,53,0.05);
+    font-weight: 600;
+  }
+
+  .totals-row td {
+    border-top: 2px solid var(--lime);
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .totals-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    color: var(--lime);
+    margin-bottom: 12px;
+  }
+
+  .empty-state p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 968px) {
+    header h1 { font-size: 2rem; }
+    .container { padding: 16px; }
+    
+    .games-table {
+      font-size: 0.85rem;
+    }
+    
+    .games-table th,
+    .games-table td {
+      padding: 10px 8px;
+    }
+    
+    .game-title-cell {
+      font-size: 1rem;
+    }
+  }
+
+  .summary-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .summary-card {
+    flex: 1;
+    min-width: 160px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .summary-card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .summary-card-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.4rem;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .summary-card-value.good {
+    color: var(--lime);
+  }
+
+  .summary-card-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .summary-card-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .summary-card-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--muted);
+    transition: width 0.5s ease;
+  }
+
+  .summary-card-bar-fill.good {
+    background: var(--lime);
+  }
+
+  /* Mobile card list — hidden by default, shown on small screens */
+  .game-mobile-list {
+    display: none;
+  }
+
+  .game-mobile-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .game-mobile-card:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(200,241,53,0.25);
+  }
+
+  .game-mobile-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .game-mobile-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.15rem;
+    letter-spacing: 0.5px;
+    color: var(--lime);
+    line-height: 1.2;
+  }
+
+  .game-mobile-opponent {
+    font-size: 0.82rem;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .game-mobile-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .game-mobile-score {
+    font-family: 'DM Mono', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 4px 10px;
+    border-radius: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .game-mobile-score.win {
+    background: rgba(200,241,53,0.12);
+    color: var(--lime);
+  }
+
+  .game-mobile-score.loss {
+    background: rgba(255,107,43,0.1);
+    color: var(--warm);
+  }
+
+  .game-mobile-score.neutral {
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+  }
+
+  .game-mobile-stats {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .game-mobile-stat {
+    flex: 1;
+    min-width: 80px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .game-mobile-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .game-mobile-stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .game-mobile-stat-value.good {
+    color: var(--lime);
+  }
+
+  .game-mobile-stat-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    .games-table th.hide-mobile,
+    .games-table td.hide-mobile {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    header {
+      padding: 16px 16px 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    header h1 { font-size: 2rem; }
+
+    .container { padding: 12px 16px 24px; }
+
+    .player-info-banner {
+      padding: 12px 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-stats {
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      padding: 14px 16px;
+      min-width: 120px;
+    }
+
+    .summary-card-value {
+      font-size: 2rem;
+    }
+
+    /* Hide table, show card list */
+    .games-table {
+      display: none;
+    }
+
+    .game-mobile-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+  }
+
+  /* ── My Comments section ───────────────────────────────── */
+  .my-comments-section {
+    margin-top: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .my-comments-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .my-comments-header:hover {
+    background: rgba(200,241,53,0.05);
+  }
+
+  .my-comments-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+    line-height: 1;
+  }
+
+  .my-comments-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: 12px;
+  }
+
+  .my-comments-toggle {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .comments-caret {
+    display: inline-block;
+    transition: transform 0.3s ease;
+  }
+
+  .my-comments-section.open .comments-caret {
+    transform: rotate(180deg);
+  }
+
+  .my-comments-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .my-comments-section.open .my-comments-body {
+    display: block;
+  }
+
+  .mci-item {
+    display: block;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+  }
+
+  .mci-item:last-child { border-bottom: none; }
+  .mci-item:hover { background: rgba(255,255,255,0.03); }
+
+  .mci-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .mci-game {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--sky);
+    font-weight: 600;
+  }
+
+  .mci-ts {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--lime);
+    background: rgba(200,241,53,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .mci-reply {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--warm);
+    background: rgba(255,107,43,0.1);
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+
+  .mci-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .mci-vs {
+    color: var(--muted);
+  }
+
+  .mci-private {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: #e0b000;
+    background: rgba(224,176,0,0.1);
+    border: 1px solid rgba(224,176,0,0.25);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .mci-recipients {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    padding: 2px 0 0 0;
+  }
+
+  .mci-recipients-names {
+    color: #e0b000;
+    opacity: 0.85;
+  }
+
+  .mci-mention {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+
+  .mci-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    opacity: 0.85;
+    line-height: 1.45;
+  }
+{% endblock %}
+
+{% block content %}
+<header>
+  <div class="header-left">
+    <h1>My Games</h1>
+    <span>Personal Game History</span>
+  </div>
+  <a href="{{ url_for('games_list') }}" class="btn">View All Games</a>
+</header>
+
+<div class="container">
+  {% if current_user.player %}
+    <div class="player-info-banner">
+      <div class="player-icon">🏃</div>
+      <div class="player-info-text">
+        <div class="player-name">{{ current_user.player.name }}</div>
+        <div class="player-stats">{{ games_with_stats|length }} game{{ 's' if games_with_stats|length != 1 else '' }} played{% if current_user.player.jersey_number %} • #{{ current_user.player.jersey_number }}{% endif %}</div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if games_with_stats %}
+    <table class="games-table">
+      <thead>
+        <tr>
+          <th>Game</th>
+          <th class="hide-mobile">Date</th>
+          <th class="stat-col">Score</th>
+          <th class="stat-col">O Points</th>
+          <th class="stat-col">Hold %</th>
+          <th class="stat-col">D Points</th>
+          <th class="stat-col">Break %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in games_with_stats %}
+        <tr onclick="window.location.href='{{ url_for('view_game', game_id=item.game.id) }}'">
+          <td>
+            <div class="game-title-cell">{{ item.game.title }}</div>
+            <div class="game-opponent">vs {{ item.game.opponent }}</div>
+          </td>
+          <td class="game-date hide-mobile">
+            {{ item.game.game_date if item.game.game_date else '—' }}
+          </td>
+          <td class="score-cell stat-col {% if item.game.final_score_tron is not none and item.game.final_score_opponent is not none %}{% if item.game.final_score_tron > item.game.final_score_opponent %}win{% elif item.game.final_score_tron < item.game.final_score_opponent %}loss{% endif %}{% endif %}">
+            {% if item.game.final_score_tron is not none and item.game.final_score_opponent is not none %}
+              {{ item.game.final_score_tron }}-{{ item.game.final_score_opponent }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="stat-col">
+            <span class="stat-count">{{ item.o_count }}</span>
+          </td>
+          <td class="stat-col">
+            {% if item.o_count > 0 %}
+              <span class="stat-count">{{ item.o_scored }}/{{ item.o_count }}</span>
+              <span class="stat-pct {% if item.hold_pct >= 75 %}good{% endif %}">{{ "%.0f"|format(item.hold_pct) }}%</span>
+            {% else %}
+              <span class="stat-count">—</span>
+            {% endif %}
+          </td>
+          <td class="stat-col">
+            <span class="stat-count">{{ item.d_count }}</span>
+          </td>
+          <td class="stat-col">
+            {% if item.d_count > 0 %}
+              <span class="stat-count">{{ item.d_scored }}/{{ item.d_count }}</span>
+              <span class="stat-pct {% if item.break_pct >= 25 %}good{% endif %}">{{ "%.0f"|format(item.break_pct) }}%</span>
+            {% else %}
+              <span class="stat-count">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        
+        <!-- Totals Row -->
+        <tr class="totals-row">
+          <td colspan="2" class="totals-label hide-mobile">TOTALS</td>
+          <td class="totals-label stat-col">
+            <span class="hide-mobile">TOTALS</span>
+          </td>
+          <td class="stat-col">
+            <span class="stat-count">{{ total_o_points }}</span>
+          </td>
+          <td class="stat-col">
+            {% if total_o_points > 0 %}
+              <span class="stat-count">{{ total_o_scored }}/{{ total_o_points }}</span>
+              <span class="stat-pct {% if total_hold_pct >= 75 %}good{% endif %}">{{ "%.0f"|format(total_hold_pct) }}%</span>
+            {% else %}
+              <span class="stat-count">—</span>
+            {% endif %}
+          </td>
+          <td class="stat-col">
+            <span class="stat-count">{{ total_d_points }}</span>
+          </td>
+          <td class="stat-col">
+            {% if total_d_points > 0 %}
+              <span class="stat-count">{{ total_d_scored }}/{{ total_d_points }}</span>
+              <span class="stat-pct {% if total_break_pct >= 25 %}good{% endif %}">{{ "%.0f"|format(total_break_pct) }}%</span>
+            {% else %}
+              <span class="stat-count">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Mobile card list (shown on small screens via CSS) -->
+    <div class="game-mobile-list">
+      {% for item in games_with_stats %}
+      <a class="game-mobile-card" href="{{ url_for('view_game', game_id=item.game.id) }}">
+        <div class="game-mobile-top">
+          <div>
+            <div class="game-mobile-title">{{ item.game.title }}</div>
+            <div class="game-mobile-opponent">vs {{ item.game.opponent }}</div>
+            {% if item.game.game_date %}<div class="game-mobile-date">{{ item.game.game_date }}</div>{% endif %}
+          </div>
+          {% if item.game.final_score_tron is not none and item.game.final_score_opponent is not none %}
+            <span class="game-mobile-score {% if item.game.final_score_tron > item.game.final_score_opponent %}win{% elif item.game.final_score_tron < item.game.final_score_opponent %}loss{% else %}neutral{% endif %}">
+              {{ item.game.final_score_tron }}-{{ item.game.final_score_opponent }}
+            </span>
+          {% else %}
+            <span class="game-mobile-score neutral">—</span>
+          {% endif %}
+        </div>
+        <div class="game-mobile-stats">
+          <div class="game-mobile-stat">
+            <span class="game-mobile-stat-label">O Hold %</span>
+            {% if item.o_count > 0 %}
+              <span class="game-mobile-stat-value{% if item.hold_pct >= 75 %} good{% endif %}">{{ "%.0f"|format(item.hold_pct) }}%</span>
+              <span class="game-mobile-stat-sub">{{ item.o_scored }}/{{ item.o_count }}</span>
+            {% else %}
+              <span class="game-mobile-stat-value">—</span>
+            {% endif %}
+          </div>
+          <div class="game-mobile-stat">
+            <span class="game-mobile-stat-label">D Break %</span>
+            {% if item.d_count > 0 %}
+              <span class="game-mobile-stat-value{% if item.break_pct >= 25 %} good{% endif %}">{{ "%.0f"|format(item.break_pct) }}%</span>
+              <span class="game-mobile-stat-sub">{{ item.d_scored }}/{{ item.d_count }}</span>
+            {% else %}
+              <span class="game-mobile-stat-value">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h2>No Games Found</h2>
+      {% if not current_user.player %}
+      <p>Your account is not linked to a player profile yet.</p>
+      <p style="margin-top: 12px;">Contact an admin to link your account to your player profile.</p>
+      {% else %}
+      <p>You haven't been added to any game rosters yet.</p>
+      <p style="margin-top: 12px;">Ask an admin to add you to the roster when uploading game data.</p>
+      {% endif %}
+      <p style="margin-top: 20px;">
+        <a href="{{ url_for('games_list') }}" class="btn">Browse All Games</a>
+      </p>
+    </div>
+  {% endif %}
+
+  {% if my_comments %}
+    <div class="my-comments-section" id="myCommentsSection">
+      <div class="my-comments-header" onclick="toggleMyComments()">
+        <div>
+          <span class="my-comments-heading">My Comments</span>
+          <span class="my-comments-count">{{ my_comments|length }} comment{{ 's' if my_comments|length != 1 else '' }}</span>
+        </div>
+        <div class="my-comments-toggle">
+          <span>show all</span>
+          <span class="comments-caret">▼</span>
+        </div>
+      </div>
+      <div class="my-comments-body">
+        {% for c in my_comments %}
+          <a class="mci-item" href="{{ url_for('view_game', game_id=c.game_id) }}?comment={{ c.id }}">
+            <div class="mci-meta">
+              <span class="mci-game">{{ c.game_title }}<span class="mci-vs"> vs {{ c.game_opponent }}</span></span>
+              {% if c.timestamp_str %}
+                <span class="mci-ts">⏱ {{ c.timestamp_str }}</span>
+              {% endif %}
+              {% if c.is_reply %}
+                <span class="mci-reply">reply</span>
+              {% endif %}
+              {% if c.private_to is not none %}
+                <span class="mci-private">🔒 private</span>
+              {% endif %}
+              <span class="mci-date" data-iso="{{ c.created_at_iso }}"></span>
+            </div>
+            <div class="mci-text">{{ c.content[:140] }}{% if c.content|length > 140 %}…{% endif %}</div>
+            {% if c.private_to is not none %}
+              <div class="mci-recipients">visible to:
+                {% if c.private_to %}
+                  <span class="mci-recipients-names">you{% for u in c.private_to %}, {{ u }}{% endfor %}</span>
+                {% else %}
+                  <span class="mci-recipients-names">only you</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+<script>
+function toggleMyComments() {
+  document.getElementById('myCommentsSection').classList.toggle('open');
+}
+
+// ── Comment rendering helpers ───────────────────────────────────────────
+function _mciRelativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  if (isNaN(diff) || diff < 0) return '';
+  const s = Math.floor(diff / 1000);
+  if (s < 60)  return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)   return `${d}d ago`;
+  const wk = Math.floor(d / 7);
+  if (wk < 5)  return `${wk}w ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+function _mciRenderMentions(el) {
+  const raw = el.textContent;
+  if (!raw.includes('@[')) return;
+  el.innerHTML = raw.split(/(@\[[^\]]+\])/g).map(part => {
+    const m = part.match(/^@\[(.+)\]$/);
+    if (m) return `<span class="mci-mention">@${m[1].replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</span>`;
+    return part.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mci-date[data-iso]').forEach(el => {
+    el.textContent = _mciRelativeTime(el.dataset.iso);
+  });
+  document.querySelectorAll('.mci-text').forEach(_mciRenderMentions);
+});
+</script>
+{% endblock %}

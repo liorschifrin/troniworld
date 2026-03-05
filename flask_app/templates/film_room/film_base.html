@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Troniworld Film Room{% endblock %}</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --grass: #1a3a1a;
+    --field: #0f2410;
+    --lime: #c8f135;
+    --disc: #ffffff;
+    --sky: #7ecfff;
+    --warm: #ff6b2b;
+    --text: #e8f5d0;
+    --muted: #6a8a5a;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(200,241,53,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--field);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.02) 60px);
+  }
+
+  /* Film Room Navigation Bar */
+  .film-nav {
+    background: rgba(26, 58, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid var(--lime);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+
+  .film-nav__wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  .film-nav__user {
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .film-nav__user-greeting {
+    font-size: 12px;
+    letter-spacing: 0.3px;
+  }
+
+  .film-nav__user-name {
+    color: var(--lime);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+  }
+
+  .film-nav__container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+  }
+
+  .film-nav__logout {
+    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .film-nav__link {
+    color: var(--text);
+    text-decoration: none;
+    padding: 12px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    border-right: 1px solid var(--border);
+    display: inline-block;
+  }
+
+  .film-nav__link:first-child {
+    border-left: 1px solid var(--border);
+  }
+
+  .film-nav__link:hover {
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-nav__link.active {
+    background: rgba(200, 241, 53, 0.15);
+    color: var(--lime);
+    font-weight: 500;
+  }
+
+  .film-nav__logout-link {
+    color: var(--warm);
+    text-decoration: none;
+    padding: 8px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    border: 1px solid var(--warm);
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .film-nav__logout-link:hover {
+    background: rgba(255, 107, 43, 0.1);
+  }
+
+  /* Hamburger Menu */
+  .film-nav__hamburger {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--lime);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: auto;
+  }
+
+  .film-nav__menu-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9998;
+  }
+
+  .film-nav__menu-overlay.active {
+    display: block;
+  }
+
+  .film-nav__mobile-menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: -280px;
+    width: 280px;
+    height: 100vh;
+    background: var(--grass);
+    border-left: 2px solid var(--lime);
+    padding: 20px;
+    z-index: 9999;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .film-nav__mobile-menu.active {
+    right: 0;
+  }
+
+  .film-nav__menu-close {
+    background: none;
+    border: none;
+    color: var(--lime);
+    font-size: 32px;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 20px;
+    float: right;
+  }
+
+  .film-nav__mobile-content {
+    clear: both;
+    padding-top: 20px;
+  }
+
+  .film-nav__mobile-user {
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .film-nav__mobile-user .film-nav__user-greeting {
+    font-size: 14px;
+  }
+
+  .film-nav__mobile-user .film-nav__user-name {
+    font-size: 16px;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .film-nav__mobile-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .film-nav__mobile-link {
+    color: var(--text);
+    text-decoration: none;
+    padding: 16px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    display: block;
+    transition: background 0.2s ease;
+  }
+
+  .film-nav__mobile-link:hover {
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-nav__mobile-logout {
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .film-nav__mobile-logout-link {
+    color: var(--warm);
+    text-decoration: none;
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--warm);
+    border-radius: 4px;
+    display: block;
+    text-align: center;
+    transition: background 0.2s ease;
+  }
+
+  .film-nav__mobile-logout-link:hover {
+    background: rgba(255, 107, 43, 0.1);
+  }
+
+  @media (max-width: 900px) {
+    .film-nav__wrapper {
+      grid-template-columns: 1fr auto auto;
+      padding: 0 12px;
+    }
+
+    .film-nav__user {
+      font-size: 12px;
+      gap: 4px;
+    }
+
+    .film-nav__user-greeting {
+      font-size: 11px;
+    }
+
+    .film-nav__user-name {
+      font-size: 13px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .film-nav__container {
+      display: none;
+    }
+
+    /* On mobile: keep the logout-area visible so the bell shows, but hide only the logout link text */
+    .film-nav__logout {
+      display: flex !important;
+    }
+
+    .film-nav__logout .film-nav__logout-link {
+      display: none;
+    }
+
+    .film-nav__hamburger {
+      display: block;
+    }
+
+    .film-nav__mobile-menu {
+      display: block;
+    }
+  }
+
+  /* Mobile landscape: nav is non-sticky to preserve vertical screen space */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .film-nav {
+      position: relative;
+      top: auto;
+    }
+  }
+
+  /* Flash messages */
+  .film-flash-messages {
+    max-width: 1400px;
+    margin: 16px auto;
+    padding: 0 24px;
+  }
+
+  .film-flash {
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border-left: 4px solid var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+  }
+
+  .film-flash--error {
+    border-left-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    color: #ffb3b3;
+  }
+
+  .film-flash--success {
+    border-left-color: var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+    color: var(--lime);
+  }
+
+  .film-flash--warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffd666;
+  }
+
+  /* Notification Bell */
+  .notif-bell-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-right: 12px;
+  }
+
+  .notif-bell-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    position: relative;
+    transition: color 0.2s ease, background 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .notif-bell-btn:hover {
+    color: var(--lime);
+    background: rgba(200, 241, 53, 0.1);
+  }
+
+  .notif-bell-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--warm);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    line-height: 1;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .notif-bell-badge[data-count="0"] {
+    opacity: 0;
+  }
+
+  /* Notification dropdown — fixed so it is never clipped */
+  .notif-dropdown {
+    position: fixed;
+    /* top / left / right set inline by JS */
+    width: 340px;
+    max-height: 480px;
+    background: var(--grass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .notif-dropdown.open {
+    display: flex;
+  }
+
+  .notif-dropdown__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .notif-dropdown__title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--lime);
+  }
+
+  .notif-mark-all-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+  }
+
+  .notif-mark-all-btn:hover {
+    color: var(--lime);
+    border-color: var(--lime);
+  }
+
+  .notif-dropdown__list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .notif-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .notif-item:last-child {
+    border-bottom: none;
+  }
+
+  .notif-item:hover {
+    background: rgba(200, 241, 53, 0.06);
+  }
+
+  .notif-item.unread {
+    background: rgba(200, 241, 53, 0.04);
+    border-left: 3px solid var(--lime);
+    padding-left: 13px;
+  }
+
+  .notif-item.unread:hover {
+    background: rgba(200, 241, 53, 0.09);
+  }
+
+  .notif-item__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .notif-item__author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .notif-item__type-badge {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+
+  .notif-item__type-badge.mention  { background: rgba(74,158,219,0.25); color: #4A9EDB; }
+  .notif-item__type-badge.private  { background: rgba(196,90,179,0.25); color: #C45AB3; }
+  .notif-item__type-badge.everyone { background: rgba(255,107,43,0.25);  color: var(--warm); }
+  .notif-item__type-badge.reply    { background: rgba(200,241,53,0.18);  color: var(--lime); }
+  .notif-item__type-badge.thread   { background: rgba(200,241,53,0.08);  color: var(--muted); }
+
+  /* Notification tabs */
+  .notif-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .notif-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .notif-tab-btn:hover { color: var(--text); }
+  .notif-tab-btn.active { color: var(--lime); border-bottom-color: var(--lime); }
+  .notif-tab-unread {
+    background: var(--warm);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .notif-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .notif-panel.active { display: flex; }
+  .notif-item__type-badge.reply    { background: rgba(200,241,53,0.18);  color: var(--lime); }
+  .notif-item__type-badge.thread   { background: rgba(200,241,53,0.08);  color: var(--muted); }
+
+  /* Notification tabs */
+  .notif-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .notif-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .notif-tab-btn:hover { color: var(--text); }
+  .notif-tab-btn.active { color: var(--lime); border-bottom-color: var(--lime); }
+  .notif-tab-unread {
+    background: var(--warm);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .notif-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .notif-panel.active { display: flex; }
+
+  .notif-item__game {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .notif-item__snippet {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.8;
+    line-height: 1.4;
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .notif-item__footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .notif-item__time {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+  }
+
+  .notif-item__vts {
+    font-size: 10px;
+    color: var(--sky);
+    font-family: 'DM Mono', monospace;
+    background: rgba(126,207,255,0.08);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+
+  .notif-mention {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--lime);
+    background: rgba(200,241,53,0.1);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+
+  .notif-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  @media (max-width: 900px) {
+    .notif-bell-wrap { margin-right: 6px; }
+  }
+  /* On narrow screens the dropdown goes full width */
+  @media (max-width: 600px) {
+    .notif-dropdown {
+      width: 100vw !important;
+      border-radius: 0 0 8px 8px;
+    }
+  }
+
+  /* ── Nav overflow tiers (applied by JS ResizeObserver) ───────────────── */
+  /* Tier: compact — shrink columns to auto so links get maximum 1fr space */
+  .film-nav__wrapper.nav-compact {
+    grid-template-columns: auto 1fr auto;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__user-greeting {
+    display: none;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__user-name {
+    max-width: 70px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .film-nav__wrapper.nav-compact .notif-bell-wrap {
+    margin-right: 4px;
+  }
+  .film-nav__wrapper.nav-compact .film-nav__logout-link {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  /* Tier: hamburger — hide user text + links, reveal hamburger; user div stays
+     as a grid spacer (1fr) so bell + hamburger are pushed to the right */
+  .film-nav__wrapper.nav-hamburger {
+    grid-template-columns: 1fr auto auto;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__user-greeting,
+  .film-nav__wrapper.nav-hamburger .film-nav__user-name {
+    display: none;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__container {
+    display: none !important;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__logout .film-nav__logout-link {
+    display: none;
+  }
+  .film-nav__wrapper.nav-hamburger .film-nav__hamburger {
+    display: block;
+  }
+  /* ─────────────────────────────────────────────────────────────────────── */
+
+  {% block extra_style %}{% endblock %}
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Film Room Navigation -->
+<nav class="film-nav">
+  <div class="film-nav__wrapper">
+    <div class="film-nav__user">
+      {% if current_user %}
+        <span class="film-nav__user-greeting">Hello,</span>
+        <span class="film-nav__user-name">{{ current_user.username }}</span>
+      {% endif %}
+    </div>
+    <div class="film-nav__container">
+      <a href="{{ url_for('index') }}" class="film-nav__link">Read the Articles</a>
+      <a href="{{ url_for('games_list') }}" class="film-nav__link">Tron Film Room</a>
+      <a href="{{ url_for('my_games') }}" class="film-nav__link">My Games</a>
+      <a href="{{ url_for('tron_data') }}" class="film-nav__link">Tron Data</a>
+      {% if current_user and current_user.is_admin %}
+        <a href="{{ url_for('analytics_dashboard') }}" class="film-nav__link">Analytics</a>
+      {% endif %}
+    </div>
+    <div class="film-nav__logout">
+      {% if current_user %}
+        <!-- Notification Bell -->
+        <div class="notif-bell-wrap" id="notifBellWrap">
+          <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifDropdown(event)" title="Notifications" aria-label="Notifications">
+            🔔
+            <span class="notif-bell-badge" id="notifBellBadge" data-count="0">0</span>
+          </button>
+        </div>
+        <a href="{{ url_for('logout') }}" class="film-nav__logout-link">Logout</a>
+      {% endif %}
+    </div>
+    <button class="film-nav__hamburger" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+  </div>
+</nav>
+
+<!-- Mobile Menu Overlay -->
+<div class="film-nav__menu-overlay" onclick="toggleMobileMenu()"></div>
+
+<!-- Mobile Menu -->
+<div class="film-nav__mobile-menu">
+  <button class="film-nav__menu-close" onclick="toggleMobileMenu()" aria-label="Close">×</button>
+  <div class="film-nav__mobile-content">
+    {% if current_user %}
+      <div class="film-nav__mobile-user">
+        <span class="film-nav__user-greeting">Hello,</span>
+        <span class="film-nav__user-name">{{ current_user.username }}</span>
+      </div>
+    {% endif %}
+    <div class="film-nav__mobile-links">
+      <a href="{{ url_for('index') }}" class="film-nav__mobile-link">Read the Articles</a>
+      <a href="{{ url_for('games_list') }}" class="film-nav__mobile-link">Tron Film Room</a>
+      <a href="{{ url_for('my_games') }}" class="film-nav__mobile-link">My Games</a>
+      <a href="{{ url_for('tron_data') }}" class="film-nav__mobile-link">Tron Data</a>
+      {% if current_user and current_user.is_admin %}
+        <a href="{{ url_for('analytics_dashboard') }}" class="film-nav__mobile-link">Analytics</a>
+      {% endif %}
+    </div>
+    {% if current_user %}
+      <div class="film-nav__mobile-logout">
+        <a href="{{ url_for('logout') }}" class="film-nav__mobile-logout-link">Logout</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Main Content -->
+{% block flash_messages %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="film-flash-messages">
+      {% for category, message in messages %}
+        <div class="film-flash film-flash--{{ category or 'info' }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+{% endblock %}
+
+{% block content %}{% endblock %}
+
+<script>
+  function toggleMobileMenu() {
+    const menu = document.querySelector('.film-nav__mobile-menu');
+    const overlay = document.querySelector('.film-nav__menu-overlay');
+    menu.classList.toggle('active');
+    overlay.classList.toggle('active');
+    
+    // Prevent body scroll when menu is open
+    if (menu.classList.contains('active')) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Close menu when clicking on a link
+  document.querySelectorAll('.film-nav__mobile-link, .film-nav__mobile-logout-link').forEach(link => {
+    link.addEventListener('click', () => {
+      toggleMobileMenu();
+    });
+  });
+
+  // ========================
+  // NOTIFICATION BELL
+  // ========================
+  let _notifData = [];
+  let _activeNotifTab = 'main';
+  const REPLY_TYPES = new Set(['reply', 'thread']);
+
+  async function fetchNotifications() {
+    try {
+      const res = await fetch('/film/api/notifications');
+      if (!res.ok) return;
+      const data = await res.json();
+      _notifData = data.notifications || [];
+      const count = data.unread_count || 0;
+      const badge = document.getElementById('notifBellBadge');
+      if (badge) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.dataset.count = count;
+      }
+      _renderNotifList();
+    } catch (e) { /* silent */ }
+  }
+
+  function _renderNotifList() {
+    const mainItems    = _notifData.filter(n => !REPLY_TYPES.has(n.notification_type));
+    const repliesItems = _notifData.filter(n =>  REPLY_TYPES.has(n.notification_type));
+
+    const mainUnread    = mainItems.filter(n => !n.is_read).length;
+    const repliesUnread = repliesItems.filter(n => !n.is_read).length;
+    const _setTabBadge = (id, count) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = count > 99 ? '99+' : String(count);
+      el.style.display = count > 0 ? '' : 'none';
+    };
+    _setTabBadge('notifTabMainBadge', mainUnread);
+    _setTabBadge('notifTabRepliesBadge', repliesUnread);
+
+    _renderListItems('notifListMain', mainItems);
+    _renderListItems('notifListReplies', repliesItems);
+  }
+
+  function _renderListItems(listId, items) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    if (!items.length) {
+      list.innerHTML = '<div class="notif-empty">Nothing here yet.</div>';
+      return;
+    }
+    list.innerHTML = items.map(n => {
+      const unreadClass = n.is_read ? '' : ' unread';
+      const typeLabel =
+        n.notification_type === 'everyone' ? '@Everyone' :
+        n.notification_type === 'mention'  ? '@mention'  :
+        n.notification_type === 'private'  ? '\uD83D\uDD12 private' :
+        n.notification_type === 'reply'    ? '\u21A9 reply'  :
+        n.notification_type === 'thread'   ? '\u21A9 thread' : n.notification_type;
+      const snippet   = _renderMentionSnippet(n.content_snippet);
+      const gameHref  = `/film/games/${n.game_id}?comment=${n.comment_id}`;
+      const timeStr   = _relativeTime(n.created_at_iso);
+      const tsHtml    = n.comment_timestamp != null
+        ? `<span class="notif-item__vts">⏱ ${_formatVideoTs(n.comment_timestamp)}</span>` : '';
+      return `
+        <div class="notif-item${unreadClass}" data-id="${n.id}" data-href="${gameHref}" onclick="handleNotifClick(this)">
+          <div class="notif-item__meta">
+            <span class="notif-item__author">${_escHtml(n.author_name)}</span>
+            <span class="notif-item__type-badge ${n.notification_type}">${typeLabel}</span>
+            <span class="notif-item__game" title="${_escHtml(n.game_title)}">${_escHtml(n.game_title)}</span>
+          </div>
+          <div class="notif-item__snippet">${snippet}</div>
+          <div class="notif-item__footer">${tsHtml}<span class="notif-item__time">${timeStr}</span></div>
+        </div>`;
+    }).join('');
+  }
+
+  function switchNotifTab(tab) {
+    _activeNotifTab = tab;
+    document.getElementById('notifTabMain').classList.toggle('active', tab === 'main');
+    document.getElementById('notifTabReplies').classList.toggle('active', tab === 'replies');
+    document.getElementById('notifPanelMain').classList.toggle('active', tab === 'main');
+    document.getElementById('notifPanelReplies').classList.toggle('active', tab === 'replies');
+  }
+
+  function _renderMentionSnippet(raw) {
+    if (!raw) return '';
+    return raw.split(/(@\[[^\]]+\])/g).map(part => {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) return `<span class="notif-mention">@${_escHtml(m[1])}</span>`;
+      return _escHtml(part);
+    }).join('');
+  }
+
+  function _relativeTime(isoStr) {
+    if (!isoStr) return '';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    if (isNaN(diff) || diff < 0) return '';
+    const s = Math.floor(diff / 1000);
+    if (s < 60)  return 'just now';
+    const m = Math.floor(s / 60);
+    if (m < 60)  return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24)  return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7)   return `${d}d ago`;
+    const wk = Math.floor(d / 7);
+    if (wk < 5)  return `${wk}w ago`;
+    const mo = Math.floor(d / 30);
+    if (mo < 12) return `${mo}mo ago`;
+    return `${Math.floor(mo / 12)}y ago`;
+  }
+
+  function _formatVideoTs(seconds) {
+    const s = Math.floor(seconds);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  async function handleNotifClick(el) {
+    const id = el.dataset.id;
+    const href = el.dataset.href;
+
+    // For reply/thread notifications, collect all sibling notifs in the same thread
+    const clicked = _notifData.find(n => String(n.id) === String(id));
+    let toMarkRead = [clicked].filter(Boolean);
+    if (clicked && REPLY_TYPES.has(clicked.notification_type)) {
+      // Thread root = parent_id of the clicked comment, or the comment itself if it's the root
+      const threadRoot = clicked.comment_parent_id ?? clicked.comment_id;
+      toMarkRead = _notifData.filter(n =>
+        REPLY_TYPES.has(n.notification_type) && !n.is_read &&
+        ((n.comment_parent_id ?? n.comment_id) === threadRoot)
+      );
+      if (!toMarkRead.includes(clicked)) toMarkRead.push(clicked);
+    }
+
+    // Mark as read in backend (fire-and-forget in parallel)
+    toMarkRead.forEach(n => {
+      fetch(`/film/api/notifications/${n.id}/read`, { method: 'POST' }).catch(() => {});
+      n.is_read = true;
+    });
+
+    // Update local state & badges
+    el.classList.remove('unread');
+    const stillUnread = _notifData.filter(n => !n.is_read).length;
+    const badge = document.getElementById('notifBellBadge');
+    if (badge) {
+      badge.textContent = stillUnread > 99 ? '99+' : String(stillUnread);
+      badge.dataset.count = stillUnread;
+    }
+    _renderNotifList();
+    // Navigate
+    window.location.href = href;
+  }
+
+  async function markAllNotificationsRead() {
+    try {
+      await fetch('/film/api/notifications/read-all', { method: 'POST' });
+    } catch(e) { /* silent */ }
+    _notifData.forEach(n => n.is_read = true);
+    const badge = document.getElementById('notifBellBadge');
+    if (badge) { badge.textContent = '0'; badge.dataset.count = 0; }
+    _renderNotifList();
+  }
+
+  function toggleNotifDropdown(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('notifDropdown');
+    if (!dd) return;
+    const isOpen = dd.classList.toggle('open');
+    if (isOpen) {
+      // Position below the bell button using fixed coords
+      const btn = document.getElementById('notifBellBtn');
+      const rect = btn.getBoundingClientRect();
+      const vw = window.innerWidth;
+      dd.style.top = (rect.bottom + 6) + 'px';
+      if (vw <= 600) {
+        // Full width, flush left
+        dd.style.left = '0';
+        dd.style.right = '0';
+      } else {
+        // Right-align to the button
+        dd.style.right = (vw - rect.right) + 'px';
+        dd.style.left = 'auto';
+      }
+      fetchNotifications();
+    }
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dd = document.getElementById('notifDropdown');
+    const btn = document.getElementById('notifBellBtn');
+    if (dd && dd.classList.contains('open')) {
+      if (!dd.contains(e.target) && !(btn && btn.contains(e.target))) {
+        dd.classList.remove('open');
+      }
+    }
+  });
+
+  function _escHtml(str) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(str || ''));
+    return d.innerHTML;
+  }
+
+  // Initial fetch + poll every 60 s
+  {% if current_user %}
+  fetchNotifications();
+  setInterval(fetchNotifications, 60000);
+  {% endif %}
+
+  // ── Nav overflow prevention ────────────────────────────────────────────
+  // Never allow the nav bar to become two rows.
+  // Tier 1 (nav-compact): hide "Hello,", shrink username & logout.
+  // Tier 2 (nav-hamburger): hide all links and user; show hamburger.
+  (function () {
+    const wrapper = document.querySelector('.film-nav__wrapper');
+    if (!wrapper) return;
+
+    // Primary overflow signal: do the nav links overflow their column?
+    // Secondary: has the wrapper grown taller than a single row?
+    let _singleRowH = 0;
+
+    function _linksOverflow() {
+      const links = wrapper.querySelector('.film-nav__container');
+      return !!(links && links.scrollWidth > links.clientWidth + 2);
+    }
+
+    function _heightOverflow() {
+      return _singleRowH > 0 &&
+             wrapper.getBoundingClientRect().height > _singleRowH + 4;
+    }
+
+    function checkNavOverflow() {
+      // 1. Reset to natural state and capture single-row height
+      wrapper.classList.remove('nav-compact', 'nav-hamburger');
+      _singleRowH = wrapper.getBoundingClientRect().height;
+
+      if (!_linksOverflow() && !_heightOverflow()) return; // ✓ fits
+
+      // 2. Try compact tier (columns shrink to auto → links get more 1fr space)
+      wrapper.classList.add('nav-compact');
+      if (!_linksOverflow() && !_heightOverflow()) return; // ✓ compact fits
+
+      // 3. Fall back to hamburger tier
+      wrapper.classList.remove('nav-compact');
+      wrapper.classList.add('nav-hamburger');
+    }
+
+    const navRO = new ResizeObserver(checkNavOverflow);
+    navRO.observe(wrapper);
+    requestAnimationFrame(checkNavOverflow);
+  })();
+  // ──────────────────────────────────────────────────────────────────────
+</script>
+
+{% if current_user %}
+<!-- Notification dropdown — body-level so it is never clipped by overflow:hidden ancestors -->
+<div class="notif-dropdown" id="notifDropdown">
+  <div class="notif-dropdown__header">
+    <span class="notif-dropdown__title">Notifications</span>
+    <button class="notif-mark-all-btn" onclick="markAllNotificationsRead()">Mark all read</button>
+  </div>
+  <div class="notif-tabs">
+    <button class="notif-tab-btn active" id="notifTabMain" onclick="switchNotifTab('main')">
+      Mentions &amp; Tags
+      <span class="notif-tab-unread" id="notifTabMainBadge" style="display:none">0</span>
+    </button>
+    <button class="notif-tab-btn" id="notifTabReplies" onclick="switchNotifTab('replies')">
+      Replies
+      <span class="notif-tab-unread" id="notifTabRepliesBadge" style="display:none">0</span>
+    </button>
+  </div>
+  <div class="notif-panel active" id="notifPanelMain">
+    <div class="notif-dropdown__list" id="notifListMain">
+      <div class="notif-empty">Loading…</div>
+    </div>
+  </div>
+  <div class="notif-panel" id="notifPanelReplies">
+    <div class="notif-dropdown__list" id="notifListReplies">
+      <div class="notif-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -26,6 +26,11 @@ app.secret_key = SECRET_KEY
 # Development settings to prevent browser caching and enable auto-reload
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Keep users logged in for up to 1 year
+from datetime import timedelta
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 app.config['ALLOWED_IMAGE_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
@@ -42,12 +47,29 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 
 db.init_app(app)
 
+# SQLite ignores foreign key constraints (and therefore CASCADE deletes) by
+# default. Enable them per-connection so that deleting a comment also deletes
+# its notifications, replies, etc. via the ON DELETE CASCADE rules on the FKs.
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import sqlite3
+
+@event.listens_for(Engine, 'connect')
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    if isinstance(dbapi_conn, sqlite3.Connection):
+        cursor = dbapi_conn.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON')
+        cursor.close()
+
 from .models import *
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 from . import routes
+from . import film_routes
+from .api_routes import api_v1
+app.register_blueprint(api_v1)
 
 # Add custom Jinja2 filters
 import re
