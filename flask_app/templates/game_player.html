@@ -262,6 +262,25 @@
     padding: 20px 32px 32px;
   }
 
+  /* Theater mode: full-width player, sidebar below */
+  .layout.theater-mode {
+    grid-template-columns: 1fr !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  .layout.theater-mode .sidebar {
+    width: 100% !important;
+  }
+  /* Theater mode: un-stick the navbar to reclaim vertical space */
+  body.theater-mode .film-nav {
+    position: static;
+  }
+
+  /* Hide theater button on single-column layout */
+  @media (max-width: 1100px) {
+    #vcTheaterBtn { display: none; }
+  }
+
   .main {
     min-width: 0;
     overflow: hidden;
@@ -2118,6 +2137,10 @@
         <span class="vc-label">⛶ Fullscreen</span>
         <span class="vc-shortcut">(f)</span>
       </button>
+      <button class="vc-btn vc-icon-mobile" id="vcTheaterBtn" onclick="toggleTheaterMode()" title="Theater mode">
+        <span class="vc-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        <span class="vc-label">Theater</span>
+      </button>
       <div class="vc-speed-row" id="vcSpeedRow">
         <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
           <span class="vc-label">0.5×</span>
@@ -2756,6 +2779,30 @@
     }
   });
 
+  function toggleTheaterMode() {
+    const layout = document.querySelector('.layout');
+    const btn = document.getElementById('vcTheaterBtn');
+    layout.classList.toggle('theater-mode');
+    const on = layout.classList.contains('theater-mode');
+    document.body.classList.toggle('theater-mode', on);
+    btn.classList.toggle('vc-active', on);
+    // Persist preference
+    try { localStorage.setItem('theaterMode', on ? '1' : '0'); } catch(e) {}
+  }
+
+  // Restore theater mode preference on load
+  (function() {
+    try {
+      if (localStorage.getItem('theaterMode') === '1') {
+        const layout = document.querySelector('.layout');
+        const btn = document.getElementById('vcTheaterBtn');
+        if (layout) { layout.classList.add('theater-mode'); }
+        if (btn) { btn.classList.add('vc-active'); }
+        document.body.classList.add('theater-mode');
+      }
+    } catch(e) {}
+  })();
+
   function resumeFromLastPosition() {
     fetch('/film/api/games/{{ game.id }}/watch-progress')
       .then(r => r.json())
@@ -3223,6 +3270,11 @@
       case 'm':
       case 'M':
         toggleMute();
+        e.preventDefault();
+        break;
+      case 't':
+      case 'T':
+        toggleTheaterMode();
         e.preventDefault();
         break;
     }
