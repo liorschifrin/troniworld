@@ -2540,7 +2540,8 @@
     const word      = wordMatch[1];
     const exactUser = allMentionables.find(u => u === word);
     const caseUser  = !exactUser && allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
-    if (!exactUser && !caseUser) return;
+    const resolvedUser = exactUser || caseUser;
+    if (!resolvedUser) return;
     const wordStart  = beforeCursor.length - word.length;
     const after      = text.slice(wordStart + word.length); // includes the boundary char
     const before     = text.slice(0, wordStart);
@@ -2548,16 +2549,7 @@
     const ref    = node.nextSibling;
     parent.removeChild(node);
     if (before) parent.insertBefore(document.createTextNode(before), ref);
-    if (exactUser) {
-      parent.insertBefore(makeMentionTokenEl(exactUser), ref);
-    } else {
-      const sug = document.createElement('span');
-      sug.className = 'mention-suggestion';
-      sug.textContent = word;
-      sug.title = `Click to @mention ${caseUser}`;
-      sug.addEventListener('click', () => { parent.replaceChild(makeMentionTokenEl(caseUser), sug); });
-      parent.insertBefore(sug, ref);
-    }
+    parent.insertBefore(makeMentionTokenEl(resolvedUser), ref);
     const afterNode = document.createTextNode(after);
     parent.insertBefore(afterNode, ref);
     const r = document.createRange();
@@ -3269,7 +3261,8 @@
     const m = text.trimEnd().match(/(?:^|[\s\n])([^\s@\n\[\]]+)$/);
     if (!m) return;
     const word = m[1];
-    const matchedUser = allMentionables.find(u => u === word);
+    const matchedUser = allMentionables.find(u => u === word) ||
+                        allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
     if (!matchedUser) return;
 
     // Replace the trailing word with a token chip
