@@ -254,7 +254,7 @@ def manage_users():
     all_users = User.query.order_by(User.username).all()
     all_players = Player.query.order_by(Player.name).all()
     
-    return render_template('manage_users.html', 
+    return render_template('film_room/forms/manage_users.html', 
                          current_user=current_user, 
                          all_users=all_users,
                          all_players=all_players)
@@ -365,7 +365,7 @@ def my_games():
     total_hold_pct = (total_o_scored / total_o_points * 100) if total_o_points > 0 else 0
     total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else 0
     
-    return render_template('my_games.html', 
+    return render_template('film_room/pages/my_games.html', 
                          current_user=current_user, 
                          games_with_stats=games_with_stats,
                          total_o_points=total_o_points,
@@ -508,7 +508,7 @@ def tron_data():
     ]
 
     return render_template(
-        'tron_data.html',
+        'film_room/pages/tron_data.html',
         current_user=current_user,
         games_with_stats=games_with_stats,
         total_games=len(games),
@@ -569,7 +569,7 @@ def games_list():
     standalone_games.sort(key=lambda g: (g.game_date or '', g.id), reverse=True)
 
     return render_template(
-        'games_list.html',
+        'film_room/pages/games_list.html',
         current_user=current_user,
         tournament_sections=tournament_sections,
         standalone_games=standalone_games
@@ -581,7 +581,7 @@ def games_list():
 def film_room_app():
     current_user = get_current_user()
     return render_template(
-        'film_room_app.html',
+        'film_room/pages/film_room_app.html',
         current_user=current_user,
         initial_game_id=None,
     )
@@ -594,7 +594,7 @@ def film_room_app_game(game_id):
     # Validate game exists so we can return a 404 in Flask instead of a client-side fetch failure.
     Game.query.get_or_404(game_id)
     return render_template(
-        'film_room_app.html',
+        'film_room/pages/film_room_app.html',
         current_user=current_user,
         initial_game_id=game_id,
     )
@@ -611,7 +611,7 @@ def new_tournament():
 
         if not name:
             flash('Tournament name is required.', 'error')
-            return render_template('new_tournament.html', current_user=current_user)
+            return render_template('film_room/forms/new_tournament.html', current_user=current_user)
 
         tournament = Tournament(
             name=name,
@@ -626,9 +626,9 @@ def new_tournament():
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating tournament: {str(e)}', 'error')
-            return render_template('new_tournament.html', current_user=current_user)
+            return render_template('film_room/forms/new_tournament.html', current_user=current_user)
 
-    return render_template('new_tournament.html', current_user=current_user)
+    return render_template('film_room/forms/new_tournament.html', current_user=current_user)
 
 
 @app.route('/film/games/<int:game_id>')
@@ -697,7 +697,7 @@ def view_game(game_id):
             )
     
     users = [u.username for u in User.query.order_by(User.username).all()]
-    return render_template('game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
+    return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
 
 
 @app.route('/film/games/new', methods=['GET', 'POST'])
@@ -720,7 +720,7 @@ def new_game():
         # Validate required fields
         if not title or not opponent:
             flash('Title and opponent are required.', 'error')
-            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+            return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
 
         tournament = None
         if tournament_id_raw:
@@ -728,17 +728,17 @@ def new_game():
                 tournament = Tournament.query.get(int(tournament_id_raw))
             except ValueError:
                 flash('Invalid tournament selection.', 'error')
-                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+                return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
             if not tournament:
                 flash('Selected tournament not found.', 'error')
-                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+                return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
 
         if tournament and not tournament_game_number_raw:
             flash('Game number is required when a tournament is selected.', 'error')
-            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+            return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
         if not tournament and tournament_game_number_raw:
             flash('Choose a tournament before setting a tournament game number.', 'error')
-            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+            return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
 
         tournament_game_number = None
         if tournament_game_number_raw:
@@ -748,7 +748,7 @@ def new_game():
                     raise ValueError
             except ValueError:
                 flash('Tournament game number must be a positive whole number.', 'error')
-                return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+                return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
         
         # Convert scores to integers if provided
         tron_score = int(final_score_tron) if final_score_tron else None
@@ -774,10 +774,10 @@ def new_game():
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating game: {str(e)}', 'error')
-            return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+            return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
     
     # GET request - show the form
-    return render_template('new_game.html', current_user=current_user, tournaments=tournaments)
+    return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
 
 
 @app.route('/film/games/<int:game_id>/edit', methods=['GET', 'POST'])
@@ -802,7 +802,7 @@ def edit_game(game_id):
         # Validate required fields
         if not title or not opponent:
             flash('Title and opponent are required.', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+            return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
         tournament = None
         if tournament_id_raw:
@@ -810,17 +810,17 @@ def edit_game(game_id):
                 tournament = Tournament.query.get(int(tournament_id_raw))
             except ValueError:
                 flash('Invalid tournament selection.', 'error')
-                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+                return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
             if not tournament:
                 flash('Selected tournament not found.', 'error')
-                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+                return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
         if tournament and not tournament_game_number_raw:
             flash('Game number is required when a tournament is selected.', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+            return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
         if not tournament and tournament_game_number_raw:
             flash('Choose a tournament before setting a tournament game number.', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+            return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
         tournament_game_number = None
         if tournament_game_number_raw:
@@ -830,7 +830,7 @@ def edit_game(game_id):
                     raise ValueError
             except ValueError:
                 flash('Tournament game number must be a positive whole number.', 'error')
-                return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+                return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
         
         # Convert scores to integers if provided
         tron_score = int(final_score_tron) if final_score_tron else None
@@ -853,10 +853,10 @@ def edit_game(game_id):
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating game: {str(e)}', 'error')
-            return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+            return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
     
     # GET request - show the form
-    return render_template('edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
+    return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
 
 # =========================
@@ -1136,17 +1136,17 @@ def upload_game_csv(game_id):
         # Check if file was uploaded
         if 'csv_file' not in request.files:
             flash('No file uploaded.', 'error')
-            return render_template('upload_game_csv.html', current_user=current_user, game=game)
+            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
         
         file = request.files['csv_file']
         
         if file.filename == '':
             flash('No file selected.', 'error')
-            return render_template('upload_game_csv.html', current_user=current_user, game=game)
+            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
         
         if not file.filename.endswith('.csv'):
             flash('Please upload a CSV file.', 'error')
-            return render_template('upload_game_csv.html', current_user=current_user, game=game)
+            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
         
         try:
             # Read CSV file
@@ -1156,7 +1156,7 @@ def upload_game_csv(game_id):
             
             if len(rows) < 4:
                 flash('CSV file must have at least 4 rows (O/D row, TRON row, Enemy row, and player rows).', 'error')
-                return render_template('upload_game_csv.html', current_user=current_user, game=game)
+                return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
             
             # Parse CSV structure
             od_row = rows[0]  # O/D indicator row
@@ -1291,10 +1291,10 @@ def upload_game_csv(game_id):
         except Exception as e:
             db.session.rollback()
             flash(f'Error processing CSV: {str(e)}', 'error')
-            return render_template('upload_game_csv.html', current_user=current_user, game=game)
+            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
     
     # GET request - show upload form
-    return render_template('upload_game_csv.html', current_user=current_user, game=game)
+    return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
 
 
 @app.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'])
@@ -1504,7 +1504,7 @@ def analytics_dashboard():
     total_watch_minutes = sum([u['total_watch_minutes'] for u in user_analytics])
     total_comments = sum([u['comment_count'] for u in user_analytics])
     
-    return render_template('analytics_dashboard.html', 
+    return render_template('film_room/pages/analytics_dashboard.html', 
                           current_user=current_user,
                           user_analytics=user_analytics,
                           total_unique_users=total_unique_users,

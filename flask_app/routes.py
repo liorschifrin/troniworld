@@ -20,7 +20,7 @@ def is_allowed_image(filename: str) -> bool:
 def index():
     current_user = get_current_user()
     posts = Post.query.order_by(Post.created_at.desc()).all()
-    return render_template('index.html', current_user=current_user, posts=posts)
+    return render_template('articles/index.html', current_user=current_user, posts=posts)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -69,7 +69,7 @@ def register():
         flash('Registration successful.')
         return redirect(url_for('index'))
 
-    return render_template('register.html')
+    return render_template('articles/register.html')
 
 
 def _login_template(next_url):
@@ -79,9 +79,9 @@ def _login_template(next_url):
     path = parsed.path if (next_url and not parsed.scheme and not parsed.netloc) else ''
     # Film/admin pages → dark film-room login
     if path.startswith('/film') or path.startswith('/admin'):
-        return 'login.html'
+        return 'film_room/pages/login.html'
     # Articles pages (index, /post/*, /new_post, /edit_post) → editorial login
-    return 'login_articles.html'
+    return 'articles/login_articles.html'
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -151,7 +151,7 @@ def login():
 def post(post_id):
     post = Post.query.get_or_404(post_id)
     current_user = get_current_user()
-    return render_template('post.html', post=post, current_user=current_user)
+    return render_template('articles/post.html', post=post, current_user=current_user)
 
 
 @app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
@@ -187,7 +187,7 @@ def edit_post(post_id):
         flash('Post updated.')
         return redirect(url_for('post', post_id=post_id))
 
-    return render_template('edit_post.html', post=post)
+    return render_template('articles/edit_post.html', post=post)
 
 @app.route('/post/<int:post_id>/delete', methods=['POST'])
 def delete_post(post_id):
@@ -314,7 +314,7 @@ def new_post():
         flash('Post created.')
         return redirect(url_for('index'))
 
-    return render_template('new_post.html', current_user=current_user)
+    return render_template('articles/new_post.html', current_user=current_user)
 
 
 @app.route('/upload_image', methods=['POST'])
