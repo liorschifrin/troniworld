@@ -1050,7 +1050,8 @@
     border-color: var(--lime);
   }
 
-  @media (max-width: 767px) {
+  /* Single-column layouts (≤1100px breakpoint OR theater mode): collapse comment input */
+  @media (max-width: 1100px) {
     .add-comment-btn {
       display: inline-block;
     }
@@ -1059,11 +1060,23 @@
       opacity: 0;
       margin: 0;
     }
-    .comment-input-wrap.mobile-open {
-      max-height: 400px;
-      opacity: 1;
-      margin: revert;
-    }
+  }
+
+  /* Theater mode (JS-toggled class, any viewport width) */
+  .layout.theater-mode .add-comment-btn {
+    display: inline-block;
+  }
+  .layout.theater-mode .comment-input-wrap {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+  }
+
+  /* Re-opens the comment input when the + Comment button is tapped (any single-column layout) */
+  .comment-input-wrap.mobile-open {
+    max-height: 400px !important;
+    opacity: 1 !important;
+    margin: revert !important;
   }
 
   /* Compact comments for shorter viewports */
@@ -1917,42 +1930,28 @@
     }
   }
   /* Responsive */
+  /* Single-column layout: all widths ≤1100px */
   @media (max-width: 1100px) {
-    .layout { 
+    .layout {
       grid-template-columns: 1fr;
       padding: 16px;
     }
     header h1 { font-size: 2rem; }
-    .sidebar {
-      width: 100%;
-    }
-  }
+    .sidebar { width: 100%; }
 
-  /* Mobile: reorder main column so info + points bar appear above video */
-  @media (max-width: 767px) {
+    /* Reorder .main so points bar appears above the video */
     .main {
       display: flex;
       flex-direction: column;
-      overflow: visible; /* allow .player-area negative margins to break out of padding */
+      overflow: visible;
     }
-    .url-bar           { order: 0; }
-    .current-players   { order: 1; }
+    .url-bar            { order: 0; }
+    .current-players    { order: 1; }
     .point-info-section { order: 2; }
-    .player-area       { order: 3; display: flex; flex-direction: column; position: static; margin-left: -16px; margin-right: -16px; }
-    #videoControls     { order: 4; }
+    .player-area        { order: 3; display: flex; flex-direction: column; position: static; }
+    #videoControls      { order: 4; }
 
-    /* Edge-to-edge video — square off radii since it spans full width */
-    .player-area .player-meta-bar { border-radius: 0; }
-    .player-area .player-wrap     { border-radius: 0 !important; }
-
-    /* Speed buttons break onto their own row on mobile portrait */
-    .vc-speed-row {
-      display: flex;
-      width: 100%;
-      gap: 6px;
-    }
-
-    /* Meta bar becomes a visible info row above the video */
+    /* Meta bar: visible flex row above the video */
     .player-meta-bar {
       display: flex;
       align-items: center;
@@ -1963,7 +1962,6 @@
       padding: 4px 10px;
       order: 0;
     }
-
     .player-area .player-wrap {
       order: 1;
       border-radius: 0 0 10px 10px;
@@ -1976,17 +1974,50 @@
       backdrop-filter: none;
       pointer-events: auto;
     }
+    .player-area .scoreboard       { background: none; padding: 2px 0; }
+    .player-area .player-timestamp { background: none; padding: 2px 0; color: var(--muted); }
+  }
 
-    .player-area .scoreboard {
-      background: none;
-      padding: 2px 0;
-    }
+  /* Theater mode (JS class, any viewport): same single-column layout */
+  .layout.theater-mode .main {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .layout.theater-mode .url-bar            { order: 0; }
+  .layout.theater-mode .current-players    { order: 1; }
+  .layout.theater-mode .point-info-section { order: 2; }
+  .layout.theater-mode .player-area        { order: 3; display: flex; flex-direction: column; position: static; }
+  .layout.theater-mode #videoControls      { order: 4; }
+  .layout.theater-mode .player-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px 6px 0 0;
+    padding: 4px 10px;
+    order: 0;
+  }
+  .layout.theater-mode .player-area .player-wrap {
+    order: 1;
+    border-radius: 0 0 10px 10px;
+  }
+  .layout.theater-mode .player-area .scoreboard-container,
+  .layout.theater-mode .player-area .player-timestamp {
+    position: static;
+    backdrop-filter: none;
+    pointer-events: auto;
+  }
+  .layout.theater-mode .player-area .scoreboard       { background: none; padding: 2px 0; }
+  .layout.theater-mode .player-area .player-timestamp { background: none; padding: 2px 0; color: var(--muted); }
 
-    .player-area .player-timestamp {
-      background: none;
-      padding: 2px 0;
-      color: var(--muted);
-    }
+  /* Mobile-only (≤767px): edge-to-edge video + full-width speed row */
+  @media (max-width: 767px) {
+    .player-area { margin-left: -16px; margin-right: -16px; }
+    .player-area .player-meta-bar { border-radius: 0; }
+    .player-area .player-wrap     { border-radius: 0 !important; }
+    .vc-speed-row { display: flex; width: 100%; gap: 6px; }
   }
 
   /* Notification: highlight a comment scrolled-to from the bell */
@@ -2948,6 +2979,11 @@
     const on = layout.classList.contains('theater-mode');
     document.body.classList.toggle('theater-mode', on);
     btn.classList.toggle('vc-active', on);
+    // Always collapse the comment input when switching modes so state is consistent
+    const wrap = document.getElementById('commentInputWrap');
+    const addBtn = document.getElementById('addCommentBtn');
+    if (wrap)   wrap.classList.remove('mobile-open');
+    if (addBtn) addBtn.classList.remove('active');
     // Persist preference
     try { localStorage.setItem('theaterMode', on ? '1' : '0'); } catch(e) {}
   }
@@ -3532,12 +3568,15 @@
     }
   }
 
+  function _isSingleColumnLayout() {
+    return window.innerWidth <= 1100 || !!document.querySelector('.layout.theater-mode');
+  }
+
   function toggleCommentInput(forceOpen) {
     const wrap = document.getElementById('commentInputWrap');
     const btn  = document.getElementById('addCommentBtn');
     if (!wrap) return;
-    const isMobile = window.innerWidth < 768;
-    if (!isMobile) return; // desktop always visible, nothing to toggle
+    if (!_isSingleColumnLayout()) return; // wide 2-column layout: always visible
     const willOpen = forceOpen !== undefined ? forceOpen : !wrap.classList.contains('mobile-open');
     wrap.classList.toggle('mobile-open', willOpen);
     if (btn) btn.classList.toggle('active', willOpen);
