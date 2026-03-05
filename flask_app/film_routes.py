@@ -395,6 +395,7 @@ def my_games():
             Comment.created_at,
             Comment.game_id,
             Comment.parent_id,
+            Comment.private_to,
             Game.title.label('game_title'),
             Game.opponent.label('game_opponent'),
         )
@@ -416,6 +417,7 @@ def my_games():
             'is_reply': r.parent_id is not None,
             'game_title': r.game_title,
             'game_opponent': r.game_opponent,
+            'private_to': (json.loads(r.private_to) if r.private_to else None),
         }
         for r in my_comments_rows
     ]
