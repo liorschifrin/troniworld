@@ -1166,6 +1166,21 @@
     align-items: center;
   }
 
+  .mention-at-btn {
+    background: rgba(200,241,53,0.1);
+    color: var(--lime);
+    border: 1px solid rgba(200,241,53,0.3);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    align-self: flex-end;
+  }
+  .mention-at-btn:hover { background: rgba(200,241,53,0.2); }
+
   .comment-btn {
     background: var(--lime);
     color: var(--field);
@@ -2215,6 +2230,10 @@
           <div class="comment-controls">
             <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒 Private</button>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
+            <button class="mention-at-btn"
+              onmousedown="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
+              ontouchstart="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
+              title="Mention a user">@</button>
           </div>
           <div class="private-to-wrap" id="privateToWrap">
             <div class="private-to-label">Also visible to:</div>
@@ -2609,6 +2628,37 @@
     el.addEventListener('keyup',   handleMentionKeyup);
     el.addEventListener('blur',    () => setTimeout(hideMentionDropdown, 150));
     updatePlaceholder(el);
+  }
+
+  function insertMentionAt(inputEl) {
+    // Don't call focus() — onmousedown/ontouchstart + preventDefault keeps focus in the input.
+    // Calling focus() triggers a repaint which causes visible delay.
+    const sel = window.getSelection();
+    // Place caret at end if not already inside the element
+    if (!sel || sel.rangeCount === 0 || !inputEl.contains(sel.getRangeAt(0).startContainer)) {
+      inputEl.focus();
+      const r = document.createRange();
+      r.selectNodeContents(inputEl);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    // Insert '@' as a text node at the caret
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const atNode = document.createTextNode('@');
+    range.insertNode(atNode);
+    // Move caret to after the '@' — use setStart on the text node itself
+    // so getMentionQuery sees a TEXT_NODE container as required
+    const newRange = document.createRange();
+    newRange.setStart(atNode, atNode.length);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updatePlaceholder(inputEl);
+    // Trigger mention engine directly — no input event needed
+    const q = getMentionQuery(inputEl);
+    if (q) showMentionDropdown(inputEl, q);
   }
 
   // Build arrays of existing field values from ALL games
