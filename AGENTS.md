@@ -59,11 +59,11 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Admin-only page at `/film/analytics`.
 - Table columns: User, Logins, Watch Time, Comments, Led Tags, Games Watched.
 - **Comments column**: `<button class="comment-list-btn">` calls `openCommentModal(username, count)` — fetches `GET /film/api/user/<username>/comments` (admin-only), renders list of clickable `<a target="_blank">` links to `/film/games/<id>?comment=<id>`.
-- **Led Tags column**: `<button class="ldr-notif">` (read/total display) calls `openTagsModal(username, total)` — fetches `GET /film/api/user/<username>/leadership-tags` (admin-only), renders list with read/unread badges and author attribution. Links open in new tab.
+- **Led Tags column**: `<button class="ldr-notif">` (read/total display) calls `openTagsModal(username, total)` — fetches `GET /film/api/user/<username>/leadership-tags` (admin-only), renders list with read/unread badges and author attribution. Links open in new tab. Only includes comments from leadership users (not admin-only users).
 - Two modals: `#commentModal` and `#tagsModal`, both use `.modal-overlay` / `.modal-box` structure. Backdrop click closes via `document.addEventListener('click', ...)`.
 - New API endpoints in `film_routes.py`:
   - `GET /film/api/user/<username>/comments` → all comments by user (newest first), fields: id, content, timestamp, created_at_iso, game_id, is_reply, game_title, game_opponent.
-  - `GET /film/api/user/<username>/leadership-tags` → all notifications for user from leadership/admin authors, fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
+  - `GET /film/api/user/<username>/leadership-tags` → all notifications for user from leadership authors (excludes admin-only users), fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
 
 ### Article comment notifications (`routes.py` + `articles/base.html`)
 - `ArticleCommentNotification` DB model (`article_comment_notifications` table). Fields: `recipient_username`, `comment_id` (FK → article_comments), `post_id` (FK → post), `notification_type` ('reply' | 'thread'), `is_read` (bool), `created_at`, `read_at` (nullable).
