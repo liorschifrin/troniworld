@@ -4874,24 +4874,22 @@
 
     if (timestampedPoints.length === 0) return [];
 
-    const completed = [];
-    for (let i = 0; i < timestampedPoints.length; i++) {
-      const current = timestampedPoints[i];
-      const next = timestampedPoints[i + 1];
-
-      if (next) {
-        // A point is complete once the next point begins.
-        if (currentTime >= next.ts) completed.push(current.point);
-        continue;
-      }
-
-      // Last point completes only once the video ends.
-      if (Number.isFinite(duration) && duration > 0 && currentTime >= (duration - 0.25)) {
-        completed.push(current.point);
-      }
+    // Find the current point: the last timestamped point whose timestamp has been reached.
+    let currentEntry = null;
+    for (const entry of timestampedPoints) {
+      if (currentTime >= entry.ts) currentEntry = entry;
     }
 
-    return completed;
+    if (!currentEntry) return [];
+
+    // When the video is ending, count every point (including unfilmed trailing ones)
+    // so the scoreboard shows the true final score.
+    const isVideoEnding = Number.isFinite(duration) && duration > 0 && currentTime >= (duration - 0.25);
+    if (isVideoEnding) return points;
+
+    // Otherwise: all points before the current point (by original array index) are
+    // completed. The current point is still in progress, so exclude it.
+    return points.slice(0, currentEntry.index);
   }
 
   function updateScoreboard() {
@@ -4913,7 +4911,10 @@
         ? player.getDuration()
         : 0;
       const points = window.player_sheet_data.points;
-      const completedPoints = getCompletedPoints(points, ts, duration);
+      // If the video has fully ended, show the true final score immediately.
+      const isEnded = player && playerReady && typeof player.getPlayerState === 'function'
+        && player.getPlayerState() === YT.PlayerState.ENDED;
+      const completedPoints = isEnded ? points : getCompletedPoints(points, ts, duration);
       const score = getCurrentScore(completedPoints);
       tronEl.textContent = String(score.tron);
       opponentEl.textContent = String(score.opp);
