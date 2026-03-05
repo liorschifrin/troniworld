@@ -236,6 +236,7 @@ class VideoWatchSession(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
     watch_duration_seconds = db.Column(db.Integer, nullable=False, default=0)  # Total seconds watched
+    last_position_seconds = db.Column(db.Float, nullable=True)  # Last known playback position
     session_start = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     

@@ -713,7 +713,7 @@ def new_game():
             db.session.add(new_game)
             db.session.commit()
             flash(f'Game "{title}" created successfully!', 'success')
-            return redirect(url_for('player'))  # Redirect to player page for now
+            return redirect(url_for('games_list'))  # Redirect to player page for now
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating game: {str(e)}', 'error')
@@ -1289,8 +1289,9 @@ def track_watch_time(game_id):
     try:
         data = request.get_json()
         seconds_watched = data.get('seconds_watched', 0)
+        playback_position = data.get('playback_position')  # Current video position in seconds
         
-        if seconds_watched <= 0:
+        if seconds_watched <= 0 and playback_position is None:
             return jsonify({'success': False, 'error': 'Invalid watch duration'}), 400
         
         # Find or create a watch session for this user and game
@@ -1312,13 +1313,18 @@ def track_watch_time(game_id):
             watch_session = VideoWatchSession(
                 user_id=current_user.id,
                 game_id=game_id,
-                watch_duration_seconds=seconds_watched
+                watch_duration_seconds=max(0, seconds_watched)
             )
             db.session.add(watch_session)
         else:
             # Update existing session
-            watch_session.watch_duration_seconds += seconds_watched
+            if seconds_watched > 0:
+                watch_session.watch_duration_seconds += seconds_watched
             watch_session.last_updated = datetime.utcnow()
+        
+        # Always update last known playback position
+        if playback_position is not None:
+            watch_session.last_position_seconds = playback_position
         
         db.session.commit()
         
@@ -1331,6 +1337,26 @@ def track_watch_time(game_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/film/api/games/<int:game_id>/watch-progress', methods=['GET'])
+@login_required
+def get_watch_progress(game_id):
+    """Get the last saved playback position for this user and game"""
+    current_user = get_current_user()
+    Game.query.get_or_404(game_id)
+    
+    # Find the most recently updated session for this user+game
+    session = VideoWatchSession.query.filter_by(
+        user_id=current_user.id,
+        game_id=game_id
+    ).order_by(VideoWatchSession.last_updated.desc()).first()
+    
+    last_position = None
+    if session and session.last_position_seconds and session.last_position_seconds > 30:
+        last_position = session.last_position_seconds
+    
+    return jsonify({'last_position': last_position})
 
 
 @app.route('/film/analytics')
