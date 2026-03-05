@@ -2184,14 +2184,16 @@
         <div class="comment-input-wrap" id="commentInputWrap">
           <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
           <div class="comment-controls">
-            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒</button>
+            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒 Private</button>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
           </div>
           <div class="private-to-wrap" id="privateToWrap">
-            <div class="private-to-label">Visible only to:</div>
+            <div class="private-to-label">Also visible to:</div>
             <div class="private-to-chips" id="privateToChips">
-              <input type="text" class="private-to-input" id="privateToInput" placeholder="Add username, press Enter"
-                onkeydown="if((event.key==='Enter'||event.key===',')&&this.value.trim()){event.preventDefault();addPrivateUser(this.value);}" />
+              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…"
+                oninput="handlePrivateUserInput(this, addPrivateUser, privateToUsers)"
+                onkeydown="handlePrivateUserKeydown(event, addPrivateUser)"
+                onblur="setTimeout(hidePrivateUserDropdown, 150)" />
             </div>
           </div>
         </div>
@@ -2225,6 +2227,7 @@
   let currentVideoId = {% if game.youtube_id %}'{{ game.youtube_id }}'{% else %}null{% endif %};
   const currentUserName = {% if current_user %}'{{ current_user.username }}'{% else %}null{% endif %};
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
+  const isCurrentUserLeadership = {% if current_user and current_user.is_leadership %}true{% else %}false{% endif %};
   let currentActivePointId = null;
   let currentActiveCommentId = null;
   let selectedCommentType = 'Comment';
@@ -3309,6 +3312,7 @@
     }
     const inp = document.getElementById('privateToInput');
     if (inp) inp.value = '';
+    hidePrivateUserDropdown();
   }
 
   function removePrivateUser(idx) {
@@ -3354,11 +3358,104 @@
     }
     const inp = document.getElementById('editPrivateToInput');
     if (inp) inp.value = '';
+    hidePrivateUserDropdown();
   }
 
   function removeEditPrivateUser(idx) {
     editPrivateToUsers.splice(idx, 1);
     renderEditPrivateChips();
+  }
+
+  // ========================
+  // PRIVATE USER AUTOCOMPLETE
+  // ========================
+  const privateUserDropdownEl = (() => {
+    const el = document.createElement('div');
+    el.className = 'mention-dropdown';
+    el.style.display = 'none';
+    el.id = 'privateUserDropdown';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  let privateUserDropState = {
+    active: false,
+    inputEl: null,
+    addFn: null,
+    currentList: null,
+    selectedIndex: 0,
+    filtered: []
+  };
+
+  function hidePrivateUserDropdown() {
+    privateUserDropdownEl.style.display = 'none';
+    privateUserDropState.active = false;
+    privateUserDropState.inputEl = null;
+  }
+
+  function renderPrivateUserDropdown(inputEl) {
+    const users = privateUserDropState.filtered;
+    if (users.length === 0) {
+      hidePrivateUserDropdown();
+      return;
+    }
+    privateUserDropdownEl.innerHTML = users.map((u, i) => {
+      const cls = 'mention-dropdown-item' + (i === privateUserDropState.selectedIndex ? ' selected' : '');
+      return `<div class="${cls}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
+    }).join('');
+    const rect = inputEl.getBoundingClientRect();
+    privateUserDropdownEl.style.display = 'block';
+    privateUserDropdownEl.style.top  = `${rect.bottom + window.scrollY + 4}px`;
+    privateUserDropdownEl.style.left = `${Math.max(4, rect.left + window.scrollX - 8)}px`;
+    const sel = privateUserDropdownEl.querySelector('.mention-dropdown-item.selected');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectPrivateUser(username) {
+    if (privateUserDropState.addFn) privateUserDropState.addFn(username);
+    hidePrivateUserDropdown();
+  }
+
+  function handlePrivateUserInput(inputEl, addFn, currentList) {
+    const q = inputEl.value.trim();
+    if (!q) { hidePrivateUserDropdown(); return; }
+    const filtered = allUsers.filter(u =>
+      u.toLowerCase().startsWith(q.toLowerCase()) && !currentList.includes(u)
+    );
+    if (filtered.length === 0) { hidePrivateUserDropdown(); return; }
+    privateUserDropState.active = true;
+    privateUserDropState.inputEl = inputEl;
+    privateUserDropState.addFn = addFn;
+    privateUserDropState.currentList = currentList;
+    privateUserDropState.selectedIndex = 0;
+    privateUserDropState.filtered = filtered;
+    renderPrivateUserDropdown(inputEl);
+  }
+
+  function handlePrivateUserKeydown(e, addFn) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (privateUserDropState.active && privateUserDropState.filtered.length > 0) {
+        selectPrivateUser(privateUserDropState.filtered[privateUserDropState.selectedIndex]);
+      } else if (e.currentTarget.value.trim()) {
+        addFn(e.currentTarget.value);
+      }
+      return;
+    }
+    if (!privateUserDropState.active) return;
+    const users = privateUserDropState.filtered;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      privateUserDropState.selectedIndex = Math.min(privateUserDropState.selectedIndex + 1, users.length - 1);
+      renderPrivateUserDropdown(privateUserDropState.inputEl);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      privateUserDropState.selectedIndex = Math.max(privateUserDropState.selectedIndex - 1, 0);
+      renderPrivateUserDropdown(privateUserDropState.inputEl);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hidePrivateUserDropdown();
+    }
   }
 
   async function addComment() {
@@ -3396,7 +3493,7 @@
           author_name: currentUserName || 'Anonymous',
           comment_type: 'Comment',
           timestamp: timestamp,
-          private_to: (isPrivateComment && privateToUsers.length > 0) ? privateToUsers : null
+          private_to: isPrivateComment ? privateToUsers : null
         })
       });
       
@@ -3553,12 +3650,16 @@
       : c.is_leadership
         ? `<span class="comment-author-leadership">★ ${escHtml(c.author_name)}</span>`
         : escHtml(c.author_name);
-    const isPrivate     = c.private_to && c.private_to.length > 0;
+    const isPrivate     = Array.isArray(c.private_to);  // null = public; [] = author-only; [...] = specific users
     const privateBadge  = isPrivate ? `<span class="comment-private-badge" title="Private comment">🔒</span>` : '';
     const authorLine    = `<div class="comment-author">${authorNameHtml}${privateBadge}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
     const contentPrefix = '';
-    const privateInfo   = (isPrivate && isOwnComment)
-      ? `<div class="comment-private-recipients">🔒 visible to: you${c.private_to.map(u => `, ${escHtml(u)}`).join('')}</div>`
+    const isTaggedViewer    = isPrivate && currentUserName && c.private_to.includes(currentUserName);
+    const isLeadershipViewer = isPrivate && isCurrentUserLeadership && c.is_leadership && c.private_to.length > 0;
+    const showPrivateInfo   = isOwnComment || isTaggedViewer || isLeadershipViewer;
+    const recipientsList    = isPrivate ? (c.private_to.length === 0 ? 'you only' : `you${c.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const privateInfo       = (isPrivate && showPrivateInfo)
+      ? `<div class="comment-private-recipients">🔒 visible to: ${recipientsList}</div>`
       : '';
 
     // Footer: Reply button (only when no replies yet) + thread toggle
@@ -3648,10 +3749,16 @@
     const deleteBtn = canDelete
       ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
       : '';
-    const replyIsPrivate    = reply.private_to && reply.private_to.length > 0;
-    const replyPrivateBadge = replyIsPrivate ? `<span class="comment-private-badge" title="Private reply">🔒</span>` : '';
-    const replyPrivateInfo  = (replyIsPrivate && isOwnReply)
-      ? `<div class="comment-private-recipients">🔒 visible to: you${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}</div>`
+    const replyIsPrivate      = Array.isArray(reply.private_to);
+    const replyPrivateBadge   = replyIsPrivate ? `<span class="comment-private-badge" title="Private reply">🔒</span>` : '';
+    const isReplyTaggedViewer    = replyIsPrivate && currentUserName && reply.private_to.includes(currentUserName);
+    // get author leadership status for reply — use renderCommentThread parent `c.is_leadership` if same author, else check reply flag
+    const replyAuthorIsLeadership = reply.is_leadership;
+    const isReplyLeadershipViewer = replyIsPrivate && isCurrentUserLeadership && replyAuthorIsLeadership && reply.private_to.length > 0;
+    const showReplyPrivateInfo    = isOwnReply || isReplyTaggedViewer || isReplyLeadershipViewer;
+    const replyRecipientsList     = replyIsPrivate ? (reply.private_to.length === 0 ? 'you only' : `you${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const replyPrivateInfo        = (replyIsPrivate && showReplyPrivateInfo)
+      ? `<div class="comment-private-recipients">🔒 visible to: ${replyRecipientsList}</div>`
       : '';
     const replyAuthorNameHtml = isOwnReply
       ? `<span class="comment-author-self">${escHtml(reply.author_name)}</span>`
@@ -3825,15 +3932,17 @@
       <div class="comment-edit-wrap">
         <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
         <div class="comment-controls">
-          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private">🔒</button>
+          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private">🔒 Private</button>
           <button class="comment-btn" id="editSaveBtn">Save</button>
           <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
         </div>
         <div class="private-to-wrap" id="editPrivateToWrap">
-          <div class="private-to-label">Visible only to:</div>
+          <div class="private-to-label">Also visible to:</div>
           <div class="private-to-chips" id="editPrivateToChips">
-            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Add username, press Enter"
-              onkeydown="if((event.key==='Enter'||event.key===',')&&this.value.trim()){event.preventDefault();addEditPrivateUser(this.value);}" />
+            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Search users…"
+              oninput="handlePrivateUserInput(this, addEditPrivateUser, editPrivateToUsers)"
+              onkeydown="handlePrivateUserKeydown(event, addEditPrivateUser)"
+              onblur="setTimeout(hidePrivateUserDropdown, 150)" />
           </div>
         </div>
       </div>
@@ -3889,7 +3998,7 @@
           body: JSON.stringify({ 
             content: commentContent,
             comment_type: 'Comment',
-            private_to: (editIsPrivate && editPrivateToUsers.length > 0) ? editPrivateToUsers : null
+            private_to: editIsPrivate ? editPrivateToUsers : null
           })
         });
         

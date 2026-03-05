@@ -810,14 +810,23 @@ def get_comments(game_id):
     def can_see(comment):
         """Return True if the current viewer is allowed to see this comment."""
         if not comment.private_to:
-            return True
+            return True  # public comment (private_to IS NULL)
         if viewer_username is None:
             return False
         try:
             allowed = json.loads(comment.private_to)
         except (ValueError, TypeError):
             allowed = []
-        return viewer_username == comment.author_name or viewer_username in allowed
+        # Direct access: author or explicitly listed recipient
+        if viewer_username == comment.author_name or viewer_username in allowed:
+            return True
+        # Leadership visibility rule: if the author is leadership and the comment
+        # was sent to at least one specific person, all leadership members can see it.
+        if allowed and current_user and current_user.is_leadership:
+            author_user = User.query.filter_by(username=comment.author_name).first()
+            if author_user and author_user.is_leadership:
+                return True
+        return False
 
     comments_list = []
     for comment in comments:
@@ -887,9 +896,10 @@ def create_comment(game_id):
     point_id = data.get('point_id')
     private_to_raw = data.get('private_to')  # list of usernames or None
 
-    # Normalize private_to to a JSON string or None
-    if private_to_raw and isinstance(private_to_raw, list) and len(private_to_raw) > 0:
-        private_to_stored = json.dumps([u.strip() for u in private_to_raw if u.strip()])
+    # Normalize private_to to a JSON string or None.
+    # An empty list [] means "private to author only"; None means public.
+    if private_to_raw is not None and isinstance(private_to_raw, list):
+        private_to_stored = json.dumps([u.strip() for u in private_to_raw if isinstance(u, str) and u.strip()])
     else:
         private_to_stored = None
 
@@ -990,8 +1000,8 @@ def update_comment(game_id, comment_id):
             comment.comment_type = new_comment_type
         # Update private_to only if key was present in the request
         if private_to_raw != '__unchanged__':
-            if private_to_raw and isinstance(private_to_raw, list) and len(private_to_raw) > 0:
-                comment.private_to = json.dumps([u.strip() for u in private_to_raw if u.strip()])
+            if private_to_raw is not None and isinstance(private_to_raw, list):
+                comment.private_to = json.dumps([u.strip() for u in private_to_raw if isinstance(u, str) and u.strip()])
             else:
                 comment.private_to = None
         db.session.commit()
