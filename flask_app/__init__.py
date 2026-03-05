@@ -47,6 +47,20 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 
 db.init_app(app)
 
+# SQLite ignores foreign key constraints (and therefore CASCADE deletes) by
+# default. Enable them per-connection so that deleting a comment also deletes
+# its notifications, replies, etc. via the ON DELETE CASCADE rules on the FKs.
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+import sqlite3
+
+@event.listens_for(Engine, 'connect')
+def set_sqlite_pragma(dbapi_conn, connection_record):
+    if isinstance(dbapi_conn, sqlite3.Connection):
+        cursor = dbapi_conn.cursor()
+        cursor.execute('PRAGMA foreign_keys = ON')
+        cursor.close()
+
 from .models import *
 
 # with app.app_context():
