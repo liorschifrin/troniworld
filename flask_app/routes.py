@@ -64,6 +64,7 @@ def register():
         )
         db.session.add(user)
         db.session.commit()
+        session.permanent = True
         session['user_id'] = user.id
         flash('Registration successful.')
         return redirect(url_for('index'))
@@ -122,6 +123,7 @@ def login():
             flash('Invalid username or password.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
 
+        session.permanent = True
         session['user_id'] = user.id
         
         # Track login event
