@@ -3185,23 +3185,13 @@
         updateCurrentPlayers(pointIndex);
         updatePlayerSheetActiveColumn(pointIndex);
         
-        // Scroll to show the active point — on mobile landscape, scroll within the points bar only
-        const isMobileLandscapePoint = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
-        if (!isMobileLandscapePoint) {
-          activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        // Scroll active point to the center of the points bar
+        const scrollContainer = document.querySelector('.point-info-scroll');
+        if (scrollContainer) {
+          const targetLeft = activePoint.offsetLeft - (scrollContainer.clientWidth / 2) + (activePoint.offsetWidth / 2);
+          scrollContainer.scrollTo({ left: targetLeft, behavior: 'smooth' });
         } else {
-          const scrollContainer = document.querySelector('.point-info-scroll');
-          if (scrollContainer) {
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const pointRect = activePoint.getBoundingClientRect();
-            const overLeft  = containerRect.left - pointRect.left;
-            const overRight = pointRect.right - containerRect.right;
-            if (overLeft > 0) {
-              scrollContainer.scrollBy({ left: -overLeft - 8, behavior: 'smooth' });
-            } else if (overRight > 0) {
-              scrollContainer.scrollBy({ left: overRight + 8, behavior: 'smooth' });
-            }
-          }
+          activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }
         
         currentActivePointId = activePointId;
