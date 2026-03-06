@@ -1399,6 +1399,8 @@ def update_point(game_id, point_id):
             point.offense_faced = data['offense_faced']
         if 'timestamp_start' in data:
             point.timestamp_start = data['timestamp_start']
+        if 'not_filmed' in data:
+            point.not_filmed = bool(data['not_filmed'])
         
         db.session.commit()
         return jsonify({'success': True, 'message': 'Point updated successfully'})

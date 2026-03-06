@@ -112,6 +112,7 @@ class Point(db.Model):
     timestamp_start = db.Column(db.Integer)  # seconds in video (nullable)
     tron_o = db.Column(db.Boolean)  # True if Tron is on offense
     tron_point = db.Column(db.Boolean)  # True if Tron scored the point
+    not_filmed = db.Column(db.Boolean, default=False, nullable=False, server_default='0')  # True if this point was not captured on video
     pull_play = db.Column(db.String(50))
     defense_type = db.Column(db.String(50))
     offense_faced = db.Column(db.String(50))

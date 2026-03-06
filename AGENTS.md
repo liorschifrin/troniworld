@@ -75,3 +75,12 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Nav bell: lives in `articles/base.html`. 🔔 button in its own `<li class="art-notif-wrap">` before `.js-user-menu` in the desktop nav; also in mobile alt-menu. Orange `.art-notif-badge` (hides when count=0). Clicking opens `.art-notif-dropdown` which fetches/renders notifications. Auto-polls every 60s (`fetchArtNotifications()`). Both desktop and mobile badges update together via `.art-notif-badge, .art-notif-badge-mobile` selector.
 - Clicking a notification (`handleArtNotifClick`) marks it + thread siblings read → navigates to `/post/<post_id>?comment=<comment_id>`.
 - Migration: `g2h3i4j5k6l7` (down_revision: prior head).
+
+### Not-filmed points
+- `Point.not_filmed` DB column (Boolean, default False). Set `True` for points not captured on video.
+- Server: `update_point` PATCH route accepts `not_filmed` (bool) in the request body.
+- Points bar: `not-filmed` class is added to `.point-item` when `not_filmed=True`. These cards are dimmed (`opacity: 0.45`), render a `.not-filmed-badge` ("NO FILM") inside the header, and suppress `data-timestamp`/`onclick` even if a timestamp exists. The `+ Time` button is hidden.
+- Admins see a `+ Time` button (`.point-timestamp-add` inside `.point-add-menu-wrap`, positioned `absolute; top:8px; right:8px` on the card). Clicking opens a mini-popup that appears **above** the card (`bottom: calc(100%+4px)`) with two options: "⏱ Set time" → `setPointTimestamp()` and "✕ No film" → `markAsNotFilmed()`. The `+ Time` button itself is `position: static` inside the wrap (the wrap handles absolute placement).
+- Not-filmed points: the `.not-filmed-badge` ("NO FILM") in the header contains a hover-reveal `.not-filmed-delete` ✕ span. Clicking it calls `markAsFilmed()`, which removes the badge and inserts the `+ Time` menu back before the header. There is no separate restore button.
+- Player sheet: `th` and all `td` cells for a not-filmed column receive the `not-filmed` CSS class (diagonal stripe pattern, text dimmed, pointer-events none). The `clickable` class and `onclick`/`data-timestamp` are omitted for not-filmed columns at render time.
+- Migration: `h3i4j5k6l7m8` (down_revision: `g2h3i4j5k6l7`).

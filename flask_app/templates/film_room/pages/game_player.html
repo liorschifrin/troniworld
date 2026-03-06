@@ -266,6 +266,24 @@
     color: var(--lime);
   }
 
+  /* Not-filmed columns in player sheet */
+  .player-sheet-table th.not-filmed,
+  .player-sheet-table td.not-filmed {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(255,255,255,0.025) 0,
+      rgba(255,255,255,0.025) 2px,
+      transparent 2px,
+      transparent 8px
+    ) !important;
+    color: rgba(255,255,255,0.2) !important;
+    cursor: default !important;
+    pointer-events: none;
+  }
+  .player-sheet-table th.not-filmed {
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+  }
+
   .layout {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -708,6 +726,104 @@
     border-radius: 2px;
     padding: 1px 4px;
     line-height: 1.3;
+  }
+
+  /* Not-filmed point card */
+  .point-item.not-filmed {
+    opacity: 0.45;
+    cursor: default !important;
+  }
+  .point-item.not-filmed .point-timestamp,
+  .point-item.not-filmed .point-timestamp-add,
+  .point-item.not-filmed .point-add-menu-wrap {
+    display: none;
+  }
+
+  .not-filmed-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 2px;
+    padding: 1px 4px;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  /* + Time dropdown menu */
+  .point-add-menu-wrap {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 20;
+  }
+
+  /* Reset absolute positioning on the + Time button when inside the wrap */
+  .point-add-menu-wrap .point-timestamp-add {
+    position: static;
+  }
+
+  .point-add-menu {
+    display: none;
+    position: fixed;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 100px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+    z-index: 9999;
+  }
+
+  .point-add-menu-wrap.open .point-add-menu {
+    display: block;
+  }
+
+  .point-add-option {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    padding: 5px 9px;
+    cursor: pointer;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .point-add-option:hover {
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+  }
+
+  .point-add-option.point-add-nofilm:hover {
+    color: var(--warm);
+    background: rgba(255,107,43,0.08);
+  }
+
+  /* NO FILM badge with delete button */
+  .not-filmed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .not-filmed-delete {
+    font-size: 0.55rem;
+    color: var(--warm);
+    background: rgba(255,107,43,0.2);
+    padding: 0px 3px;
+    border-radius: 2px;
+    cursor: pointer !important;
+    border: 1px solid rgba(255,107,43,0.3);
+    line-height: 1.3;
+    flex-shrink: 0;
+  }
+
+  .not-filmed-delete:hover {
+    background: rgba(255,107,43,0.35);
+    border-color: var(--warm);
   }
 
   .point-timestamp {
@@ -2077,9 +2193,9 @@
           <tr>
             <th>O/D</th>
             {% for point in player_sheet_data['points'] %}
-            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
+            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
                 data-point-index="{{ point.point_index }}"
-                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {{ point.point_index }}
             </th>
             {% endfor %}
@@ -2090,8 +2206,8 @@
           <tr>
             <td class="row-label">O/D</td>
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
-                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_o %}O{% else %}D{% endif %}
             </td>
             {% endfor %}
@@ -2102,8 +2218,8 @@
             <td class="row-label">TRON</td>
             {% set ns = namespace(tron_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
-                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_point %}
               {% set ns.tron_score = ns.tron_score + 1 %}
               <span class="tron-point">{{ ns.tron_score }}</span>
@@ -2117,8 +2233,8 @@
             <td class="row-label">Enemy</td>
             {% set ns = namespace(enemy_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
-                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if not point.tron_point %}
               {% set ns.enemy_score = ns.enemy_score + 1 %}
               <span class="opponent-point">{{ ns.enemy_score }}</span>
@@ -2138,8 +2254,8 @@
             <td class="player-name{% if current_user and current_user.player and player_name == current_user.player.name %} ps-my-name{% endif %}">{{ player_name }}</td>
             {% set ns = namespace(player_count=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if point.timestamp_start is not none %} clickable{% endif %}"
-                {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if player_name in player_sheet_data['point_players'][point.point_index] %}
               {% set ns.player_count = ns.player_count + 1 %}
               {{ ns.player_count }}
@@ -2269,10 +2385,11 @@
     <div class="point-info-section">
       <div class="point-info-scroll">
         {% for point in player_sheet_data['points'] %}
-        <div class="point-item {% if point.timestamp_start is not none %}has-timestamp{% endif %}{% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %} my-point{% endif %}" 
+        <div class="point-item {% if point.not_filmed %}not-filmed{% elif point.timestamp_start is not none %}has-timestamp{% endif %}{% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %} my-point{% endif %}" 
              data-point-id="{{ point.id }}" 
              data-point-index="{{ point.point_index }}"
-             {% if point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
+             {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
+          {% if not point.not_filmed %}
           {% if point.timestamp_start is not none %}
           <div class="point-timestamp" title="Click to seek to this point">
             {% if current_user and current_user.is_admin %}
@@ -2280,9 +2397,14 @@
             {% endif %}
             {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}
           </div>
-          {% else %}
-          {% if current_user and current_user.is_admin %}
-          <div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp({{ point.id }}, this)" title="Set timestamp to current video time">+ Time</div>
+          {% elif current_user and current_user.is_admin %}
+          <div class="point-add-menu-wrap">
+            <div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
+            <div class="point-add-menu">
+              <div class="point-add-option" onclick="event.stopPropagation(); closeAddMenus(); setPointTimestamp({{ point.id }}, this)">⏱ Set time</div>
+              <div class="point-add-option point-add-nofilm" onclick="event.stopPropagation(); closeAddMenus(); markAsNotFilmed({{ point.id }}, this)">✕ No film</div>
+            </div>
+          </div>
           {% endif %}
           {% endif %}
           <div class="point-item-header">
@@ -2295,6 +2417,9 @@
             </span>
             {% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %}
             <span class="my-point-badge">YOU</span>
+            {% endif %}
+            {% if point.not_filmed %}
+            <span class="not-filmed-badge">{% if current_user and current_user.is_admin %}<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed({{ point.id }}, this)" title="Reset to unset">✕</span>{% endif %}NO FILM</span>
             {% endif %}
           </div>
         </div>
@@ -2347,7 +2472,8 @@
         {
           id: {{ point.id }},
           tron_point: {{ 'true' if point.tron_point else 'false' }},
-          timestamp_start: {% if point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %}
+          timestamp_start: {% if point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %},
+          not_filmed: {{ 'true' if point.not_filmed else 'false' }}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
       ]
@@ -4389,6 +4515,36 @@
     }
   }
 
+  function _addMenuHTML(pointId) {
+    return `<div class="point-add-menu-wrap">` +
+      `<div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
+      `<div class="point-add-menu">` +
+        `<div class="point-add-option" onclick="event.stopPropagation(); closeAddMenus(); setPointTimestamp(${pointId}, this)">⏱ Set time</div>` +
+        `<div class="point-add-option point-add-nofilm" onclick="event.stopPropagation(); closeAddMenus(); markAsNotFilmed(${pointId}, this)">✕ No film</div>` +
+      `</div>` +
+    `</div>`;
+  }
+
+  function toggleAddMenu(btnEl) {
+    const wrap = btnEl.closest('.point-add-menu-wrap');
+    const wasOpen = wrap.classList.contains('open');
+    closeAddMenus();
+    if (!wasOpen) {
+      const rect = btnEl.getBoundingClientRect();
+      const menu = wrap.querySelector('.point-add-menu');
+      // Position fixed above the button so it escapes overflow-y:hidden clipping
+      menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+      menu.style.right  = (window.innerWidth  - rect.right) + 'px';
+      wrap.classList.add('open');
+    }
+  }
+
+  function closeAddMenus() {
+    document.querySelectorAll('.point-add-menu-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+
+  document.addEventListener('click', () => closeAddMenus());
+
   async function setPointTimestamp(pointId, element) {
     {% if not current_user or not current_user.is_admin %}
     return; // Only admins can edit
@@ -4460,20 +4616,13 @@
         pointCard.removeAttribute('data-timestamp');
         pointCard.onclick = null;
         
-        // Replace timestamp and delete button with "+ Time" button (only for admins)
+        // Replace timestamp and delete button with add-menu (only for admins)
         if (isAdmin) {
-          const addBtn = `<div class="point-timestamp-add" onclick="event.stopPropagation(); setPointTimestamp(${pointId}, this)" title="Set timestamp to current video time">+ Time</div>`;
-          // Find and replace the entire timestamp element
           const timestamp = pointCard.querySelector('.point-timestamp');
-          if (timestamp) {
-            timestamp.outerHTML = addBtn;
-          }
+          if (timestamp) timestamp.outerHTML = _addMenuHTML(pointId);
         } else {
-          // For non-admins, just remove the timestamp element
           const timestamp = pointCard.querySelector('.point-timestamp');
-          if (timestamp) {
-            timestamp.remove();
-          }
+          if (timestamp) timestamp.remove();
         }
       } else {
         const error = await response.json();
@@ -4482,6 +4631,95 @@
     } catch (error) {
       console.error('Error deleting timestamp:', error);
       alert('Error deleting timestamp. Please try again.');
+    }
+  }
+
+  async function _patchNotFilmed(pointId, newValue) {
+    return fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ not_filmed: newValue })
+    });
+  }
+
+  function _applyNotFilmedSheet(pointIndex, newValue) {
+    const mainTable = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
+    if (mainTable) {
+      const thEl = mainTable.querySelector(`thead th[data-point-index="${pointIndex}"]`);
+      if (thEl) {
+        const colIndex = Array.from(thEl.parentElement.children).indexOf(thEl) + 1;
+        thEl.classList.toggle('not-filmed', newValue);
+        thEl.classList.toggle('clickable', !newValue && thEl.hasAttribute('data-timestamp'));
+        if (newValue) { thEl.removeAttribute('onclick'); thEl.removeAttribute('data-timestamp'); }
+        mainTable.querySelectorAll(`tbody tr td:nth-child(${colIndex})`).forEach(td => {
+          td.classList.toggle('not-filmed', newValue);
+          td.classList.toggle('clickable', !newValue && td.hasAttribute('data-timestamp'));
+          if (newValue) { td.removeAttribute('onclick'); td.removeAttribute('data-timestamp'); }
+        });
+      }
+    }
+    const pinnedTable = document.querySelector('.ps-pinned-table');
+    if (pinnedTable) {
+      pinnedTable.querySelectorAll(`thead th[data-point-index="${pointIndex}"]`).forEach(th => {
+        th.classList.toggle('not-filmed', newValue);
+      });
+    }
+  }
+
+  async function markAsNotFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, true);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) { p.not_filmed = true; p.timestamp_start = null; }
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.add('not-filmed');
+      pointCard.classList.remove('has-timestamp');
+      pointCard.removeAttribute('data-timestamp');
+      pointCard.onclick = null;
+      // Remove add-menu wrap (CSS also hides it, but remove from DOM for cleanliness)
+      pointCard.querySelector('.point-add-menu-wrap')?.remove();
+      // Add badge with ✕ delete button to header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header && !header.querySelector('.not-filmed-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'not-filmed-badge';
+        badge.innerHTML = `<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed(${pointId}, this)" title="Reset to unset">✕</span>NO FILM`;
+        header.insertBefore(badge, header.querySelector('.my-point-badge')?.nextSibling || null);
+      }
+      _applyNotFilmedSheet(pointIndex, true);
+    } catch (err) {
+      console.error('markAsNotFilmed error:', err);
+      alert('Error updating point. Please try again.');
+    }
+  }
+
+  async function markAsFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, false);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) p.not_filmed = false;
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.remove('not-filmed');
+      // Remove badge (element may be the ✕ inside the badge, or the badge itself)
+      const badge = element.closest('.not-filmed-badge') || element;
+      badge.remove();
+      // Insert add-menu wrap before the point-item-header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header) header.insertAdjacentHTML('beforebegin', _addMenuHTML(pointId));
+      _applyNotFilmedSheet(pointIndex, false);
+    } catch (err) {
+      console.error('markAsFilmed error:', err);
+      alert('Error updating point. Please try again.');
     }
   }
 
