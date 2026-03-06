@@ -1991,34 +1991,9 @@
     .url-bar            { order: 0; }
     .current-players    { order: 1; }
     .point-info-section { order: 2; }
-    .player-area        { order: 3; display: flex; flex-direction: column; position: static; }
+    /* position: relative keeps overlay children anchored to the player area */
+    .player-area        { order: 3; display: flex; flex-direction: column; position: relative; }
     #videoControls      { order: 4; }
-
-    /* Meta bar: visible flex row above the video */
-    .player-meta-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px 6px 0 0;
-      padding: 4px 10px;
-      order: 0;
-    }
-    .player-area .player-wrap {
-      order: 1;
-      border-radius: 0 0 10px 10px;
-    }
-
-    /* Overlays become static elements inside the meta bar */
-    .player-area .scoreboard-container,
-    .player-area .player-timestamp {
-      position: static;
-      backdrop-filter: none;
-      pointer-events: auto;
-    }
-    .player-area .scoreboard       { background: none; padding: 2px 0; }
-    .player-area .player-timestamp { background: none; padding: 2px 0; color: var(--muted); }
   }
 
   /* Theater mode (JS class, any viewport): same single-column layout */
@@ -2030,36 +2005,36 @@
   .layout.theater-mode .url-bar            { order: 0; }
   .layout.theater-mode .current-players    { order: 1; }
   .layout.theater-mode .point-info-section { order: 2; }
-  .layout.theater-mode .player-area        { order: 3; display: flex; flex-direction: column; position: static; }
+  /* position: relative keeps overlay children anchored to the player area */
+  .layout.theater-mode .player-area        { order: 3; display: flex; flex-direction: column; position: relative; }
   .layout.theater-mode #videoControls      { order: 4; }
-  .layout.theater-mode .player-meta-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 6px 6px 0 0;
-    padding: 4px 10px;
-    order: 0;
-  }
-  .layout.theater-mode .player-area .player-wrap {
-    order: 1;
-    border-radius: 0 0 10px 10px;
-  }
-  .layout.theater-mode .player-area .scoreboard-container,
-  .layout.theater-mode .player-area .player-timestamp {
-    position: static;
-    backdrop-filter: none;
-    pointer-events: auto;
-  }
-  .layout.theater-mode .player-area .scoreboard       { background: none; padding: 2px 0; }
-  .layout.theater-mode .player-area .player-timestamp { background: none; padding: 2px 0; color: var(--muted); }
 
-  /* Mobile-only (≤767px): edge-to-edge video + full-width speed row */
+  /* Mobile-only (≤767px): edge-to-edge video + flex meta bar above video */
   @media (max-width: 767px) {
-    .player-area { margin-left: -16px; margin-right: -16px; }
-    .player-area .player-meta-bar { border-radius: 0; }
-    .player-area .player-wrap     { border-radius: 0 !important; }
+    .player-area { margin-left: -16px; margin-right: -16px; position: static; }
+
+    /* Meta bar: visible flex row above the video on true mobile */
+    .player-meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      padding: 4px 10px;
+      order: 0;
+    }
+    .player-area .player-wrap { border-radius: 0 !important; order: 1; }
+
+    /* Overlays become static elements inside the meta bar on mobile */
+    .player-area .scoreboard-container,
+    .player-area .player-timestamp {
+      position: static;
+      backdrop-filter: none;
+      pointer-events: auto;
+    }
+    .player-area .scoreboard       { background: none; padding: 2px 0; }
+    .player-area .player-timestamp { background: none; padding: 2px 0; color: var(--muted); }
     .vc-speed-row { display: flex; width: 100%; gap: 6px; }
   }
 
