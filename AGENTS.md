@@ -84,3 +84,13 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Not-filmed points: the `.not-filmed-badge` ("NO FILM") in the header contains a hover-reveal `.not-filmed-delete` ✕ span. Clicking it calls `markAsFilmed()`, which removes the badge and inserts the `+ Time` menu back before the header. There is no separate restore button.
 - Player sheet: `th` and all `td` cells for a not-filmed column receive the `not-filmed` CSS class (diagonal stripe pattern, text dimmed, pointer-events none). The `clickable` class and `onclick`/`data-timestamp` are omitted for not-filmed columns at render time.
 - Migration: `h3i4j5k6l7m8` (down_revision: `g2h3i4j5k6l7`).
+
+### Player sheet inline editing
+- Admins see a **"✎ Edit Roster"** button (`#psEditBtn`, `.ps-edit-btn`) in the player sheet toggle header. Clicking enters edit mode without affecting the DB.
+- Edit mode (`enterPlayerSheetEdit()`): adds `.ps-edit-mode` class to the table, reveals the `.ps-edit-bar` save/cancel bar, hides the edit button. All player data-cells become toggleable.
+- Each player row `<td>` has `data-point-id`, `data-player`, and `data-in-point` (1/0) attributes. The unified `onclick` calls `handlePsCellClick(td, event, timestamp)`—edit mode intercepts, view mode delegates to `seekToPointTimestamp`.
+- Toggling (`togglePlayerSheetCell(td)`): original innerHTML is cached in `td.dataset.origContent`. Active cells show `<span class="ps-check">✓</span>` with `.ps-cell-on` styling (lime); removed cells become empty with `.ps-cell-off` styling (red tint). Re-clicking reverts to original state and removes the pending change.
+- Changes are tracked in `psChanges` map (`"pointId::playerName"` → bool). `savePlayerSheetChanges()` POSTs `{changes:[{point_id, player_name, in_point}]}` to `POST /film/api/games/<game_id>/update_player_sheet`, then reloads the page on success.
+- Cancel (`exitPlayerSheetEdit()`) reverts all visual changes and restores the edit button.
+- Not-filmed cells remain unresponsive in edit mode (`pointer-events: none` from existing CSS).
+- Backend: `update_player_sheet` in `film_routes.py` — iterates changes, appends/removes the player from `point.players`, and ensures added players are on `game.roster`.

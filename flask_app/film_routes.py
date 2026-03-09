@@ -1410,6 +1410,49 @@ def update_point(game_id, point_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/film/api/games/<int:game_id>/update_player_sheet', methods=['POST'])
+@admin_required
+def update_player_sheet(game_id):
+    """Bulk-update player↔point assignments without re-uploading the CSV."""
+    game = Game.query.get_or_404(game_id)
+    data = request.get_json() or {}
+    changes = data.get('changes', [])
+
+    try:
+        for change in changes:
+            point_id = change.get('point_id')
+            player_name = change.get('player_name', '').strip()
+            in_point = bool(change.get('in_point'))
+
+            if not point_id or not player_name:
+                continue
+
+            point = Point.query.filter_by(id=point_id, game_id=game_id).first()
+            if not point:
+                continue
+
+            player = Player.query.filter_by(name=player_name).first()
+            if not player:
+                continue
+
+            if in_point:
+                if player not in point.players:
+                    point.players.append(player)
+                # Ensure the player is also on the game roster
+                if player not in game.roster:
+                    game.roster.append(player)
+            else:
+                if player in point.players:
+                    point.players.remove(player)
+
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 # =========================
 # ANALYTICS TRACKING API
 # =========================
