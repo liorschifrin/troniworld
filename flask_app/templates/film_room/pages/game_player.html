@@ -766,7 +766,8 @@
     position: static;
   }
 
-  .point-add-menu {
+  /* Global popup — lives on <body> so no overflow ancestor can clip it on iOS */
+  #pointAddMenuGlobal {
     display: none;
     position: fixed;
     background: var(--card);
@@ -776,10 +777,6 @@
     min-width: 100px;
     box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
     z-index: 9999;
-  }
-
-  .point-add-menu-wrap.open .point-add-menu {
-    display: block;
   }
 
   .point-add-option {
@@ -2403,12 +2400,8 @@
             {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}
           </div>
           {% elif current_user and current_user.is_admin %}
-          <div class="point-add-menu-wrap">
+          <div class="point-add-menu-wrap" data-point-id="{{ point.id }}">
             <div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
-            <div class="point-add-menu">
-              <div class="point-add-option" onclick="event.stopPropagation(); closeAddMenus(); setPointTimestamp({{ point.id }}, this)">⏱ Set time</div>
-              <div class="point-add-option point-add-nofilm" onclick="event.stopPropagation(); closeAddMenus(); markAsNotFilmed({{ point.id }}, this)">✕ No film</div>
-            </div>
           </div>
           {% endif %}
           {% endif %}
@@ -4521,31 +4514,36 @@
   }
 
   function _addMenuHTML(pointId) {
-    return `<div class="point-add-menu-wrap">` +
+    return `<div class="point-add-menu-wrap" data-point-id="${pointId}">` +
       `<div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
-      `<div class="point-add-menu">` +
-        `<div class="point-add-option" onclick="event.stopPropagation(); closeAddMenus(); setPointTimestamp(${pointId}, this)">⏱ Set time</div>` +
-        `<div class="point-add-option point-add-nofilm" onclick="event.stopPropagation(); closeAddMenus(); markAsNotFilmed(${pointId}, this)">✕ No film</div>` +
-      `</div>` +
     `</div>`;
   }
 
+  let _menuWrap = null;
+
   function toggleAddMenu(btnEl) {
     const wrap = btnEl.closest('.point-add-menu-wrap');
-    const wasOpen = wrap.classList.contains('open');
+    const pointId = parseInt(wrap.getAttribute('data-point-id'));
+    const wasOpen = _menuWrap === wrap;
     closeAddMenus();
     if (!wasOpen) {
+      _menuWrap = wrap;
+      const popup = document.getElementById('pointAddMenuGlobal');
+      document.getElementById('pamSetTime').onclick = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); setPointTimestamp(pointId, w); };
+      document.getElementById('pamNoFilm').onclick  = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); markAsNotFilmed(pointId, w); };
       const rect = btnEl.getBoundingClientRect();
-      const menu = wrap.querySelector('.point-add-menu');
-      // Position fixed above the button so it escapes overflow-y:hidden clipping
-      menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
-      menu.style.right  = (window.innerWidth  - rect.right) + 'px';
+      popup.style.bottom  = (window.innerHeight - rect.top + 4) + 'px';
+      popup.style.right   = (window.innerWidth  - rect.right) + 'px';
+      popup.style.display = 'block';
       wrap.classList.add('open');
     }
   }
 
   function closeAddMenus() {
+    const popup = document.getElementById('pointAddMenuGlobal');
+    if (popup) popup.style.display = 'none';
     document.querySelectorAll('.point-add-menu-wrap.open').forEach(w => w.classList.remove('open'));
+    _menuWrap = null;
   }
 
   document.addEventListener('click', () => closeAddMenus());
@@ -5108,4 +5106,10 @@
 
   updateScoreboard();
 </script>
+
+<div id="pointAddMenuGlobal">
+  <div class="point-add-option" id="pamSetTime">⏱ Set time</div>
+  <div class="point-add-option point-add-nofilm" id="pamNoFilm">✕ No film</div>
+</div>
+
 {% endblock %}
