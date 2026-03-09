@@ -740,19 +740,21 @@ def view_game(game_id):
                         all_players.append(player.name)
                         player_set.add(player.name)
         
-        # Build player sheet structure
-        player_sheet_data = {
-            'points': points,
-            'players': all_players,
-            'separator_index': separator_index,
-            'point_players': {}  # Map of point_index -> [player_names]
-        }
-        
-        for point in points:
-            player_sheet_data['point_players'][point.point_index] = sorted(
-                [p.name for p in point.players],
-                key=lambda n: all_players.index(n) if n in all_players else len(all_players)
-            )
+        # Only build the player sheet if there are actual players
+        # (after a "clear" deletion, all_players will be empty and we fall back to Upload CSV)
+        if all_players:
+            player_sheet_data = {
+                'points': points,
+                'players': all_players,
+                'separator_index': separator_index,
+                'point_players': {}  # Map of point_index -> [player_names]
+            }
+
+            for point in points:
+                player_sheet_data['point_players'][point.point_index] = sorted(
+                    [p.name for p in point.players],
+                    key=lambda n: all_players.index(n) if n in all_players else len(all_players)
+                )
     
     users = [u.username for u in User.query.order_by(User.username).all()]
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
@@ -1250,74 +1252,84 @@ def upload_game_csv(game_id):
             
             # Find the number of point columns (starting from column 1, index 1)
             num_points = len(od_row) - 1  # Subtract first column (label)
-            
-            # Clear existing roster and points for this game
+
+            # Build a map of existing points by index so we can reuse them
+            # (preserves timestamp_start, not_filmed, pull_play, etc.)
+            existing_points = {
+                p.point_index: p
+                for p in Point.query.filter_by(game_id=game_id).all()
+            }
+
+            # Clear roster; we'll rebuild it from the CSV
             game.roster.clear()
-            # Delete points using synchronize_session=False to avoid autoflush issues
-            Point.query.filter_by(game_id=game_id).delete(synchronize_session=False)
-            # Commit the deletion before creating new points
-            db.session.commit()
-            # Clear the session to remove any cached objects
-            db.session.expire_all()
-            
-            # Re-fetch the game object to ensure fresh state
-            game = Game.query.get(game_id)
-            
+            db.session.flush()
+
             # Track all players in this game for roster
             roster_players = set()
-            
-            # Create points
+            valid_point_indices = set()
+
+            # Create or update points
             for point_idx in range(1, num_points + 1):
                 col_idx = point_idx  # CSV column index (0-indexed, but first col is labels)
-                
+
                 if col_idx >= len(od_row):
                     continue
-                
+
                 # Determine tron_o (O = True, X = False)
                 od_val = od_row[col_idx].strip().upper()
                 if od_val not in ['O', 'X']:
                     continue  # Skip invalid columns
                 tron_o = (od_val == 'O')
-                
+
                 # Determine tron_point (value in TRON row = True, value in Enemy row = False)
                 tron_score = tron_row[col_idx].strip() if col_idx < len(tron_row) else ''
                 enemy_score = enemy_row[col_idx].strip() if col_idx < len(enemy_row) else ''
-                
+
                 if tron_score:
                     tron_point = True
                 elif enemy_score:
                     tron_point = False
                 else:
                     continue  # Skip if neither team scored
-                
-                # Create point
-                point = Point(
-                    game_id=game_id,
-                    point_index=point_idx,
-                    tron_o=tron_o,
-                    tron_point=tron_point
-                )
-                db.session.add(point)
-                db.session.flush()  # Flush to get point.id
-                
+
+                valid_point_indices.add(point_idx)
+
+                # Reuse existing point (preserving timestamp, not_filmed, etc.) or create new
+                if point_idx in existing_points:
+                    point = existing_points[point_idx]
+                    point.tron_o = tron_o
+                    point.tron_point = tron_point
+                    # Clear existing player associations before re-adding from CSV
+                    point.players = []
+                    db.session.flush()
+                else:
+                    point = Point(
+                        game_id=game_id,
+                        point_index=point_idx,
+                        tron_o=tron_o,
+                        tron_point=tron_point
+                    )
+                    db.session.add(point)
+                    db.session.flush()  # Get point.id
+
                 # Track players added to this point to avoid duplicates
                 added_players = set()
-                
+
                 # Add players to point
                 for player_row in player_rows:
                     if not player_row:
                         continue
-                    
+
                     player_name = player_row[0].strip()
                     if not player_name:
                         continue
-                    
+
                     # Check if player participated in this point
                     if col_idx < len(player_row) and player_row[col_idx].strip():
                         # Skip if we've already added this player to this point
                         if player_name in added_players:
                             continue
-                        
+
                         # Get or create player
                         player = Player.query.filter_by(name=player_name).first()
                         if not player:
@@ -1326,24 +1338,29 @@ def upload_game_csv(game_id):
                             db.session.flush()
                             # Auto-create or link user for new player
                             link_or_create_user_for_player(player)
-                        
+
                         # Add player to point
                         point.players.append(player)
                         added_players.add(player_name)
                         roster_players.add(player)
-            
-            # Update game roster (already cleared at the start)
+
+            # Delete any stale points not present in the new CSV
+            for idx, stale_point in existing_points.items():
+                if idx not in valid_point_indices:
+                    db.session.delete(stale_point)
+
+            # Update game roster
             for player in roster_players:
                 game.roster.append(player)
-            
+
             # Store player order data
             game.player_order_data = {
                 'players': player_names_ordered,
                 'separator_index': separator_index
             }
-            
+
             db.session.commit()
-            flash(f'Successfully uploaded game data! Created {num_points} points with player assignments.', 'success')
+            flash(f'Successfully uploaded game data! Created/updated {num_points} points with player assignments.', 'success')
             return redirect(url_for('view_game', game_id=game.id))
             
         except Exception as e:
@@ -1358,24 +1375,27 @@ def upload_game_csv(game_id):
 @app.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'])
 @admin_required
 def delete_player_sheet(game_id):
-    """Delete all points and player associations for a game"""
+    """Clear player sheet assignments without deleting point/timestamp data."""
     current_user = get_current_user()
-    
+
     game = Game.query.get_or_404(game_id)
-    
+
     try:
-        # Clear game roster
+        # Remove all player↔point associations while keeping the points themselves
+        # (preserves timestamp_start, not_filmed, pull_play, etc.)
+        for point in game.points:
+            point.players = []
+
+        # Clear the game roster and stored player order
         game.roster.clear()
-        
-        # Delete all points (this will cascade delete point_players associations)
-        Point.query.filter_by(game_id=game_id).delete()
-        
+        game.player_order_data = None
+
         db.session.commit()
-        flash('Player sheet data deleted successfully. You can now upload a new CSV.', 'success')
+        flash('Player sheet cleared. Timestamps and point data are preserved. You can now upload a new CSV.', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting player sheet: {str(e)}', 'error')
-    
+        flash(f'Error clearing player sheet: {str(e)}', 'error')
+
     return redirect(url_for('view_game', game_id=game.id))
 
 
