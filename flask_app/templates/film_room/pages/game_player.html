@@ -284,6 +284,84 @@
     border-bottom: 2px solid rgba(255,255,255,0.1);
   }
 
+  /* ── Player Sheet Edit Mode ── */
+  .ps-edit-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    background: rgba(200,241,53,0.12);
+    border: 1px solid rgba(200,241,53,0.4);
+    color: var(--lime);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .ps-edit-btn:hover { background: rgba(200,241,53,0.22); }
+
+  .ps-edit-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px 14px;
+    flex-wrap: wrap;
+  }
+  .ps-save-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    background: rgba(200,241,53,0.2);
+    border: 1px solid rgba(200,241,53,0.6);
+    color: var(--lime);
+    border-radius: 4px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .ps-save-btn:hover { background: rgba(200,241,53,0.35); }
+  .ps-save-btn:disabled { opacity: 0.5; cursor: default; }
+  .ps-cancel-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .ps-cancel-btn:hover { background: rgba(255,255,255,0.12); }
+  .ps-edit-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.4);
+    font-style: italic;
+  }
+  /* Edit mode: player data-cells become toggleable (including not-filmed) */
+  .player-sheet-table.ps-edit-mode td[data-player] {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    transition: background 0.15s;
+  }
+  .player-sheet-table.ps-edit-mode td[data-player]:hover {
+    background: rgba(255,255,255,0.09) !important;
+  }
+  /* Cell toggled ON (player added to point) */
+  .player-sheet-table.ps-edit-mode td[data-player].ps-cell-on {
+    background: rgba(200,241,53,0.2) !important;
+    box-shadow: inset 0 0 0 1px rgba(200,241,53,0.55);
+  }
+  .ps-cell-on .ps-check {
+    color: var(--lime);
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  /* Cell toggled OFF (player removed from point) */
+  .player-sheet-table.ps-edit-mode td[data-player].ps-cell-off {
+    background: rgba(255,50,50,0.12) !important;
+    box-shadow: inset 0 0 0 1px rgba(255,60,60,0.35);
+  }
+
   .layout {
     display: grid;
     grid-template-columns: 1fr 320px;
@@ -2186,10 +2264,22 @@
 <div class="player-sheet-section">
   <div class="player-sheet-toggle" onclick="togglePlayerSheet()">
     <h3>📋 View Player Sheet</h3>
-    <span class="toggle-icon" id="toggleIcon">▼</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      {% if current_user and current_user.is_admin %}
+      <button id="psEditBtn" class="ps-edit-btn" onclick="event.stopPropagation(); enterPlayerSheetEdit()">✎ Edit Roster</button>
+      {% endif %}
+      <span class="toggle-icon" id="toggleIcon">▼</span>
+    </div>
   </div>
   <div class="player-sheet-content" id="playerSheetContent">
     <div class="player-sheet-wrapper">
+      {% if current_user and current_user.is_admin %}
+      <div class="ps-edit-bar" id="psEditBar" style="display:none;">
+        <button class="ps-save-btn" onclick="savePlayerSheetChanges()">💾 Save Changes</button>
+        <button class="ps-cancel-btn" onclick="exitPlayerSheetEdit()">✕ Cancel</button>
+        <span class="ps-edit-hint">Click player cells to toggle on/off for each point</span>
+      </div>
+      {% endif %}
       <table class="player-sheet-table">
         <thead>
           <tr>
@@ -2257,10 +2347,14 @@
             {% set ns = namespace(player_count=0) %}
             {% for point in player_sheet_data['points'] %}
             <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+                data-point-id="{{ point.id }}"
+                data-player="{{ player_name }}"
+                data-in-point="{% if player_name in player_sheet_data['point_players'][point.point_index] %}1{% else %}0{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}
+                onclick="handlePsCellClick(this, event, {% if not point.not_filmed and point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %})">
               {% if player_name in player_sheet_data['point_players'][point.point_index] %}
               {% set ns.player_count = ns.player_count + 1 %}
-              {{ ns.player_count }}
+              <span class="ps-count">{{ ns.player_count }}</span>
               {% endif %}
             </td>
             {% endfor %}
@@ -2934,6 +3028,128 @@
   {% else %}
   const pointPlayersData = {};
   {% endif %}
+
+  // ── Player Sheet Edit Mode ────────────────────────────────────────────
+  let playerSheetEditMode = false;
+  let psChanges = {}; // key: "pointId::playerName", value: bool (in_point)
+
+  function enterPlayerSheetEdit() {
+    playerSheetEditMode = true;
+    psChanges = {};
+    const table = document.querySelector('.player-sheet-table');
+    if (table) table.classList.add('ps-edit-mode');
+    const bar = document.getElementById('psEditBar');
+    if (bar) bar.style.display = 'flex';
+    const btn = document.getElementById('psEditBtn');
+    if (btn) btn.style.display = 'none';
+    // Ensure the sheet is open
+    const content = document.getElementById('playerSheetContent');
+    if (content && !content.classList.contains('open')) togglePlayerSheet();
+  }
+
+  function exitPlayerSheetEdit() {
+    playerSheetEditMode = false;
+    psChanges = {};
+    const table = document.querySelector('.player-sheet-table');
+    if (table) table.classList.remove('ps-edit-mode');
+    // Revert all visually toggled cells back to their original content
+    document.querySelectorAll('.player-sheet-table td.ps-toggled').forEach(td => {
+      td.classList.remove('ps-toggled', 'ps-cell-on', 'ps-cell-off');
+      if (td.dataset.origContent !== undefined) {
+        td.innerHTML = td.dataset.origContent;
+        delete td.dataset.origContent;
+      }
+    });
+    const bar = document.getElementById('psEditBar');
+    if (bar) bar.style.display = 'none';
+    const btn = document.getElementById('psEditBtn');
+    if (btn) btn.style.display = '';
+  }
+
+  function handlePsCellClick(td, event, timestamp) {
+    if (playerSheetEditMode) {
+      event.stopPropagation();
+      togglePlayerSheetCell(td);
+    } else {
+      if (timestamp !== null && timestamp !== undefined) {
+        seekToPointTimestamp(timestamp);
+      }
+    }
+  }
+
+  function togglePlayerSheetCell(td) {
+    const pointId = td.dataset.pointId;
+    const playerName = td.dataset.player;
+    if (!pointId || !playerName) return;
+
+    const key = pointId + '::' + playerName;
+    const origInPoint = td.dataset.inPoint === '1';
+    const currentInPoint = (key in psChanges) ? psChanges[key] : origInPoint;
+    const newInPoint = !currentInPoint;
+
+    // Snapshot original HTML on first toggle
+    if (td.dataset.origContent === undefined) {
+      td.dataset.origContent = td.innerHTML;
+    }
+
+    if (newInPoint === origInPoint) {
+      // Back to original state — clear pending change
+      delete psChanges[key];
+      td.classList.remove('ps-toggled', 'ps-cell-on', 'ps-cell-off');
+      td.innerHTML = td.dataset.origContent;
+      delete td.dataset.origContent;
+    } else {
+      psChanges[key] = newInPoint;
+      td.classList.add('ps-toggled');
+      if (newInPoint) {
+        td.classList.add('ps-cell-on');
+        td.classList.remove('ps-cell-off');
+        td.innerHTML = '<span class="ps-check">✓</span>';
+      } else {
+        td.classList.add('ps-cell-off');
+        td.classList.remove('ps-cell-on');
+        td.innerHTML = '';
+      }
+    }
+  }
+
+  async function savePlayerSheetChanges() {
+    const changes = Object.entries(psChanges).map(([key, inPoint]) => {
+      const sep = key.indexOf('::');
+      return {
+        point_id: parseInt(key.substring(0, sep)),
+        player_name: key.substring(sep + 2),
+        in_point: inPoint
+      };
+    });
+
+    if (changes.length === 0) {
+      exitPlayerSheetEdit();
+      return;
+    }
+
+    const saveBtn = document.querySelector('.ps-save-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '💾 Saving…'; }
+
+    try {
+      const resp = await fetch('/film/api/games/{{ game.id }}/update_player_sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changes })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error saving: ' + (data.error || 'Unknown error'));
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes'; }
+      }
+    } catch (e) {
+      alert('Network error while saving');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes'; }
+    }
+  }
+  // ── End Player Sheet Edit Mode ───────────────────────────────────────
 
   // Toggle player sheet visibility
   function togglePlayerSheet() {
