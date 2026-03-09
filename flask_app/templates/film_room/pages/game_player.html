@@ -816,9 +816,14 @@
     padding: 0px 3px;
     border-radius: 2px;
     cursor: pointer !important;
+    display: none;
     border: 1px solid rgba(255,107,43,0.3);
     line-height: 1.3;
     flex-shrink: 0;
+  }
+
+  .not-filmed-badge:hover .not-filmed-delete {
+    display: inline;
   }
 
   .not-filmed-delete:hover {
@@ -4576,12 +4581,14 @@
         pointCard.setAttribute('data-timestamp', currentTime);
         pointCard.onclick = () => seekToPointTimestamp(currentTime);
         
-        // Replace "+ Time" button with timestamp display and delete button
+        // Replace the whole menu wrap with the timestamp display
         const mins = Math.floor(currentTime / 60);
         const secs = currentTime % 60;
         const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
         const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
-        element.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
+        const wrap = element.closest('.point-add-menu-wrap');
+        const target = wrap || element;
+        target.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
       } else {
         const error = await response.json();
         alert('Error setting timestamp: ' + (error.error || 'Unknown error'));
