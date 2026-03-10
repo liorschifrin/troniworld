@@ -20,7 +20,7 @@ def fmt_dt_est(dt):
     return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
-from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification
+from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 
 
@@ -632,11 +632,15 @@ def games_list():
     tournament_sections.sort(key=tournament_recent_first_key, reverse=True)
     standalone_games.sort(key=lambda g: (g.game_date or '', g.id), reverse=True)
 
+    watched_rows = GameWatched.query.filter_by(user_id=current_user.id).all()
+    watched_game_ids = {row.game_id for row in watched_rows}
+
     return render_template(
         'film_room/pages/games_list.html',
         current_user=current_user,
         tournament_sections=tournament_sections,
-        standalone_games=standalone_games
+        standalone_games=standalone_games,
+        watched_game_ids=watched_game_ids
     )
 
 
@@ -755,7 +759,8 @@ def view_game(game_id):
                 ]
     
     users = [u.username for u in User.query.order_by(User.username).all()]
-    return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
+    is_watched = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first() is not None
+    return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users, is_watched=is_watched)
 
 
 @app.route('/film/games/new', methods=['GET', 'POST'])
@@ -1671,6 +1676,8 @@ def analytics_dashboard():
         leadership_notif_total = _ldr_q.count()
         leadership_notif_read  = _ldr_q.filter(CommentNotification.is_read == True).count()
 
+        watched_count = GameWatched.query.filter_by(user_id=user.id).count()
+
         user_analytics.append({
             'user': user,
             'login_count': login_count,
@@ -1679,6 +1686,7 @@ def analytics_dashboard():
             'comment_count': comment_count,
             'leadership_notif_total': leadership_notif_total,
             'leadership_notif_read':  leadership_notif_read,
+            'watched_count': watched_count,
         })
     
     # Sort by total watch minutes (most engaged users first)
@@ -1901,6 +1909,57 @@ def user_leadership_tags(username):
                 'game_title': r.game_title,
                 'game_opponent': r.game_opponent,
                 'private_to': (json.loads(r.private_to) if r.private_to else None),
+            }
+            for r in rows
+        ]
+    })
+
+
+@app.route('/film/api/games/<int:game_id>/toggle-watched', methods=['POST'])
+@login_required
+def toggle_game_watched(game_id):
+    """Toggle the current user's explicit watched mark for a game."""
+    current_user = get_current_user()
+    existing = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({'watched': False, 'game_id': game_id})
+    else:
+        record = GameWatched(user_id=current_user.id, game_id=game_id)
+        db.session.add(record)
+        db.session.commit()
+        return jsonify({'watched': True, 'game_id': game_id})
+
+
+@app.route('/film/api/user/<username>/watched-games')
+@admin_required
+def get_user_watched_games(username):
+    """Admin endpoint: return all games explicitly marked watched by a user."""
+    target_user = User.query.filter_by(username=username).first_or_404()
+    rows = (
+        db.session.query(
+            GameWatched.id.label('watched_id'),
+            GameWatched.watched_at,
+            Game.id.label('game_id'),
+            Game.title,
+            Game.opponent,
+            Game.game_date,
+        )
+        .join(Game, GameWatched.game_id == Game.id)
+        .filter(GameWatched.user_id == target_user.id)
+        .order_by(GameWatched.watched_at.desc())
+        .all()
+    )
+    return jsonify({
+        'username': username,
+        'watched_games': [
+            {
+                'game_id': r.game_id,
+                'title': r.title,
+                'opponent': r.opponent,
+                'game_date': r.game_date,
+                'watched_at_iso': r.watched_at.isoformat() + 'Z' if r.watched_at else '',
             }
             for r in rows
         ]

@@ -308,3 +308,26 @@ class ArticleCommentNotification(db.Model):
 
     def __repr__(self) -> str:
         return f"<ArticleCommentNotification recipient={self.recipient_username} comment_id={self.comment_id} read={self.is_read}>"
+
+
+class GameWatched(db.Model):
+    """Explicit per-user mark that a game has been watched."""
+    __tablename__ = 'game_watched'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
+    watched_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = db.relationship('User', backref='watched_games')
+    game = db.relationship('Game', backref='watched_by')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'game_id', name='uq_game_watched_user_game'),
+        db.Index('idx_game_watched_user_id', 'user_id'),
+        db.Index('idx_game_watched_game_id', 'game_id'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<GameWatched user_id={self.user_id} game_id={self.game_id}>"
