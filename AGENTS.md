@@ -6,7 +6,7 @@ If you change of the below information, or add significantly to the page, update
 
 ## Active work: game_player.html
 
-Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines). Ignore the React rewrite — all work stays in this file.
+Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
 
 ## Template layout (as of reorganization)
 - `flask_app/templates/articles/` — articles section: base.html, index.html, post.html, new_post.html, edit_post.html, login_articles.html, register.html, editor.html
@@ -84,6 +84,18 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Not-filmed points: the `.not-filmed-badge` ("NO FILM") in the header contains a hover-reveal `.not-filmed-delete` ✕ span. Clicking it calls `markAsFilmed()`, which removes the badge and inserts the `+ Time` menu back before the header. There is no separate restore button.
 - Player sheet: `th` and all `td` cells for a not-filmed column receive the `not-filmed` CSS class (diagonal stripe pattern, text dimmed, pointer-events none). The `clickable` class and `onclick`/`data-timestamp` are omitted for not-filmed columns at render time.
 - Migration: `h3i4j5k6l7m8` (down_revision: `g2h3i4j5k6l7`).
+
+### Injury timeout substitutions
+- `Point.injury_subs` DB column (JSON, nullable). Stores `{"off": [player_names], "on": [player_names]}` where `off` = players subbed off, `on` = players subbed on during an injury timeout. `null` = no injury sub on this point.
+- Migration: `i4j5k6l7m8n9` (down_revision: `h3i4j5k6l7m8`).
+- **CSV notation**: player cell value ending with `/` (e.g. `3/`) = subbed off; value starting with `/` (e.g. `/2`) = subbed on. The numeric part is the sequential point count.
+- **Player sheet rendering**: subbed-off cells show `N/` in orange (`.ps-sub-off`); subbed-on cells show `/N` in teal (`.ps-sub-on`). Each `<td>` for player rows carries `data-sub-status="off|on|"`.
+- **On-field indicator** (`updateCurrentPlayers`): subbed-off badges get `↓` prefix + `.player-badge-suboff` (orange); subbed-on get `↑` prefix + `.player-badge-subon` (teal). Title attribute describes the sub type on hover.
+- **Edit mode cycling** (`togglePlayerSheetCell`): 4-state click cycle per cell: off → normal (✓) → sub-off (✓/) → sub-on (/✓) → off. Visual feedback via `.ps-cell-suboff` (orange) and `.ps-cell-subon` (teal) classes.
+- `psChanges` now stores `{in_point: bool, sub: null|"off"|"on"}` objects instead of a plain boolean.
+- `savePlayerSheetChanges` includes `sub_status` in each change object POSTed to `update_player_sheet`.
+- Backend `update_player_sheet` accepts `sub_status` per change and rebuilds `point.injury_subs` accordingly.
+- `pointPlayersData` JS global changed from `{idx: [name]}` to `{idx: [{name, sub}]}` (served via `player_sheet_data['point_players_js']`).
 
 ### Player sheet inline editing
 - Admins see a **"✎ Edit Roster"** button (`#psEditBtn`, `.ps-edit-btn`) in the player sheet toggle header. Clicking enters edit mode without affecting the DB.

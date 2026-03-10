@@ -731,6 +731,22 @@ def view_game(game_id):
                     [p.name for p in point.players],
                     key=lambda n: all_players.index(n) if n in all_players else len(all_players)
                 )
+
+            # Build injury sub lookups for the template and JS
+            player_sheet_data['point_injury_subs'] = {}
+            player_sheet_data['point_players_js'] = {}
+            for point in points:
+                subs = point.injury_subs or {}
+                sub_off_set = set(subs.get('off', []))
+                sub_on_set = set(subs.get('on', []))
+                player_sheet_data['point_injury_subs'][point.point_index] = subs
+                player_sheet_data['point_players_js'][point.point_index] = [
+                    {
+                        'name': n,
+                        'sub': 'off' if n in sub_off_set else ('on' if n in sub_on_set else None)
+                    }
+                    for n in player_sheet_data['point_players'][point.point_index]
+                ]
     
     users = [u.username for u in User.query.order_by(User.username).all()]
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users)
@@ -1291,6 +1307,10 @@ def upload_game_csv(game_id):
                 # Track players added to this point to avoid duplicates
                 added_players = set()
 
+                # Track injury sub players for this point
+                sub_off_players = []  # players who were subbed off during an injury timeout
+                sub_on_players = []   # players who were subbed on during an injury timeout
+
                 # Add players to point
                 for player_row in player_rows:
                     if not player_row:
@@ -1301,7 +1321,14 @@ def upload_game_csv(game_id):
                         continue
 
                     # Check if player participated in this point
-                    if col_idx < len(player_row) and player_row[col_idx].strip():
+                    cell_val = player_row[col_idx].strip() if col_idx < len(player_row) else ''
+                    if cell_val:
+                        # Parse injury substitution notation:
+                        #   "N/"  => player was subbed OFF during an injury timeout
+                        #   "/N"  => player was subbed ON during an injury timeout
+                        is_sub_off = cell_val.endswith('/') and not cell_val.startswith('/')
+                        is_sub_on = cell_val.startswith('/') and not cell_val.endswith('/')
+
                         # Skip if we've already added this player to this point
                         if player_name in added_players:
                             continue
@@ -1319,6 +1346,18 @@ def upload_game_csv(game_id):
                         point.players.append(player)
                         added_players.add(player_name)
                         roster_players.add(player)
+
+                        # Track sub status
+                        if is_sub_off:
+                            sub_off_players.append(player_name)
+                        elif is_sub_on:
+                            sub_on_players.append(player_name)
+
+                # Store injury sub data on the point
+                if sub_off_players or sub_on_players:
+                    point.injury_subs = {'off': sub_off_players, 'on': sub_on_players}
+                else:
+                    point.injury_subs = None
 
             # Delete any stale points not present in the new CSV
             for idx, stale_point in existing_points.items():
@@ -1431,6 +1470,8 @@ def update_player_sheet(game_id):
             if not player:
                 continue
 
+            sub_status = change.get('sub_status')  # null | "off" | "on"
+
             if in_point:
                 if player not in point.players:
                     point.players.append(player)
@@ -1440,6 +1481,21 @@ def update_player_sheet(game_id):
             else:
                 if player in point.players:
                     point.players.remove(player)
+                sub_status = None  # removed players have no sub status
+
+            # Update injury_subs for this point based on sub_status change
+            subs = dict(point.injury_subs) if point.injury_subs else {'off': [], 'on': []}
+            # Remove player from both lists first
+            subs['off'] = [n for n in subs.get('off', []) if n != player_name]
+            subs['on'] = [n for n in subs.get('on', []) if n != player_name]
+            if sub_status == 'off':
+                subs['off'].append(player_name)
+            elif sub_status == 'on':
+                subs['on'].append(player_name)
+            point.injury_subs = subs if (subs['off'] or subs['on']) else None
+            # Mark the JSON column as modified so SQLAlchemy detects the change
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(point, 'injury_subs')
 
         db.session.commit()
         return jsonify({'success': True})

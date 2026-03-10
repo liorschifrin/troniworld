@@ -113,6 +113,7 @@ class Point(db.Model):
     tron_o = db.Column(db.Boolean)  # True if Tron is on offense
     tron_point = db.Column(db.Boolean)  # True if Tron scored the point
     not_filmed = db.Column(db.Boolean, default=False, nullable=False, server_default='0')  # True if this point was not captured on video
+    injury_subs = db.Column(db.JSON, nullable=True)  # {"off": [player_names], "on": [player_names]} — injury timeout subs
     pull_play = db.Column(db.String(50))
     defense_type = db.Column(db.String(50))
     offense_faced = db.Column(db.String(50))
