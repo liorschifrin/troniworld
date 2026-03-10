@@ -634,30 +634,6 @@ def games_list():
     )
 
 
-@app.route('/film/app')
-@login_required
-def film_room_app():
-    current_user = get_current_user()
-    return render_template(
-        'film_room/pages/film_room_app.html',
-        current_user=current_user,
-        initial_game_id=None,
-    )
-
-
-@app.route('/film/app/games/<int:game_id>')
-@login_required
-def film_room_app_game(game_id):
-    current_user = get_current_user()
-    # Validate game exists so we can return a 404 in Flask instead of a client-side fetch failure.
-    Game.query.get_or_404(game_id)
-    return render_template(
-        'film_room/pages/film_room_app.html',
-        current_user=current_user,
-        initial_game_id=game_id,
-    )
-
-
 @app.route('/film/tournaments/new', methods=['GET', 'POST'])
 @admin_required
 def new_tournament():
