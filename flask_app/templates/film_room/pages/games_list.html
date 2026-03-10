@@ -217,6 +217,32 @@
       grid-template-columns: 1fr;
     }
   }
+
+  .game-card--hidden {
+    opacity: 0.55;
+    border-style: dashed;
+    border-color: rgba(255, 107, 43, 0.4);
+  }
+
+  .game-card--hidden:hover {
+    border-color: rgba(255, 107, 43, 0.7);
+    opacity: 0.75;
+  }
+
+  .hidden-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 107, 43, 0.15);
+    color: var(--warm);
+    border: 1px solid rgba(255, 107, 43, 0.4);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+  }
 {% endblock %}
 
 {% block content %}
@@ -242,7 +268,7 @@
       </div>
       <div class="games-grid">
         {% for game in section.games %}
-        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card">
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card{% if current_user and current_user.is_admin and game.is_hidden %} game-card--hidden{% endif %}">
           <div class="game-thumbnail {% if not game.youtube_id %}no-video{% endif %}">
             {% if game.youtube_id %}
               <img src="https://img.youtube.com/vi/{{ game.youtube_id }}/maxresdefault.jpg" alt="{{ game.title }}">
@@ -264,6 +290,9 @@
               {% if game.game_date %}
               <span class="meta-item">{{ game.game_date }}</span>
               {% endif %}
+              {% if current_user and current_user.is_admin and game.is_hidden %}
+              <span class="hidden-badge">🚫 Hidden</span>
+              {% endif %}
             </div>
           </div>
         </a>
@@ -276,7 +305,7 @@
       <div class="section-subtitle">Not Assigned To A Tournament</div>
       <div class="games-grid">
         {% for game in standalone_games %}
-        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card">
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="game-card{% if current_user and current_user.is_admin and game.is_hidden %} game-card--hidden{% endif %}">
           <div class="game-thumbnail {% if not game.youtube_id %}no-video{% endif %}">
             {% if game.youtube_id %}
               <img src="https://img.youtube.com/vi/{{ game.youtube_id }}/maxresdefault.jpg" alt="{{ game.title }}">
@@ -295,6 +324,9 @@
               {% endif %}
               {% if game.game_date %}
               <span class="meta-item">{{ game.game_date }}</span>
+              {% endif %}
+              {% if current_user and current_user.is_admin and game.is_hidden %}
+              <span class="hidden-badge">🚫 Hidden</span>
               {% endif %}
             </div>
           </div>

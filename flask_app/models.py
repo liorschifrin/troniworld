@@ -79,7 +79,8 @@ class Game(db.Model):
     final_score_tron = db.Column(db.Integer)
     final_score_opponent = db.Column(db.Integer)
     player_order_data = db.Column(db.JSON)  # Stores player order and section info: {"players": [names], "separator_index": int}
-    
+    is_hidden = db.Column(db.Boolean, nullable=False, default=False, server_default='0')  # Hidden from non-admin users
+
     # Relationships
     # roster is defined as backref in Player model (many-to-many through game_roster table)
     points = db.relationship('Point', backref='game', lazy='dynamic', cascade='all, delete-orphan')

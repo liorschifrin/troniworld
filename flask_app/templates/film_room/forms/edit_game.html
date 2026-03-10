@@ -105,6 +105,44 @@
     font-family: 'DM Mono', monospace;
   }
 
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .checkbox-group:hover {
+    border-color: rgba(200,241,53,0.4);
+  }
+
+  .checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--lime);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .checkbox-group .checkbox-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text);
+    user-select: none;
+  }
+
+  .checkbox-group .checkbox-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
   .form-actions {
     display: flex;
     gap: 12px;
@@ -239,6 +277,17 @@
         <div class="form-group">
           <label>Final Score - Opponent</label>
           <input type="number" name="final_score_opponent" min="0" placeholder="0" value="{{ game.final_score_opponent if game.final_score_opponent is not none else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label>Visibility</label>
+          <label class="checkbox-group">
+            <input type="checkbox" name="is_hidden" id="is_hidden" {% if game.is_hidden %}checked{% endif %}>
+            <div>
+              <div class="checkbox-label">Hide this game</div>
+              <div class="checkbox-hint">Hidden games are only visible to admins</div>
+            </div>
+          </label>
         </div>
       </div>
 
