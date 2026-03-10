@@ -97,6 +97,13 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Backend `update_player_sheet` accepts `sub_status` per change and rebuilds `point.injury_subs` accordingly.
 - `pointPlayersData` JS global changed from `{idx: [name]}` to `{idx: [{name, sub}]}` (served via `player_sheet_data['point_players_js']`).
 
+### Hidden games
+- `Game.is_hidden` DB column (Boolean, default False, `NOT NULL`). When `True`, the game is invisible to all non-admin users.
+- **Filtering**: `games_list`, `my_games`, and `tron_data` routes in `film_routes.py` all skip hidden games for non-admins (`[g for g in games if not g.is_hidden]`).
+- **Forms**: a "Hide this game" checkbox (`name="is_hidden"`) is present in both `new_game.html` and `edit_game.html`. In the edit form the checkbox is pre-checked when `game.is_hidden` is True.
+- **Visual indicator**: on the games list (admin view only), hidden cards receive the `.game-card--hidden` class (dashed orange border, reduced opacity) and a 🚫 Hidden `.hidden-badge` in the meta row.
+- Migration: `j5k6l7m8n9o0` (down_revision: `i4j5k6l7m8n9`).
+
 ### Player sheet inline editing
 - Admins see a **"✎ Edit Roster"** button (`#psEditBtn`, `.ps-edit-btn`) in the player sheet toggle header. Clicking enters edit mode without affecting the DB.
 - Edit mode (`enterPlayerSheetEdit()`): adds `.ps-edit-mode` class to the table, reveals the `.ps-edit-bar` save/cancel bar, hides the edit button. All player data-cells become toggleable.

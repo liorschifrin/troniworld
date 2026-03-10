@@ -346,6 +346,8 @@ def my_games():
     if current_user.player:
         # Get all games this player was in (through game_roster)
         my_games_list = current_user.player.games
+        if not current_user.is_admin:
+            my_games_list = [g for g in my_games_list if not g.is_hidden]
         # Sort by date descending (game_date is a string in ISO format YYYY-MM-DD, or None)
         my_games_list = sorted(my_games_list, key=lambda g: (g.game_date or '', g.id), reverse=True)
         
@@ -441,6 +443,8 @@ def tron_data():
     current_user = get_current_user()
 
     all_games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+    if not current_user.is_admin:
+        all_games = [g for g in all_games if not g.is_hidden]
     all_tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name).all()
 
     # ── Filter by selected game IDs (default = all) ─────────────────
@@ -590,6 +594,8 @@ def tron_data():
 def games_list():
     current_user = get_current_user()
     games = Game.query.options(joinedload(Game.tournament)).all()
+    if not current_user.is_admin:
+        games = [g for g in games if not g.is_hidden]
 
     tournaments_map = {}
     standalone_games = []
@@ -807,6 +813,7 @@ def new_game():
         opp_score = int(final_score_opponent) if final_score_opponent else None
         
         # Create new game
+        is_hidden = request.form.get('is_hidden') == 'on'
         new_game = Game(
             title=title,
             opponent=opponent,
@@ -815,7 +822,8 @@ def new_game():
             tournament_id=tournament.id if tournament else None,
             tournament_game_number=tournament_game_number,
             final_score_tron=tron_score,
-            final_score_opponent=opp_score
+            final_score_opponent=opp_score,
+            is_hidden=is_hidden
         )
         
         try:
@@ -897,6 +905,7 @@ def edit_game(game_id):
         game.tournament_game_number = tournament_game_number
         game.final_score_tron = tron_score
         game.final_score_opponent = opp_score
+        game.is_hidden = request.form.get('is_hidden') == 'on'
         
         try:
             db.session.commit()
