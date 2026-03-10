@@ -81,6 +81,36 @@
     transform: scale(0.97);
   }
 
+  .watched-toggle-btn {
+    background: rgba(255,255,255,0.05);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .watched-toggle-btn.is-watched {
+    background: rgba(74,222,128,0.12);
+    color: #4ade80;
+    border-color: rgba(74,222,128,0.4);
+  }
+
+  .watched-toggle-btn:hover {
+    background: rgba(74,222,128,0.18);
+    color: #4ade80;
+    border-color: rgba(74,222,128,0.5);
+  }
+
+  .watched-toggle-btn:active {
+    transform: scale(0.97);
+  }
+
   .player-sheet-section {
     max-width: 100%;
     margin: 0 32px;
@@ -2275,6 +2305,11 @@
   {% if game.final_score_tron is not none and game.final_score_opponent is not none %}
   <span class="score-badge">{{ game.final_score_tron }} - {{ game.final_score_opponent }}</span>
   {% endif %}
+  <button
+    id="watchedToggleBtn"
+    class="watched-toggle-btn{% if is_watched %} is-watched{% endif %}"
+    onclick="toggleWatched()"
+  >{% if is_watched %}✓ Watched{% else %}○ Mark Watched{% endif %}</button>
   {% if current_user and current_user.is_admin %}
   <a href="{{ url_for('edit_game', game_id=game.id) }}" class="edit-btn">✎ Edit</a>
   {% if player_sheet_data %}
@@ -2624,6 +2659,8 @@
   let currentActiveCommentId = null;
   let _suppressAutoScroll = false;  // set true briefly after a notification scroll
   let _isEditingComment  = false;   // set true while the inline edit form is open
+  const gameId = {{ game.id }};
+  let isWatched = {% if is_watched %}true{% else %}false{% endif %};
   let selectedCommentType = 'Comment';
   let isPrivateComment = false;
   let privateToUsers = [];
@@ -3296,6 +3333,31 @@
   }
 
   // Confirm and delete player sheet
+  /**
+   * Toggle the current user's 'watched' mark for this game.
+   */
+  async function toggleWatched() {
+    const btn = document.getElementById('watchedToggleBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/film/api/games/${gameId}/toggle-watched`, { method: 'POST' });
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      isWatched = data.watched;
+      if (isWatched) {
+        btn.textContent = '✓ Watched';
+        btn.classList.add('is-watched');
+      } else {
+        btn.textContent = '○ Mark Watched';
+        btn.classList.remove('is-watched');
+      }
+    } catch (e) {
+      console.error('Failed to toggle watched:', e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   function confirmDeletePlayerSheet() {
     const confirmed = confirm(
       'Are you sure you want to delete all player sheet data for this game?\n\n' +

@@ -497,6 +497,7 @@
             <th class="centered">Comments</th>
             <th class="centered">Tags by Leadership</th>
             <th class="centered">Games Watched</th>
+            <th class="centered">Marked Watched</th>
           </tr>
         </thead>
         <tbody>
@@ -550,10 +551,19 @@
                   <span class="no-games">—</span>
                 {% endif %}
               </td>
+              <td class="centered">
+                {% if data.watched_count > 0 %}
+                  <button class="comment-list-btn" data-detail-target="watched-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','watched',{{ data.watched_count }})">
+                    <span class="metric-number">{{ data.watched_count }}</span>
+                  </button>
+                {% else %}
+                  <span class="no-games">—</span>
+                {% endif %}
+              </td>
             </tr>
             {% if data.game_breakdown %}
               <tr class="breakdown-row" id="breakdown-{{ data.user.id }}">
-                <td colspan="6">
+                <td colspan="7">
                   <div class="breakdown-content">
                     <div class="game-list">
                       {% for game in data.game_breakdown %}
@@ -573,7 +583,7 @@
               </tr>
             {% endif %}
             <tr class="inline-detail-row" id="comments-detail-{{ data.user.id }}" data-loaded="false">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="inline-detail-wrap">
                   <div class="inline-detail-header">
                     <span class="inline-detail-title">Comments by <strong>{{ data.user.username }}</strong></span>
@@ -585,7 +595,7 @@
             </tr>
             {% if data.leadership_notif_total > 0 %}
             <tr class="inline-detail-row" id="tags-detail-{{ data.user.id }}" data-loaded="false">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="inline-detail-wrap">
                   <div class="inline-detail-header">
                     <span class="inline-detail-title">Tags by Leadership — <strong>{{ data.user.username }}</strong></span>
@@ -596,6 +606,17 @@
               </td>
             </tr>
             {% endif %}
+            <tr class="inline-detail-row" id="watched-detail-{{ data.user.id }}" data-loaded="false">
+              <td colspan="7">
+                <div class="inline-detail-wrap">
+                  <div class="inline-detail-header">
+                    <span class="inline-detail-title">Marked Watched — <strong>{{ data.user.username }}</strong></span>
+                    <button class="inline-detail-close" onclick="closeInlineDetail('watched-detail-{{ data.user.id }}')">×</button>
+                  </div>
+                  <div class="inline-detail-list" id="watched-detail-{{ data.user.id }}-list"></div>
+                </div>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -653,6 +674,7 @@ function toggleInlineDetail(btn, username, type, count) {
     listEl.innerHTML = '<div class="cm-loading">Loading…</div>';
     if (type === 'comments') _fetchCommentDetail(username, listEl);
     else if (type === 'tags') _fetchTagsDetail(username, listEl);
+    else if (type === 'watched') _fetchWatchedDetail(username, listEl);
   }
 }
 
@@ -736,6 +758,33 @@ async function _fetchTagsDetail(username, listEl) {
     }).join('');
   } catch (e) {
     listEl.innerHTML = '<div class="cm-loading">Failed to load data.</div>';
+  }
+}
+
+async function _fetchWatchedDetail(username, listEl) {
+  try {
+    const res  = await fetch(`/film/api/user/${encodeURIComponent(username)}/watched-games`);
+    const data = await res.json();
+    if (!data.watched_games.length) {
+      listEl.innerHTML = '<div class="cm-loading">No watched games yet.</div>';
+      return;
+    }
+    listEl.innerHTML = data.watched_games.map(g => {
+      const dateHtml = g.game_date ? `<span class="cm-date">${_escHtml(g.game_date)}</span>` : '';
+      const markedHtml = g.watched_at_iso
+        ? `<span class="cm-date">marked ${_relativeTime(g.watched_at_iso)}</span>` : '';
+      const href = `/film/games/${g.game_id}`;
+      return `
+        <a href="${href}" class="cm-item" target="_blank">
+          <div class="cm-meta">
+            <span class="cm-game">${_escHtml(g.title)}<span class="cm-vs"> vs ${_escHtml(g.opponent)}</span></span>
+            ${dateHtml}
+            ${markedHtml}
+          </div>
+        </a>`;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '<div class="cm-loading">Failed to load watched games.</div>';
   }
 }
 

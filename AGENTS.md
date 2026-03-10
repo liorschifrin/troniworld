@@ -113,3 +113,12 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Cancel (`exitPlayerSheetEdit()`) reverts all visual changes and restores the edit button.
 - Not-filmed cells remain unresponsive in edit mode (`pointer-events: none` from existing CSS).
 - Backend: `update_player_sheet` in `film_routes.py` — iterates changes, appends/removes the player from `point.players`, and ensures added players are on `game.roster`.
+
+### Mark game as watched
+- `GameWatched` DB model (`game_watched` table). Fields: `user_id` (FK → user.id, CASCADE), `game_id` (FK → games.id, CASCADE), `watched_at` (DateTime, default utcnow). `UniqueConstraint('user_id', 'game_id', name='uq_game_watched_user_game')`. One row per user/game pair = user has explicitly marked that game watched.
+- **Toggle API**: `POST /film/api/games/<game_id>/toggle-watched` — if a row exists for `(current_user.id, game_id)`, deletes it (unwatch); otherwise creates it (watch). Returns `{"watched": bool, "game_id": int}`.
+- **Admin data API**: `GET /film/api/user/<username>/watched-games` (admin-only) — returns `{username, watched_games: [{game_id, title, opponent, game_date, watched_at_iso}]}`, ordered newest first.
+- **Game player page**: A `<button id="watchedToggleBtn" class="watched-toggle-btn">` in `.game-info-header`. Shows `✓ Watched` (green, `.is-watched`) or `○ Mark Watched` (muted). JS global `let isWatched` (initialized from Jinja `is_watched`), `const gameId`. `toggleWatched()` POSTs to toggle endpoint and updates button state in-place (no reload).
+- **Games list**: `view_game()` route passes `is_watched` (bool) to the template. `games_list()` route queries all `GameWatched` rows for the current user, passes `watched_game_ids` (set of game IDs) to `games_list.html`. Cards show a green `✓ Watched` `.watched-badge` when `game.id in watched_game_ids`.
+- **Analytics dashboard**: `analytics_dashboard()` route adds `watched_count` (int) per user. New 7th table column "Marked Watched" — `<button class="comment-list-btn">` calls `toggleInlineDetail(..., 'watched', count)`. Inline detail panel (`watched-detail-{id}`) lazy-fetches `GET /film/api/user/<username>/watched-games` via `_fetchWatchedDetail()`. All `colspan` values updated from 6 to 7.
+- Migration: `k6l7m8n9o0p1` (down_revision: `j5k6l7m8n9o0`).
