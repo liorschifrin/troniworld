@@ -104,7 +104,7 @@ def test_delete_post_as_admin(client):
     p = make_post()
     rv = client.post(f'/post/{p.id}/delete', follow_redirects=False)
     assert rv.status_code == 302
-    assert Post.query.get(p.id) is None
+    assert db.session.get(Post, p.id) is None
 
 
 # ── Article comments API ──────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ def test_delete_article_comment_by_admin(client):
     login_as(client, 'Admin', 'adminpass')
     rv = client.delete(f'/post/{p.id}/comments/{c.id}')
     assert rv.status_code == 200
-    assert ArticleComment.query.get(c.id) is None
+    assert db.session.get(ArticleComment, c.id) is None
 
 
 # ── Article notifications API ─────────────────────────────────────────────────

@@ -229,7 +229,7 @@ def _create_article_notifs(comment, post_id, author_username):
             priority[uname] = ntype
 
     # Parent author gets a 'reply' notification
-    parent = ArticleComment.query.get(comment.parent_id)
+    parent = db.session.get(ArticleComment, comment.parent_id)
     if parent:
         _set(parent.author_name, 'reply')
 
@@ -241,7 +241,7 @@ def _create_article_notifs(comment, post_id, author_username):
     for s in siblings:
         _set(s.author_name, 'thread')
 
-    now = _datetime.utcnow()
+    now = _datetime.now(_tz.utc)
     for uname, ntype in priority.items():
         notif = ArticleCommentNotification(
             recipient_username=uname,
@@ -424,7 +424,7 @@ def mark_article_notification_read(notif_id):
     ).first_or_404()
     if not n.is_read:
         n.is_read = True
-        n.read_at = _datetime.utcnow()
+        n.read_at = _datetime.now(_tz.utc)
         db.session.commit()
     return jsonify({'success': True})
 
@@ -434,7 +434,7 @@ def mark_all_article_notifications_read():
     current_user = get_current_user()
     if not current_user:
         return jsonify({'error': 'Login required'}), 401
-    now = _datetime.utcnow()
+    now = _datetime.now(_tz.utc)
     ArticleCommentNotification.query.filter_by(
         recipient_username=current_user.username, is_read=False
     ).update({'is_read': True, 'read_at': now})

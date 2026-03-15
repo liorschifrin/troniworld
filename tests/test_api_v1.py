@@ -172,7 +172,7 @@ def test_delete_game_comment_by_author(client):
 
     rv = client.delete(f'/api/v1/games/{g.id}/comments/{c.id}')
     assert rv.status_code == 200
-    assert Comment.query.get(c.id) is None
+    assert db.session.get(Comment, c.id) is None
 
 
 def test_delete_game_comment_non_author_forbidden(client):
