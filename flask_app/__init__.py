@@ -67,13 +67,9 @@ from .models import *
 #     db.create_all()
 
 from . import routes
-from .film_views import film_views_bp
-from .film_api import film_api_bp
-from .admin import admin_bp
-
-app.register_blueprint(film_views_bp)
-app.register_blueprint(film_api_bp)
-app.register_blueprint(admin_bp)
+from . import film_views
+from . import film_api
+from . import admin
 from .api_routes import api_v1
 app.register_blueprint(api_v1)
 

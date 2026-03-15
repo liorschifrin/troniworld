@@ -1,16 +1,14 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
 from datetime import datetime
 import json
 import re
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from . import db
+from . import app, db
 from .models import Comment, Game, Point, User, VideoWatchSession, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .film_helpers import fmt_dt_est
-
-film_api_bp = Blueprint('film_api', __name__)
 
 
 def _create_notifications_for_comment(comment, game_id, author_username, author_is_leadership):
@@ -90,7 +88,7 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
         db.session.add(notif)
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/comments', methods=['GET'], endpoint='get_comments')
+@app.route('/film/api/games/<int:game_id>/comments', methods=['GET'], endpoint='get_comments')
 @login_required
 def get_comments(game_id):
     """Get all comments for a game"""
@@ -174,7 +172,7 @@ def get_comments(game_id):
     return jsonify({'comments': comments_list})
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/comments', methods=['POST'], endpoint='create_comment')
+@app.route('/film/api/games/<int:game_id>/comments', methods=['POST'], endpoint='create_comment')
 @login_required
 def create_comment(game_id):
     """Create a new comment for a game"""
@@ -254,7 +252,7 @@ def create_comment(game_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'], endpoint='delete_comment')
+@app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'], endpoint='delete_comment')
 @login_required
 def delete_comment(game_id, comment_id):
     """Delete a comment - users can delete their own comments, admins can delete any"""
@@ -275,7 +273,7 @@ def delete_comment(game_id, comment_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['PATCH'], endpoint='update_comment')
+@app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['PATCH'], endpoint='update_comment')
 @login_required
 def update_comment(game_id, comment_id):
     """Update a comment - users can only edit their own comments"""
@@ -347,7 +345,7 @@ def update_comment(game_id, comment_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'], endpoint='update_point')
+@app.route('/film/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'], endpoint='update_point')
 @admin_required
 def update_point(game_id, point_id):
     """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""
@@ -378,7 +376,7 @@ def update_point(game_id, point_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/update_player_sheet', methods=['POST'], endpoint='update_player_sheet')
+@app.route('/film/api/games/<int:game_id>/update_player_sheet', methods=['POST'], endpoint='update_player_sheet')
 @admin_required
 def update_player_sheet(game_id):
     """Bulk-update player↔point assignments without re-uploading the CSV."""
@@ -438,7 +436,7 @@ def update_player_sheet(game_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/track-watch-time', methods=['POST'], endpoint='track_watch_time')
+@app.route('/film/api/games/<int:game_id>/track-watch-time', methods=['POST'], endpoint='track_watch_time')
 @login_required
 def track_watch_time(game_id):
     """Track how much time a user has spent watching a game video"""
@@ -500,7 +498,7 @@ def track_watch_time(game_id):
         return jsonify({'error': str(e)}), 500
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/watch-progress', methods=['GET'], endpoint='get_watch_progress')
+@app.route('/film/api/games/<int:game_id>/watch-progress', methods=['GET'], endpoint='get_watch_progress')
 @login_required
 def get_watch_progress(game_id):
     """Get the last saved playback position for this user and game"""
@@ -520,7 +518,7 @@ def get_watch_progress(game_id):
     return jsonify({'last_position': last_position})
 
 
-@film_api_bp.route('/film/api/notifications', methods=['GET'], endpoint='get_notifications')
+@app.route('/film/api/notifications', methods=['GET'], endpoint='get_notifications')
 @login_required
 def get_notifications():
     """Return the current user's notifications (newest first, max 50)."""
@@ -558,7 +556,7 @@ def get_notifications():
     return jsonify({'notifications': result, 'unread_count': unread_count})
 
 
-@film_api_bp.route('/film/api/notifications/<int:notif_id>/read', methods=['POST'], endpoint='mark_notification_read')
+@app.route('/film/api/notifications/<int:notif_id>/read', methods=['POST'], endpoint='mark_notification_read')
 @login_required
 def mark_notification_read(notif_id):
     """Mark a single notification as read and record the timestamp for analytics."""
@@ -573,7 +571,7 @@ def mark_notification_read(notif_id):
     return jsonify({'success': True})
 
 
-@film_api_bp.route('/film/api/notifications/read-all', methods=['POST'], endpoint='mark_all_notifications_read')
+@app.route('/film/api/notifications/read-all', methods=['POST'], endpoint='mark_all_notifications_read')
 @login_required
 def mark_all_notifications_read():
     """Mark all unread notifications for the current user as read."""
@@ -586,7 +584,7 @@ def mark_all_notifications_read():
     return jsonify({'success': True})
 
 
-@film_api_bp.route('/film/api/user/<username>/comments', endpoint='user_comment_list')
+@app.route('/film/api/user/<username>/comments', endpoint='user_comment_list')
 @admin_required
 def user_comment_list(username):
     """Return comments written by a user (newest first).
@@ -669,7 +667,7 @@ def user_comment_list(username):
     return jsonify({'username': username, 'comments': result})
 
 
-@film_api_bp.route('/film/api/user/<username>/leadership-tags', endpoint='user_leadership_tags')
+@app.route('/film/api/user/<username>/leadership-tags', endpoint='user_leadership_tags')
 @admin_required
 def user_leadership_tags(username):
     """Return all notifications received by a user that were triggered by leadership comments (excludes admin-only)."""
@@ -726,7 +724,7 @@ def user_leadership_tags(username):
     })
 
 
-@film_api_bp.route('/film/api/games/<int:game_id>/toggle-watched', methods=['POST'], endpoint='toggle_game_watched')
+@app.route('/film/api/games/<int:game_id>/toggle-watched', methods=['POST'], endpoint='toggle_game_watched')
 @login_required
 def toggle_game_watched(game_id):
     """Toggle the current user's explicit watched mark for a game."""
@@ -743,7 +741,7 @@ def toggle_game_watched(game_id):
         return jsonify({'watched': True, 'game_id': game_id})
 
 
-@film_api_bp.route('/film/api/user/<username>/watched-games', endpoint='get_user_watched_games')
+@app.route('/film/api/user/<username>/watched-games', endpoint='get_user_watched_games')
 @admin_required
 def get_user_watched_games(username):
     """Admin endpoint: return all games explicitly marked watched by a user."""

@@ -1,16 +1,14 @@
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func
 import os
 
-from . import db
+from . import app, db
 from .models import Player, User
 from .utils import get_current_user, admin_required
 
-admin_bp = Blueprint('admin', __name__)
 
-
-@admin_bp.route('/admin/users', methods=['GET', 'POST'], endpoint='manage_users')
+@app.route('/admin/users', methods=['GET', 'POST'], endpoint='manage_users')
 @admin_required
 def manage_users():
     """Admin page to manage users"""
@@ -151,7 +149,7 @@ def manage_users():
                          all_players=all_players)
 
 
-@admin_bp.route('/admin/users/create_all_players', methods=['POST'], endpoint='create_users_for_all_players')
+@app.route('/admin/users/create_all_players', methods=['POST'], endpoint='create_users_for_all_players')
 @admin_required
 def create_users_for_all_players():
     """Bulk create users for all players that don't have users yet"""
