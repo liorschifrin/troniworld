@@ -162,7 +162,7 @@ class Comment(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('comments.id', ondelete='CASCADE'), index=True)  # self-reference for threading
     
     comment_type = db.Column(db.String(20), nullable=False)  # 'Comment', 'Question', 'Highlight', 'Event'
-    author_name = db.Column(db.String(100), nullable=False)
+    author_name = db.Column(db.String(100), nullable=False, index=True)
     timestamp = db.Column(db.Integer)  # seconds in video (nullable)
     content = db.Column(db.Text, nullable=False)
     private_to = db.Column(db.Text, nullable=True)  # JSON array of usernames; NULL means public
