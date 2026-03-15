@@ -1,0 +1,280 @@
+  function extractVideoId(input) {
+    input = input.trim();
+    // Already just an ID (11 chars, no slashes)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+    // youtu.be/ID
+    let m = input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    // youtube.com/watch?v=ID
+    m = input.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    // youtube.com/embed/ID
+    m = input.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    if (m) return m[1];
+    return null;
+  }
+
+  function loadVideo(videoId) {
+    if (!videoId) {
+      const input = document.getElementById('videoUrl').value;
+      videoId = extractVideoId(input);
+      if (!videoId) {
+        alert('Could not find a YouTube video ID in that URL. Try pasting the full YouTube link.');
+        return;
+      }
+    }
+    
+    currentVideoId = videoId;
+    const placeholder = document.getElementById('placeholder');
+    if (placeholder) {
+      placeholder.style.display = 'none';
+    }
+
+    if (player) {
+      player.loadVideoById(videoId);
+    } else {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => {
+            playerReady = true;
+            startVideoControlsUpdate();
+            resumeFromLastPosition();
+          },
+          onStateChange: (event) => {
+            // On first BUFFERING/PLAYING, apply any pending resume position
+            if (pendingResumePosition !== null &&
+                (event.data === YT.PlayerState.BUFFERING || event.data === YT.PlayerState.PLAYING)) {
+              const pos = pendingResumePosition;
+              pendingResumePosition = null;
+              player.seekTo(pos, true);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // Custom video controls
+  function formatTime(seconds) {
+    if (!seconds || seconds < 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function updateVideoControls() {
+    if (!player || !playerReady) return;
+
+    try {
+      const currentTime = player.getCurrentTime();
+      const duration = player.getDuration();
+      const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+      const progressFill = document.getElementById('progressFill');
+      const timeDisplay = document.getElementById('timeDisplay');
+      const playerTimestamp = document.getElementById('playerTimestamp');
+
+      if (progressFill) {
+        progressFill.style.width = `${progressPercent}%`;
+      }
+
+      if (timeDisplay) {
+        timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      if (playerTimestamp) {
+        playerTimestamp.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      // Update active point based on timestamp
+      updateActivePoint(currentTime);
+      
+      // Update active comment based on timestamp
+      updateActiveComment(currentTime);
+      
+      // Track video watch time
+      trackVideoWatchTime();
+    } catch (e) {
+      // Ignore errors if player not fully loaded
+    }
+  }
+
+  function updateActivePoint(currentTime) {
+    // Find all point items with timestamps
+    const pointItems = document.querySelectorAll('.point-item[data-timestamp]');
+    if (pointItems.length === 0) return;
+
+    // Find the most recent point that has been passed
+    let activePoint = null;
+    let closestTimestamp = -1;
+
+    pointItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activePoint = item;
+      }
+    });
+
+    // If we found an active point and it's different from current
+    if (activePoint) {
+      const activePointId = activePoint.getAttribute('data-point-id');
+      
+      if (activePointId !== currentActivePointId) {
+        // Remove active class from all points
+        pointItems.forEach(item => item.classList.remove('active'));
+        
+        // Add active class to new point
+        activePoint.classList.add('active');
+        
+        // Update current players display
+        const pointIndex = parseInt(activePoint.getAttribute('data-point-index'));
+        updateCurrentPlayers(pointIndex);
+        updatePlayerSheetActiveColumn(pointIndex);
+        
+        // Scroll active point to the center of the points bar
+        const scrollContainer = document.querySelector('.point-info-scroll');
+        if (scrollContainer) {
+          const targetLeft = activePoint.offsetLeft - (scrollContainer.clientWidth / 2) + (activePoint.offsetWidth / 2);
+          scrollContainer.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        } else {
+          activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+        
+        currentActivePointId = activePointId;
+      }
+    } else if (currentActivePointId !== null) {
+      // No active point, remove all highlights
+      pointItems.forEach(item => item.classList.remove('active'));
+      currentActivePointId = null;
+      updatePlayerSheetActiveColumn(null);
+    }
+  }
+
+  function updatePlayerSheetActiveColumn(pointIndex) {
+    const table = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
+    if (!table) return;
+    table.querySelectorAll('.column-active').forEach(el => el.classList.remove('column-active'));
+    if (pointIndex == null) return;
+    const th = table.querySelector(`th[data-point-index="${pointIndex}"]`);
+    if (!th) return;
+    const colIdx = th.cellIndex;
+    table.querySelectorAll('tr').forEach(row => {
+      const cell = row.cells[colIdx];
+      if (cell) cell.classList.add('column-active');
+    });
+  }
+
+  function updateCurrentPlayers(pointIndex) {
+    const playersContainer = document.getElementById('currentPlayers');
+    const playersList = document.getElementById('currentPlayersList');
+    
+    if (!playersContainer || !playersList) return;
+    
+    const players = pointPlayersData[pointIndex];
+    
+    if (players && players.length > 0) {
+      playersContainer.classList.remove('empty');
+      playersList.innerHTML = players.map(({name, sub}) => {
+        const isSelf = currentUserName && name === currentUserName;
+        let cls = 'player-badge';
+        if (isSelf) cls += ' player-badge-self';
+        if (sub === 'off') cls += ' player-badge-suboff';
+        else if (sub === 'on') cls += ' player-badge-subon';
+        const prefix = sub === 'off' ? '↓ ' : sub === 'on' ? '↑ ' : '';
+        return `<span class="${cls}" title="${sub === 'off' ? 'Subbed off (injury timeout)' : sub === 'on' ? 'Subbed on (injury timeout)' : ''}">${prefix}${escHtml(name)}</span>`;
+      }).join('');
+    } else {
+      playersContainer.classList.add('empty');
+      playersList.innerHTML = '<span class="player-badge">No players listed</span>';
+    }
+  }
+
+  function updateActiveComment(currentTime) {
+    // Find all comment items with timestamps
+    const commentItems = document.querySelectorAll('.comment-item[data-timestamp]');
+    if (commentItems.length === 0) return;
+
+    // Find the most recent comment that has been passed
+    let activeComment = null;
+    let closestTimestamp = -1;
+
+    commentItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activeComment = item;
+      }
+    });
+
+    // If we found an active comment and it's different from current
+    if (activeComment) {
+      const activeCommentId = activeComment.getAttribute('data-comment-id');
+      
+      if (activeCommentId !== currentActiveCommentId) {
+        // Remove active classes from all comments
+        commentItems.forEach(item => {
+          item.classList.remove('active');
+          item.classList.remove('active-pulse');
+        });
+        
+        // Add active class to new comment
+        activeComment.classList.add('active');
+        activeComment.classList.add('active-pulse');
+        
+        // Scroll to show the active comment — on mobile landscape, scroll within list only (no page scroll)
+        if (!_suppressAutoScroll && !_isEditingComment) {
+          const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
+          if (!isMobileLandscape) {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
+          } else {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: false });
+          }
+        }
+        
+        // Remove pulse animation after it completes (1s)
+        setTimeout(() => {
+          activeComment.classList.remove('active-pulse');
+        }, 1000);
+        
+        currentActiveCommentId = activeCommentId;
+      }
+    } else if (currentActiveCommentId !== null) {
+      // No active comment, remove all highlights
+      commentItems.forEach(item => {
+        item.classList.remove('active');
+        item.classList.remove('active-pulse');
+      });
+      currentActiveCommentId = null;
+    }
+  }
+
+  function seekToProgress(event) {
+    if (!player || !playerReady) return;
+
+    const progressBar = event.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percent = clickX / rect.width;
+    const duration = player.getDuration();
+    const seekTime = duration * percent;
+
+    player.seekTo(seekTime, true);
+  }
+
+  let controlsUpdateInterval = null;
+  function startVideoControlsUpdate() {
+    if (controlsUpdateInterval) {
+      clearInterval(controlsUpdateInterval);
+    }
+    controlsUpdateInterval = setInterval(() => {
+      updateVideoControls();
+      updateScoreboard();
+      syncPlaybackRateIndicator();
+      syncMuteIndicator();
+      syncPlayPauseIndicator();
+    }, 100);
+  }
+

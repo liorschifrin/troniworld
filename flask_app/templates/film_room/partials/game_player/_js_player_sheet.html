@@ -1,0 +1,258 @@
+  function enterPlayerSheetEdit() {
+    playerSheetEditMode = true;
+    psChanges = {};
+    const table = document.querySelector('.player-sheet-table');
+    if (table) table.classList.add('ps-edit-mode');
+    const bar = document.getElementById('psEditBar');
+    if (bar) bar.style.display = 'flex';
+    const btn = document.getElementById('psEditBtn');
+    if (btn) btn.style.display = 'none';
+    // Ensure the sheet is open
+    const content = document.getElementById('playerSheetContent');
+    if (content && !content.classList.contains('open')) togglePlayerSheet();
+  }
+
+  function exitPlayerSheetEdit() {
+    playerSheetEditMode = false;
+    psChanges = {};
+    const table = document.querySelector('.player-sheet-table');
+    if (table) table.classList.remove('ps-edit-mode');
+    // Revert all visually toggled cells back to their original content
+    document.querySelectorAll('.player-sheet-table td.ps-toggled').forEach(td => {
+      td.classList.remove('ps-toggled', 'ps-cell-on', 'ps-cell-off', 'ps-cell-suboff', 'ps-cell-subon');
+      if (td.dataset.origContent !== undefined) {
+        td.innerHTML = td.dataset.origContent;
+        delete td.dataset.origContent;
+      }
+    });
+    const bar = document.getElementById('psEditBar');
+    if (bar) bar.style.display = 'none';
+    const btn = document.getElementById('psEditBtn');
+    if (btn) btn.style.display = '';
+  }
+
+  function handlePsCellClick(td, event, timestamp) {
+    if (playerSheetEditMode) {
+      event.stopPropagation();
+      togglePlayerSheetCell(td);
+    } else {
+      if (timestamp !== null && timestamp !== undefined) {
+        seekToPointTimestamp(timestamp);
+      }
+    }
+  }
+
+  function togglePlayerSheetCell(td) {
+    const pointId = td.dataset.pointId;
+    const playerName = td.dataset.player;
+    if (!pointId || !playerName) return;
+
+    const key = pointId + '::' + playerName;
+    const origInPoint = td.dataset.inPoint === '1';
+    const origSub = td.dataset.subStatus || null;  // '' → null
+
+    // Current state
+    let curState;
+    if (key in psChanges) {
+      curState = psChanges[key];
+    } else {
+      curState = { in_point: origInPoint, sub: origSub };
+    }
+
+    // Advance through 4-state cycle: off → normal → sub-off (↓) → sub-on (↑) → off
+    let nextState;
+    if (!curState.in_point) {
+      nextState = { in_point: true, sub: null };
+    } else if (curState.sub === null) {
+      nextState = { in_point: true, sub: 'off' };
+    } else if (curState.sub === 'off') {
+      nextState = { in_point: true, sub: 'on' };
+    } else {
+      nextState = { in_point: false, sub: null };
+    }
+
+    // Snapshot original HTML on first toggle
+    if (td.dataset.origContent === undefined) {
+      td.dataset.origContent = td.innerHTML;
+    }
+
+    // Check if we've returned to the original state
+    if (nextState.in_point === origInPoint && nextState.sub === origSub) {
+      delete psChanges[key];
+      td.classList.remove('ps-toggled', 'ps-cell-on', 'ps-cell-off', 'ps-cell-suboff', 'ps-cell-subon');
+      td.innerHTML = td.dataset.origContent;
+      delete td.dataset.origContent;
+    } else {
+      psChanges[key] = nextState;
+      td.classList.add('ps-toggled');
+      td.classList.remove('ps-cell-on', 'ps-cell-off', 'ps-cell-suboff', 'ps-cell-subon');
+      if (!nextState.in_point) {
+        td.classList.add('ps-cell-off');
+        td.innerHTML = '';
+      } else if (nextState.sub === null) {
+        td.classList.add('ps-cell-on');
+        td.innerHTML = '<span class="ps-check">✓</span>';
+      } else if (nextState.sub === 'off') {
+        td.classList.add('ps-cell-suboff');
+        td.innerHTML = '<span class="ps-check">✓/</span>';
+      } else {
+        td.classList.add('ps-cell-subon');
+        td.innerHTML = '<span class="ps-check">/✓</span>';
+      }
+    }
+  }
+
+  async function savePlayerSheetChanges() {
+    const changes = Object.entries(psChanges).map(([key, state]) => {
+      const sep = key.indexOf('::');
+      return {
+        point_id: parseInt(key.substring(0, sep)),
+        player_name: key.substring(sep + 2),
+        in_point: state.in_point,
+        sub_status: state.sub  // null | "off" | "on"
+      };
+    });
+
+    if (changes.length === 0) {
+      exitPlayerSheetEdit();
+      return;
+    }
+
+    const saveBtn = document.querySelector('.ps-save-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '💾 Saving…'; }
+
+    try {
+      const resp = await fetch('/film/api/games/{{ game.id }}/update_player_sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changes })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error saving: ' + (data.error || 'Unknown error'));
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes'; }
+      }
+    } catch (e) {
+      alert('Network error while saving');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes'; }
+    }
+  }
+  // ── End Player Sheet Edit Mode ───────────────────────────────────────
+
+  // Toggle player sheet visibility
+  function togglePlayerSheet() {
+    const content = document.getElementById('playerSheetContent');
+    const icon = document.getElementById('toggleIcon');
+    
+    if (content.classList.contains('open')) {
+      content.classList.remove('open');
+      icon.classList.remove('open');
+    } else {
+      content.classList.add('open');
+      icon.classList.add('open');
+      // Build the frozen first column on first open
+      requestAnimationFrame(buildStickyCol);
+      // Re-sync active column in case a point was already active while sheet was closed
+      const _activePointItem = document.querySelector('.point-item.active');
+      if (_activePointItem) {
+        const _idx = parseInt(_activePointItem.getAttribute('data-point-index'));
+        requestAnimationFrame(() => updatePlayerSheetActiveColumn(_idx));
+      }
+    }
+  }
+
+  function buildStickyCol() {
+    const wrapper = document.querySelector('.player-sheet-wrapper');
+    const table   = document.querySelector('.player-sheet-table');
+    if (!wrapper || !table || wrapper.querySelector('.ps-frame')) return;
+
+    // Clone first column into a separate table
+    const pinnedTable = document.createElement('table');
+    pinnedTable.className = 'player-sheet-table ps-pinned-table';
+    table.querySelectorAll('thead, tbody').forEach(section => {
+      const newSection = document.createElement(section.tagName.toLowerCase());
+      section.querySelectorAll('tr').forEach(origRow => {
+        const firstCell = origRow.cells[0];
+        if (!firstCell) return;
+        const newRow = document.createElement('tr');
+        newRow.appendChild(firstCell.cloneNode(true));
+        newSection.appendChild(newRow);
+      });
+      pinnedTable.appendChild(newSection);
+    });
+
+    // Build the two-panel frame
+    const frame = document.createElement('div');
+    frame.className = 'ps-frame';
+
+    const pinnedPanel = document.createElement('div');
+    pinnedPanel.className = 'ps-pinned';
+    pinnedPanel.appendChild(pinnedTable);
+
+    const scrollBody = document.createElement('div');
+    scrollBody.className = 'ps-scroll-body';
+
+    frame.appendChild(pinnedPanel);
+    frame.appendChild(scrollBody);
+    wrapper.insertBefore(frame, table);
+    scrollBody.appendChild(table);
+
+    // Measure heights with first column STILL VISIBLE, then lock both panels,
+    // then hide the first column — order matters.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const origRows = [...table.querySelectorAll('tr')];
+      const pinRows  = [...pinnedTable.querySelectorAll('tr')];
+
+      // Record heights before any hiding
+      const heights = origRows.map(row => row.getBoundingClientRect().height);
+
+      // Apply to both panels
+      origRows.forEach((row, i) => { row.style.height = heights[i] + 'px'; });
+      pinRows.forEach((row, i)  => { if (heights[i]) row.style.height = heights[i] + 'px'; });
+
+      // Now hide first column in the scrollable table
+      table.querySelectorAll('tr').forEach(row => {
+        if (row.cells[0]) row.cells[0].style.display = 'none';
+      });
+    }));
+  }
+
+  // Confirm and delete player sheet
+  /**
+   * Toggle the current user's 'watched' mark for this game.
+   */
+  async function toggleWatched() {
+    const btn = document.getElementById('watchedToggleBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/film/api/games/${gameId}/toggle-watched`, { method: 'POST' });
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      isWatched = data.watched;
+      if (isWatched) {
+        btn.textContent = '✓ Watched';
+        btn.classList.add('is-watched');
+      } else {
+        btn.textContent = '○ Mark Watched';
+        btn.classList.remove('is-watched');
+      }
+    } catch (e) {
+      console.error('Failed to toggle watched:', e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function confirmDeletePlayerSheet() {
+    const confirmed = confirm(
+      'Are you sure you want to delete all player sheet data for this game?\n\n' +
+      'This will remove all points and player associations. This action cannot be undone.\n\n' +
+      'You will be able to upload a new CSV after deletion.'
+    );
+    
+    if (confirmed) {
+      document.getElementById('deletePlayerSheetForm').submit();
+    }
+  }

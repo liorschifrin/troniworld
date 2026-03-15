@@ -1,0 +1,919 @@
+  // ========================
+  // PRIVATE USER AUTOCOMPLETE
+  // ========================
+  const privateUserDropdownEl = (() => {
+    const el = document.createElement('div');
+    el.className = 'mention-dropdown';
+    el.style.display = 'none';
+    el.id = 'privateUserDropdown';
+    el.addEventListener('touchstart', _dropTouchStart, { passive: true });
+    el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  let privateUserDropState = {
+    active: false,
+    inputEl: null,
+    addFn: null,
+    currentList: null,
+    selectedIndex: 0,
+    filtered: []
+  };
+
+  function hidePrivateUserDropdown() {
+    privateUserDropdownEl.style.display = 'none';
+    privateUserDropState.active = false;
+    privateUserDropState.inputEl = null;
+  }
+
+  function renderPrivateUserDropdown(inputEl) {
+    const users = privateUserDropState.filtered;
+    if (users.length === 0) {
+      hidePrivateUserDropdown();
+      return;
+    }
+    privateUserDropdownEl.innerHTML = users.map((u, i) => {
+      const cls = 'mention-dropdown-item' + (i === privateUserDropState.selectedIndex ? ' selected' : '');
+      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser('${escHtml(u)}');}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
+    }).join('');
+    privateUserDropdownEl.style.display = 'block';
+    // Reparent into .private-to-wrap so position:absolute places it below the input.
+    const pvContainer = inputEl.closest('.private-to-wrap') || inputEl.parentElement;
+    if (pvContainer && privateUserDropdownEl.parentElement !== pvContainer) {
+      pvContainer.appendChild(privateUserDropdownEl);
+    }
+    privateUserDropdownEl.style.top    = 'calc(100% + 2px)';
+    privateUserDropdownEl.style.bottom = 'auto';
+    privateUserDropdownEl.style.left   = '0';
+    privateUserDropdownEl.style.width  = '100%';
+    privateUserDropdownEl.style.maxHeight = '200px';
+    const sel = privateUserDropdownEl.querySelector('.mention-dropdown-item.selected');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectPrivateUser(username) {
+    if (privateUserDropState.addFn) privateUserDropState.addFn(username);
+    hidePrivateUserDropdown();
+  }
+
+  function handlePrivateUserInput(inputEl, addFn, currentList) {
+    const q = inputEl.value.trim();
+    if (!q) { hidePrivateUserDropdown(); return; }
+    const filtered = allUsers.filter(u =>
+      u.toLowerCase().startsWith(q.toLowerCase()) && !currentList.includes(u)
+    );
+    if (filtered.length === 0) { hidePrivateUserDropdown(); return; }
+    privateUserDropState.active = true;
+    privateUserDropState.inputEl = inputEl;
+    privateUserDropState.addFn = addFn;
+    privateUserDropState.currentList = currentList;
+    privateUserDropState.selectedIndex = 0;
+    privateUserDropState.filtered = filtered;
+    renderPrivateUserDropdown(inputEl);
+  }
+
+  function handlePrivateUserKeydown(e, addFn) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (privateUserDropState.active && privateUserDropState.filtered.length > 0) {
+        selectPrivateUser(privateUserDropState.filtered[privateUserDropState.selectedIndex]);
+      } else if (e.currentTarget.value.trim()) {
+        addFn(e.currentTarget.value);
+      }
+      return;
+    }
+    if (!privateUserDropState.active) return;
+    const users = privateUserDropState.filtered;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      privateUserDropState.selectedIndex = Math.min(privateUserDropState.selectedIndex + 1, users.length - 1);
+      renderPrivateUserDropdown(privateUserDropState.inputEl);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      privateUserDropState.selectedIndex = Math.max(privateUserDropState.selectedIndex - 1, 0);
+      renderPrivateUserDropdown(privateUserDropState.inputEl);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hidePrivateUserDropdown();
+    }
+  }
+
+  async function addComment() {
+    const input = document.getElementById('commentInput');
+    // Auto-tokenize the last word if it matches a mentionable name
+    autoTokenizeLastMention(input);
+    const text = extractContent(input);
+    
+    if (!text) return;
+    
+    const commentBtn = document.querySelector('.comment-btn');
+    commentBtn.disabled = true;
+    commentBtn.textContent = 'Posting...';
+    
+    // Get current video timestamp
+    let timestamp = null;
+    if (player && playerReady) {
+      try {
+        timestamp = Math.floor(player.getCurrentTime());
+      } catch (e) {
+        console.log('Could not get video timestamp:', e);
+      }
+    }
+    
+    let commentContent = text;
+    
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: commentContent,
+          author_name: currentUserName || 'Anonymous',
+          comment_type: 'Comment',
+          timestamp: timestamp,
+          private_to: isPrivateComment ? privateToUsers : null
+        })
+      });
+      
+      if (response.ok) {
+        const newData = await response.json();
+        const newId = newData.comment && newData.comment.id;
+        input.innerHTML = '';
+        updatePlaceholder(input);
+        // Reset privacy state after posting
+        isPrivateComment = false;
+        privateToUsers = [];
+        const privBtn = document.getElementById('privacyToggleBtn');
+        if (privBtn) privBtn.classList.remove('active');
+        const privWrap = document.getElementById('privateToWrap');
+        if (privWrap) privWrap.style.display = 'none';
+        renderPrivateChips();
+        toggleCommentInput(false); // hide form on mobile after posting
+        await loadComments();  // Reload comments from server
+        if (newId) {
+          const newEl = document.querySelector(`[data-comment-id="${newId}"]`);
+          if (newEl) {
+            scrollCommentIntoView(newEl, true);
+            newEl.classList.add('comment-flash');
+            newEl.addEventListener('animationend', () => newEl.classList.remove('comment-flash'), { once: true });
+          }
+        }
+      } else {
+        const error = await response.json();
+        alert('Error posting comment: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      alert('Error posting comment. Please try again.');
+    } finally {
+      commentBtn.disabled = false;
+      commentBtn.textContent = 'Post Comment';
+    }
+  }
+
+  // Scroll a comment element into view within the comments list container.
+  // Options: { smooth: bool, toTop: bool }
+  // toTop: on single-column layouts, scrolls the element to the top of the list
+  //        and then scrolls the page so the sidebar panel is visible.
+  function scrollCommentIntoView(el, opts) {
+    if (typeof opts === 'boolean') opts = { smooth: opts }; // back-compat
+    const smooth = opts.smooth !== false;
+    const toTop  = !!opts.toTop;
+    const list   = document.getElementById('commentsList');
+    if (!list || !el) return;
+
+    const isSingleColumn = window.innerWidth <= 1100;
+
+    if (toTop && isSingleColumn) {
+      // Scroll to top of list so this comment is first visible
+      const elOffsetInList = el.offsetTop - list.offsetTop;
+      list.scrollTo({ top: Math.max(0, elOffsetInList - 8), behavior: smooth ? 'smooth' : 'auto' });
+
+      // Scroll the page just enough to show the first 250px of the comments list
+      const listTop = list.getBoundingClientRect().top + window.scrollY;
+      const targetScrollY = listTop - (window.innerHeight - 80);
+      if (targetScrollY > window.scrollY) {
+        window.scrollTo({ top: targetScrollY, behavior: smooth ? 'smooth' : 'auto' });
+      }
+      return;
+    }
+
+    // Default: bring into view without page scroll
+    const listRect = list.getBoundingClientRect();
+    const elRect   = el.getBoundingClientRect();
+    const overTop    = listRect.top - elRect.top;
+    const overBottom = elRect.bottom - listRect.bottom;
+    if (overTop > 0) {
+      list.scrollBy({ top: -overTop - 8, behavior: smooth ? 'smooth' : 'auto' });
+    } else if (overBottom > 0) {
+      list.scrollBy({ top: overBottom + 8, behavior: smooth ? 'smooth' : 'auto' });
+    }
+  }
+
+  function renderComments() {
+    const list = document.getElementById('commentsList');
+    const badge = document.getElementById('commentCountBadge');
+
+    // Count top-level + all replies
+    const totalCount = comments.reduce((acc, c) => acc + 1 + (c.replies ? c.replies.length : 0), 0);
+    badge.textContent = totalCount;
+
+    if (comments.length === 0) {
+      list.innerHTML = '<div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>';
+      return;
+    }
+
+    list.innerHTML = comments.map(c => renderCommentThread(c)).join('');
+
+    // Re-focus reply input if one is active
+    if (activeReplyInputId) {
+      const ta = document.getElementById(`reply-textarea-${activeReplyInputId}`);
+      if (ta) {
+        bindMentionInput(ta);
+        ta.focus();
+        ta.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey && !mentionState.active) { e.preventDefault(); submitReply(activeReplyInputId); }
+          else if (e.key === 'Escape' && !mentionState.active) { e.preventDefault(); cancelReply(); }
+        });
+      }
+    }
+
+    // Re-focus edit-reply input if one is active
+    if (activeEditReplyId) {
+      const ta = document.getElementById(`edit-reply-textarea-${activeEditReplyId}`);
+      if (ta) {
+        let replyContent = '';
+        for (const c of comments) {
+          if (c.replies) { const r = c.replies.find(r => r.id === activeEditReplyId); if (r) { replyContent = r.content; break; } }
+        }
+        loadContentWithMentions(ta, replyContent);
+        bindMentionInput(ta);
+        ta.focus();
+        const selRange = document.createRange();
+        selRange.selectNodeContents(ta);
+        selRange.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(selRange);
+        ta.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && !e.shiftKey && !mentionState.active) { e.preventDefault(); saveEditReply(activeEditReplyId); }
+          else if (e.key === 'Escape' && !mentionState.active) { e.preventDefault(); cancelEditReply(); }
+        });
+      }
+    }
+  }
+
+  function renderCommentThread(c) {
+    const hasReplies = c.replies && c.replies.length > 0;
+    const replyCount  = c.replies ? c.replies.length : 0;
+    const isExpanded  = expandedThreads.has(c.id);
+    const isReplying  = activeReplyInputId === c.id;
+
+    const timestampFormatted = formatTimestamp(c.timestamp);
+    const clickable    = c.timestamp !== null && c.timestamp !== undefined;
+    const cursorStyle  = clickable ? 'cursor:pointer;' : '';
+    const onclickAttr  = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
+    const dataAttrs    = `data-comment-id="${c.id}"` + (clickable ? ` data-timestamp="${c.timestamp}"` : '');
+
+    const isOwnComment = currentUserName && c.author_name === currentUserName;
+    const canEdit      = isOwnComment;
+    const canDelete    = isAdmin || isOwnComment;
+    const editBtn   = canEdit   ? `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit">✎</button>` : '';
+    const deleteBtn = canDelete ? `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete">✕</button>` : '';
+
+    const timestampPrefix = timestampFormatted ? `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : '';
+
+    const authorNameHtml = isOwnComment
+      ? `<span class="comment-author-self">${escHtml(c.author_name)}</span>`
+      : c.is_leadership
+        ? `<span class="comment-author-leadership">★ ${escHtml(c.author_name)}</span>`
+        : escHtml(c.author_name);
+    const isPrivate     = Array.isArray(c.private_to);  // null = public; [] = author-only; [...] = specific users
+    const privateBadge  = isPrivate ? `<span class="comment-private-badge" title="Private comment">🔒</span>` : '';
+    const authorLine    = `<div class="comment-author">${authorNameHtml}${privateBadge}<span class="comment-timestamp">${relativeTime(c.created_at)}</span></div>`;
+    const contentPrefix = '';
+    const isTaggedViewer    = isPrivate && currentUserName && c.private_to.includes(currentUserName);
+    const isLeadershipViewer = isPrivate && isCurrentUserLeadership && c.is_leadership && c.private_to.length > 0;
+    const showPrivateInfo   = isOwnComment || isTaggedViewer || isLeadershipViewer;
+    const authorLabel       = c.is_leadership ? 'Leadership' : (isOwnComment ? 'you' : escHtml(c.author_name));
+    const recipientsList    = isPrivate ? (c.private_to.length === 0 ? `${authorLabel} only` : `${authorLabel}${c.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const privateInfo       = (isPrivate && showPrivateInfo)
+      ? `<div class="comment-private-recipients">🔒 visible to: ${recipientsList}</div>`
+      : '';
+
+    // Footer: Reply button (only when no replies yet) + thread toggle
+    const threadToggle = replyCount > 0 ? `
+        <button class="thread-toggle-btn" onclick="event.stopPropagation(); toggleReplies(${c.id})">
+          ${isExpanded ? '▲ Hide' : '↩'} ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}
+        </button>` : '';
+
+    // When there are replies, the Reply button moves below the last reply
+    const footerReplyBtn = replyCount === 0
+      ? `<button class="reply-btn" onclick="event.stopPropagation(); showReplyInput(${c.id})">↩ Reply</button>`
+      : '';
+
+    const commentFooter = `
+        <div class="comment-footer">
+          ${footerReplyBtn}
+          ${threadToggle}
+        </div>`;
+
+    const commentItemHtml = `
+      <div class="comment-item" ${onclickAttr} ${dataAttrs} style="${cursorStyle}">
+        <div class="comment-content-wrapper">
+          ${authorLine}
+          <div class="comment-text" data-comment-id="${c.id}">${contentPrefix}${timestampPrefix}${parseMentions(c.content)}</div>
+          ${privateInfo}
+          ${commentFooter}
+        </div>
+        <div class="comment-actions">
+          ${editBtn}
+          ${deleteBtn}
+        </div>
+      </div>`;
+
+    // Replies section — inline Reply button appears after last reply
+    let repliesHtml = '';
+    if ((isExpanded || isReplying) && replyCount > 0) {
+      const inlineReplyBtn = (isExpanded && !isReplying)
+        ? `<button class="reply-btn reply-btn-inline" onclick="showReplyInput(${c.id})">↩ Reply</button>`
+        : '';
+      repliesHtml = `
+      <div class="thread-replies" id="replies-${c.id}">
+        ${c.replies.map(reply => renderReplyItem(reply)).join('')}
+        ${inlineReplyBtn}
+      </div>`;
+    }
+
+    // Inline reply input
+    let replyInputHtml = '';
+    if (isReplying) {
+      replyInputHtml = `
+      <div class="reply-input-wrap" id="reply-input-${c.id}">
+        <div class="reply-input" id="reply-textarea-${c.id}" contenteditable="true" data-placeholder="Reply to ${escHtml(c.author_name)}..." data-empty="true" role="textbox"></div>
+        <div class="reply-actions">
+          <button class="reply-cancel-btn" onclick="cancelReply()">Cancel</button>
+          <button class="reply-submit-btn" id="reply-submit-${c.id}" onclick="submitReply(${c.id})">Reply</button>
+        </div>
+      </div>`;
+    }
+
+    return `
+    <div class="comment-thread-wrapper" id="thread-${c.id}">
+      ${commentItemHtml}
+      ${repliesHtml}
+      ${replyInputHtml}
+    </div>`;
+  }
+
+  function renderReplyItem(reply) {
+    const isOwnReply = currentUserName && reply.author_name === currentUserName;
+    const canDelete  = isAdmin || isOwnReply;
+    const isEditing  = activeEditReplyId === reply.id;
+
+    if (isEditing) {
+      return `
+        <div class="thread-reply-item" id="reply-item-${reply.id}">
+          <div class="reply-input" id="edit-reply-textarea-${reply.id}" contenteditable="true" data-empty="false" role="textbox"></div>
+          <div class="reply-actions">
+            <button class="reply-cancel-btn" onclick="cancelEditReply()">Cancel</button>
+            <button class="reply-submit-btn" id="edit-reply-submit-${reply.id}" onclick="saveEditReply(${reply.id})">Save</button>
+          </div>
+        </div>`;
+    }
+
+    const editBtn   = isOwnReply
+      ? `<button class="reply-edit-btn" onclick="editReply(${reply.id})" title="Edit">✎</button>`
+      : '';
+    const deleteBtn = canDelete
+      ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
+      : '';
+    const replyIsPrivate      = Array.isArray(reply.private_to);
+    const replyPrivateBadge   = replyIsPrivate ? `<span class="comment-private-badge" title="Private reply">🔒</span>` : '';
+    const isReplyTaggedViewer    = replyIsPrivate && currentUserName && reply.private_to.includes(currentUserName);
+    // get author leadership status for reply — use renderCommentThread parent `c.is_leadership` if same author, else check reply flag
+    const replyAuthorIsLeadership = reply.is_leadership;
+    const isReplyLeadershipViewer = replyIsPrivate && isCurrentUserLeadership && replyAuthorIsLeadership && reply.private_to.length > 0;
+    const showReplyPrivateInfo    = isOwnReply || isReplyTaggedViewer || isReplyLeadershipViewer;
+    const replyAuthorLabel        = replyAuthorIsLeadership ? 'Leadership' : (isOwnReply ? 'you' : escHtml(reply.author_name));
+    const replyRecipientsList     = replyIsPrivate ? (reply.private_to.length === 0 ? `${replyAuthorLabel} only` : `${replyAuthorLabel}${reply.private_to.map(u => `, ${escHtml(u)}`).join('')}`) : '';
+    const replyPrivateInfo        = (replyIsPrivate && showReplyPrivateInfo)
+      ? `<div class="comment-private-recipients">🔒 visible to: ${replyRecipientsList}</div>`
+      : '';
+    const replyAuthorNameHtml = isOwnReply
+      ? `<span class="comment-author-self">${escHtml(reply.author_name)}</span>`
+      : reply.is_leadership
+        ? `<span class="comment-author-leadership">${escHtml(reply.author_name)}</span>`
+        : escHtml(reply.author_name);
+    return `
+      <div class="thread-reply-item" id="reply-item-${reply.id}" data-comment-id="${reply.id}">
+        <div class="reply-author">${replyAuthorNameHtml}${replyPrivateBadge}<span class="reply-timestamp">${relativeTime(reply.created_at)}</span></div>
+        <div class="reply-text">${parseMentions(reply.content)}</div>
+        ${replyPrivateInfo}
+        ${editBtn}
+        ${deleteBtn}
+      </div>`;
+  }
+
+  function editReply(replyId) {
+    activeEditReplyId = replyId;
+    // Ensure the parent thread is expanded so the edit form is visible
+    comments.forEach(c => {
+      if (c.replies && c.replies.some(r => r.id === replyId)) {
+        expandedThreads.add(c.id);
+      }
+    });
+    renderComments();
+  }
+
+  function cancelEditReply() {
+    activeEditReplyId = null;
+    renderComments();
+  }
+
+  async function saveEditReply(replyId) {
+    const ta = document.getElementById(`edit-reply-textarea-${replyId}`);
+    if (!ta) return;
+    const text = extractContent(ta);
+    if (!text) return;
+
+    const submitBtn = document.getElementById(`edit-reply-submit-${replyId}`);
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments/${replyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, comment_type: 'Comment' })
+      });
+
+      if (response.ok) {
+        activeEditReplyId = null;
+        await loadComments();
+      } else {
+        const error = await response.json();
+        alert('Error updating reply: ' + (error.error || 'Unknown error'));
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
+      }
+    } catch (error) {
+      console.error('Error updating reply:', error);
+      alert('Error updating reply. Please try again.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
+    }
+  }
+
+  function toggleReplies(commentId) {
+    if (expandedThreads.has(commentId)) {
+      expandedThreads.delete(commentId);
+    } else {
+      expandedThreads.add(commentId);
+    }
+    renderComments();
+  }
+
+  function showReplyInput(commentId) {
+    expandedThreads.add(commentId);   // expand existing replies too
+    activeReplyInputId = commentId;
+    renderComments();
+  }
+
+  function cancelReply() {
+    activeReplyInputId = null;
+    renderComments();
+  }
+
+  async function submitReply(parentId) {
+    const ta = document.getElementById(`reply-textarea-${parentId}`);
+    if (!ta) return;
+    const text = extractContent(ta);
+    if (!text) return;
+
+    const submitBtn = document.getElementById(`reply-submit-${parentId}`);
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: text,
+          author_name: currentUserName || 'Anonymous',
+          comment_type: 'Comment',
+          parent_id: parentId
+        })
+      });
+
+      if (response.ok) {
+        activeReplyInputId = null;
+        expandedThreads.add(parentId);  // keep replies visible after posting
+        await loadComments();
+      } else {
+        const error = await response.json();
+        alert('Error posting reply: ' + (error.error || 'Unknown error'));
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Reply'; }
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      alert('Error posting reply. Please try again.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Reply'; }
+    }
+  }
+
+  async function deleteComment(commentId) {
+    if (!confirm('Are you sure you want to delete this comment?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        await loadComments();
+      } else {
+        const error = await response.json();
+        alert('Error deleting comment: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert('Error deleting comment. Please try again.');
+    }
+  }
+
+  function editComment(commentId, buttonElement) {
+    // Find the comment in the comments array
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    
+    // Find the comment item element
+    const commentItem = buttonElement.closest('.comment-item');
+    const commentWrapper = commentItem.querySelector('.comment-content-wrapper');
+    
+    if (!commentWrapper) return;
+
+    // Mark as editing: hide action buttons, full-width form, suppress auto-scroll
+    commentItem.classList.add('is-editing');
+    _isEditingComment = true;
+    
+    // Store original content
+    const originalHTML = commentWrapper.innerHTML;
+    
+    // Get current text (remove any prefix like video timestamp or type indicators)
+    let currentText = comment.content;
+    // If it's an Event with the [Type - Team] prefix, extract just the note part
+    if (comment.comment_type === 'Event') {
+      const eventMatch = currentText.match(/^\[.+?\]\s*(.*)$/);
+      if (eventMatch) {
+        currentText = eventMatch[1];
+      }
+    }
+    
+    let editCommentType = comment.comment_type || 'Comment';
+    
+    // Create edit interface
+    const editHTML = `
+      <div class="comment-edit-wrap">
+        <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
+        <div class="comment-controls">
+          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private">🔒 Private</button>
+          <button class="comment-btn" id="editSaveBtn">Save</button>
+          <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
+        </div>
+        <div class="private-to-wrap" id="editPrivateToWrap">
+          <div class="private-to-label">Also visible to:</div>
+          <div class="private-to-chips" id="editPrivateToChips">
+            <input type="text" class="private-to-input" id="editPrivateToInput" placeholder="Search users…" />
+          </div>
+        </div>
+      </div>
+    `;
+    
+    commentWrapper.innerHTML = editHTML;
+    
+    const textarea = document.getElementById('editCommentInput');
+    const saveBtn = document.getElementById('editSaveBtn');
+    const cancelBtn = document.getElementById('editCancelBtn');
+
+    // Initialize edit privacy state from existing comment
+    // private_to === null  → public
+    // private_to === []    → private, visible to author only
+    // private_to === [..] → private, visible to listed users
+    editIsPrivate = comment.private_to !== null && comment.private_to !== undefined;
+    editPrivateToUsers = comment.private_to ? [...comment.private_to] : [];
+    if (editIsPrivate) {
+      const epBtn = document.getElementById('editPrivacyToggleBtn');
+      const epWrap = document.getElementById('editPrivateToWrap');
+      if (epBtn) epBtn.classList.add('active');
+      if (epWrap) epWrap.style.display = 'flex';
+      renderEditPrivateChips();
+    }
+
+    // Bind edit private-to input programmatically (inline oninput unreliable on iOS)
+    const _editPrivateInput = document.getElementById('editPrivateToInput');
+    if (_editPrivateInput) {
+      _editPrivateInput.addEventListener('input', () => {
+        handlePrivateUserInput(_editPrivateInput, addEditPrivateUser, editPrivateToUsers);
+      });
+      _editPrivateInput.addEventListener('keydown', e => handlePrivateUserKeydown(e, addEditPrivateUser));
+      _editPrivateInput.addEventListener('blur', () => setTimeout(hidePrivateUserDropdown, 200));
+    }
+
+    loadContentWithMentions(textarea, currentText);
+    bindMentionInput(textarea);
+    textarea.focus();
+    const editSelRange = document.createRange();
+    editSelRange.selectNodeContents(textarea);
+    editSelRange.collapse(false);
+    const editSel = window.getSelection();
+    editSel.removeAllRanges();
+    editSel.addRange(editSelRange);
+    
+    // Cancel function
+    const cancelEdit = () => {
+      commentItem.classList.remove('is-editing');
+      _isEditingComment = false;
+      commentWrapper.innerHTML = originalHTML;
+    };
+    
+    // Save function
+    const saveEdit = async () => {
+      let newText = extractContent(textarea);
+      if (!newText) {
+        alert('Comment cannot be empty');
+        return;
+      }
+      let commentContent = newText;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      
+      try {
+        const response = await fetch(`/film/api/games/{{ game.id }}/comments/${commentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            content: commentContent,
+            comment_type: 'Comment',
+            private_to: editIsPrivate ? editPrivateToUsers : null
+          })
+        });
+        
+        if (response.ok) {
+          _isEditingComment = false;
+          await loadComments();
+        } else {
+          const error = await response.json();
+          alert('Error updating comment: ' + (error.error || 'Unknown error'));
+          commentItem.classList.remove('is-editing');
+          _isEditingComment = false;
+          commentWrapper.innerHTML = originalHTML;
+        }
+      } catch (error) {
+        console.error('Error updating comment:', error);
+        alert('Error updating comment. Please try again.');
+        commentItem.classList.remove('is-editing');
+        _isEditingComment = false;
+        commentWrapper.innerHTML = originalHTML;
+      }
+    };
+    
+    // Event listeners
+    saveBtn.addEventListener('click', saveEdit);
+    cancelBtn.addEventListener('click', cancelEdit);
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cancelEdit();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        saveEdit();
+      }
+    });
+  }
+
+  // Point timestamp functions
+  function seekToPointTimestamp(timestamp) {
+    if (timestamp == null || timestamp == undefined) {
+      return;
+    }
+    if (player && playerReady) {
+      player.seekTo(timestamp, true);
+    }
+  }
+
+  function _addMenuHTML(pointId) {
+    return `<div class="point-add-menu-wrap" data-point-id="${pointId}">` +
+      `<div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
+    `</div>`;
+  }
+
+  let _menuWrap = null;
+
+  function toggleAddMenu(btnEl) {
+    const wrap = btnEl.closest('.point-add-menu-wrap');
+    const pointId = parseInt(wrap.getAttribute('data-point-id'));
+    const wasOpen = _menuWrap === wrap;
+    closeAddMenus();
+    if (!wasOpen) {
+      _menuWrap = wrap;
+      const popup = document.getElementById('pointAddMenuGlobal');
+      document.getElementById('pamSetTime').onclick = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); setPointTimestamp(pointId, w); };
+      document.getElementById('pamNoFilm').onclick  = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); markAsNotFilmed(pointId, w); };
+      const rect = btnEl.getBoundingClientRect();
+      popup.style.bottom  = (window.innerHeight - rect.top + 4) + 'px';
+      popup.style.right   = (window.innerWidth  - rect.right) + 'px';
+      popup.style.display = 'block';
+      wrap.classList.add('open');
+    }
+  }
+
+  function closeAddMenus() {
+    const popup = document.getElementById('pointAddMenuGlobal');
+    if (popup) popup.style.display = 'none';
+    document.querySelectorAll('.point-add-menu-wrap.open').forEach(w => w.classList.remove('open'));
+    _menuWrap = null;
+  }
+
+  document.addEventListener('click', () => closeAddMenus());
+
+  async function setPointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    if (!player || !playerReady) {
+      alert('Video player is not ready');
+      return;
+    }
+
+    const currentTime = Math.floor(player.getCurrentTime());
+    
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp_start: currentTime })
+      });
+      
+      if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = currentTime;
+        }
+
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.add('has-timestamp');
+        pointCard.setAttribute('data-timestamp', currentTime);
+        pointCard.onclick = () => seekToPointTimestamp(currentTime);
+        
+        // Replace the whole menu wrap with the timestamp display
+        const mins = Math.floor(currentTime / 60);
+        const secs = currentTime % 60;
+        const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
+        const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
+        const wrap = element.closest('.point-add-menu-wrap');
+        const target = wrap || element;
+        target.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
+      } else {
+        const error = await response.json();
+        alert('Error setting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error setting timestamp:', error);
+      alert('Error setting timestamp. Please try again.');
+    }
+  }
+
+  async function deletePointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp_start: null })
+      });
+      
+      if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = null;
+        }
+
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.remove('has-timestamp');
+        pointCard.removeAttribute('data-timestamp');
+        pointCard.onclick = null;
+        
+        // Replace timestamp and delete button with add-menu (only for admins)
+        if (isAdmin) {
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) timestamp.outerHTML = _addMenuHTML(pointId);
+        } else {
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) timestamp.remove();
+        }
+      } else {
+        const error = await response.json();
+        alert('Error deleting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting timestamp:', error);
+      alert('Error deleting timestamp. Please try again.');
+    }
+  }
+
+  async function _patchNotFilmed(pointId, newValue) {
+    return fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ not_filmed: newValue })
+    });
+  }
+
+  function _applyNotFilmedSheet(pointIndex, newValue) {
+    const mainTable = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
+    if (mainTable) {
+      const thEl = mainTable.querySelector(`thead th[data-point-index="${pointIndex}"]`);
+      if (thEl) {
+        const colIndex = Array.from(thEl.parentElement.children).indexOf(thEl) + 1;
+        thEl.classList.toggle('not-filmed', newValue);
+        thEl.classList.toggle('clickable', !newValue && thEl.hasAttribute('data-timestamp'));
+        if (newValue) { thEl.removeAttribute('onclick'); thEl.removeAttribute('data-timestamp'); }
+        mainTable.querySelectorAll(`tbody tr td:nth-child(${colIndex})`).forEach(td => {
+          td.classList.toggle('not-filmed', newValue);
+          td.classList.toggle('clickable', !newValue && td.hasAttribute('data-timestamp'));
+          if (newValue) { td.removeAttribute('onclick'); td.removeAttribute('data-timestamp'); }
+        });
+      }
+    }
+    const pinnedTable = document.querySelector('.ps-pinned-table');
+    if (pinnedTable) {
+      pinnedTable.querySelectorAll(`thead th[data-point-index="${pointIndex}"]`).forEach(th => {
+        th.classList.toggle('not-filmed', newValue);
+      });
+    }
+  }
+
+  async function markAsNotFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, true);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) { p.not_filmed = true; p.timestamp_start = null; }
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.add('not-filmed');
+      pointCard.classList.remove('has-timestamp');
+      pointCard.removeAttribute('data-timestamp');
+      pointCard.onclick = null;
+      // Remove add-menu wrap (CSS also hides it, but remove from DOM for cleanliness)
+      pointCard.querySelector('.point-add-menu-wrap')?.remove();
+      // Add badge with ✕ delete button to header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header && !header.querySelector('.not-filmed-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'not-filmed-badge';
+        badge.innerHTML = `<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed(${pointId}, this)" title="Reset to unset">✕</span>NO FILM`;
+        header.insertBefore(badge, header.querySelector('.my-point-badge')?.nextSibling || null);
+      }
+      _applyNotFilmedSheet(pointIndex, true);
+    } catch (err) {
+      console.error('markAsNotFilmed error:', err);
+      alert('Error updating point. Please try again.');
+    }
+  }
+
+  async function markAsFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, false);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) p.not_filmed = false;
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.remove('not-filmed');
+      // Remove badge (element may be the ✕ inside the badge, or the badge itself)
+      const badge = element.closest('.not-filmed-badge') || element;
+      badge.remove();
+      // Insert add-menu wrap before the point-item-header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header) header.insertAdjacentHTML('beforebegin', _addMenuHTML(pointId));
+      _applyNotFilmedSheet(pointIndex, false);
+    } catch (err) {
+      console.error('markAsFilmed error:', err);
+      alert('Error updating point. Please try again.');
+    }
+  }
+

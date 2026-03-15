@@ -1,0 +1,434 @@
+  // ========================
+  // MENTION ENGINE
+  // ========================
+  const mentionDropdownEl = (() => {
+    const el = document.createElement('div');
+    el.className = 'mention-dropdown';
+    el.style.display = 'none';
+    el.id = 'globalMentionDropdown';
+    el.addEventListener('touchstart', _dropTouchStart, { passive: true });
+    el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  let mentionState = {
+    active: false, inputEl: null, node: null,
+    atOffset: 0, caretOffset: 0,
+    selectedIndex: 0, filteredUsers: []
+  };
+
+  function updatePlaceholder(el) {
+    const h = el.innerHTML;
+    const noContent = (h === '' || h === '<br>' || h === '<div><br></div>');
+    const hasToken  = !!el.querySelector('.mention-token');
+    if (noContent && !hasToken) {
+      if (h !== '') el.innerHTML = '';
+      el.setAttribute('data-empty', 'true');
+    } else {
+      el.setAttribute('data-empty', 'false');
+    }
+  }
+
+  function makeMentionTokenEl(username) {
+    const isEnemy    = username === opponentName;
+    const isEveryone = username === 'Everyone';
+    const span = document.createElement('span');
+    span.className = 'mention-token' +
+      (isEnemy    ? ' mention-token-enemy'    : '') +
+      (isEveryone ? ' mention-token-everyone' : '');
+    span.contentEditable = 'false';
+    span.dataset.username = username;
+    span.appendChild(document.createTextNode(username));
+    const btn = document.createElement('button');
+    btn.className = 'mention-token-remove';
+    btn.type = 'button';
+    btn.textContent = '×';
+    btn.title = 'Remove mention';
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const plain = document.createTextNode(username);
+      span.parentNode.replaceChild(plain, span);
+      const r = document.createRange();
+      r.setStartAfter(plain);
+      r.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      const inputEl = plain.parentNode && plain.parentNode.closest && plain.parentNode.closest('[contenteditable]');
+      if (inputEl) updatePlaceholder(inputEl);
+    });
+    span.appendChild(btn);
+    return span;
+  }
+
+  function parseMentions(rawText) {
+    const parts = rawText.split(/(@\[[^\]]+\])/g);
+    return parts.map(part => {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) {
+        const username = m[1];
+        const isSelf     = username === currentUserName;
+        const isEnemy    = username === opponentName;
+        const isEveryone = username === 'Everyone';
+        const cls = isSelf     ? 'mention-tag mention-tag-self'
+                  : isEnemy    ? 'mention-tag mention-tag-enemy'
+                  : isEveryone ? 'mention-tag mention-tag-everyone'
+                  : 'mention-tag';
+        return `<span class="${cls}">${escHtml(username)}</span>`;
+      }
+      return escHtml(part);
+    }).join('');
+  }
+
+  function extractContent(inputEl) {
+    let result = '';
+    function walk(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        result += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.classList && node.classList.contains('mention-token')) {
+          result += `@[${node.dataset.username}]`;
+        } else if (node.classList && node.classList.contains('mention-suggestion')) {
+          result += node.textContent;
+        } else if (node.tagName === 'BR') {
+          result += '\n';
+        } else if ((node.tagName === 'DIV' || node.tagName === 'P') && result.length > 0 && !result.endsWith('\n')) {
+          result += '\n';
+          node.childNodes.forEach(walk);
+        } else {
+          node.childNodes.forEach(walk);
+        }
+      }
+    }
+    inputEl.childNodes.forEach(walk);
+    return result.trim();
+  }
+
+  function loadContentWithMentions(inputEl, rawText) {
+    inputEl.innerHTML = '';
+    const parts = rawText.split(/(@\[[^\]]+\])/g);
+    for (const part of parts) {
+      const m = part.match(/^@\[(.+)\]$/);
+      if (m) {
+        inputEl.appendChild(makeMentionTokenEl(m[1]));
+      } else if (part) {
+        inputEl.appendChild(document.createTextNode(part));
+      }
+    }
+    updatePlaceholder(inputEl);
+  }
+
+  function getMentionQuery(inputEl) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (!inputEl.contains(range.startContainer) || !range.collapsed) return null;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    if (node.parentElement && node.parentElement.closest('.mention-token,.mention-suggestion')) return null;
+    const text = node.textContent;
+    const offset = range.startOffset;
+    for (let i = offset - 1; i >= 0; i--) {
+      if (text[i] === '@') {
+        const query = text.slice(i + 1, offset);
+        if (query.includes(' ')) return null;
+        return { query, node, atOffset: i, caretOffset: offset };
+      }
+      if (/\s/.test(text[i])) return null;
+    }
+    return null;
+  }
+
+  function showMentionDropdown(inputEl, q) {
+    mentionState.active   = true;
+    mentionState.inputEl  = inputEl;
+    mentionState.node     = q.node;
+    mentionState.atOffset = q.atOffset;
+    mentionState.caretOffset = q.caretOffset;
+    mentionState.selectedIndex = 0;
+    mentionState.filteredUsers = allMentionables.filter(u => u.toLowerCase().startsWith(q.query.toLowerCase()));
+    renderMentionDropdown(inputEl);
+  }
+
+  function hideMentionDropdown() {
+    mentionDropdownEl.style.display = 'none';
+    mentionState.active  = false;
+    mentionState.inputEl = null;
+  }
+
+  // Touch-scroll guard: if finger moves > 8px between touchstart and touchend, ignore the touchend
+  let _dropTouchStartY = 0;
+  let _dropTouchScrolled = false;
+
+  function _dropTouchStart(e) {
+    _dropTouchStartY = e.touches[0].clientY;
+    _dropTouchScrolled = false;
+  }
+  function _dropTouchMove(e) {
+    if (Math.abs(e.touches[0].clientY - _dropTouchStartY) > 8) _dropTouchScrolled = true;
+  }
+
+  function positionDropdown(dropEl, anchorRect) {
+    // Use visualViewport.height so iOS keyboard is accounted for.
+    // getBoundingClientRect() is already in visual-viewport coords on iOS.
+    const vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const spaceBelow = vh - anchorRect.bottom;
+    const spaceAbove = anchorRect.top;
+    if (spaceBelow >= 100 || spaceBelow >= spaceAbove) {
+      // Show below
+      const maxH = Math.min(200, Math.max(spaceBelow - 8, 40));
+      dropEl.style.maxHeight = `${maxH}px`;
+      dropEl.style.top = `${anchorRect.bottom + 4}px`;
+    } else {
+      // Flip above — position so bottom edge sits just above the anchor
+      const maxH = Math.min(200, Math.max(spaceAbove - 8, 40));
+      dropEl.style.maxHeight = `${maxH}px`;
+      dropEl.style.top = `${Math.max(4, anchorRect.top - maxH - 4)}px`;
+    }
+    const elW = Math.min(dropEl.offsetWidth || 180, vw - 8);
+    dropEl.style.left = `${Math.max(4, Math.min(anchorRect.left - 8, vw - elW - 4))}px`;
+  }
+
+  function renderMentionDropdown(inputEl) {
+    const users = mentionState.filteredUsers;
+    if (users.length === 0) {
+      mentionDropdownEl.innerHTML = `<div class="mention-dropdown-empty">No users found</div>`;
+    } else {
+      mentionDropdownEl.innerHTML = users.map((u, i) => {
+        const isEnemy    = u === opponentName;
+        const isEveryone = u === 'Everyone';
+        const itemCls   = 'mention-dropdown-item' +
+          (isEnemy    ? ' mention-dropdown-item-enemy'    : '') +
+          (isEveryone ? ' mention-dropdown-item-everyone' : '') +
+          (i === mentionState.selectedIndex ? ' selected' : '');
+        const avatarCls = 'mention-dropdown-avatar' +
+          (isEnemy    ? ' mention-dropdown-avatar-enemy'    : '') +
+          (isEveryone ? ' mention-dropdown-avatar-everyone' : '');
+        const avatarChar = isEveryone ? '📢' : escHtml(u[0].toUpperCase());
+        const label  = isEnemy    ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` :
+                       isEveryone ? `Everyone <span style="font-size:0.65rem;opacity:0.7;">notify all members</span>` :
+                       escHtml(u);
+        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
+      }).join('');
+    }
+    let anchorRect = null;
+    // Validate caret rect — on iOS it can return (0,0) for contenteditable, so only use
+    // it if it actually overlaps the input element's bounding box.
+    const inputBox = inputEl.getBoundingClientRect();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0).cloneRange();
+      r.collapse(true);
+      const rRect = r.getBoundingClientRect();
+      if (rRect.height > 0 && rRect.top >= inputBox.top - 4 && rRect.bottom <= inputBox.bottom + 4) {
+        anchorRect = rRect;
+      }
+    }
+    if (!anchorRect) anchorRect = inputBox; // kept for potential future use
+
+    // Reparent the dropdown into the active input's container —
+    // position:absolute + DOM parent = zero coordinate math, works on all devices.
+    const container = inputEl.closest('.comment-input-wrap') ||
+                      inputEl.closest('.reply-input-wrap') ||
+                      inputEl.parentElement;
+    if (container && mentionDropdownEl.parentElement !== container) {
+      container.appendChild(mentionDropdownEl);
+    }
+    // Sit above the container
+    mentionDropdownEl.style.bottom = 'calc(100% + 4px)';
+    mentionDropdownEl.style.top    = 'auto';
+    mentionDropdownEl.style.width  = '100%';
+    mentionDropdownEl.style.left   = '0';
+    mentionDropdownEl.style.display = 'block';
+
+    // Scroll the selected item into view
+    const selectedItem = mentionDropdownEl.querySelector('.mention-dropdown-item.selected');
+    if (selectedItem) selectedItem.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectMention(username) {
+    if (!mentionState.inputEl) return;
+    const range = document.createRange();
+    range.setStart(mentionState.node, mentionState.atOffset);
+    range.setEnd(mentionState.node, mentionState.caretOffset);
+    range.deleteContents();
+    const token = makeMentionTokenEl(username);
+    range.insertNode(token);
+    const nr = document.createRange();
+    nr.setStartAfter(token);
+    nr.collapse(true);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(nr);
+    document.execCommand('insertText', false, ' ');
+    updatePlaceholder(mentionState.inputEl);
+    hideMentionDropdown();
+  }
+
+  function handleMentionInput(e) {
+    const inputEl = e.currentTarget;
+    updatePlaceholder(inputEl);
+    // Defer by one tick so iOS Safari has updated the selection before we read it
+    setTimeout(() => {
+      const q = getMentionQuery(inputEl);
+      if (q) {
+        showMentionDropdown(inputEl, q);
+      } else if (mentionState.active && mentionState.inputEl === inputEl) {
+        hideMentionDropdown();
+      }
+    }, 0);
+  }
+
+  function handleMentionKeydown(e) {
+    const inputEl = e.currentTarget;
+    const users   = mentionState.filteredUsers;
+
+    if (e.key === 'Enter') {
+      // Case 1: dropdown is open with suggestions — select the highlighted one
+      if (mentionState.active && mentionState.inputEl === inputEl && users.length > 0) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        selectMention(users[mentionState.selectedIndex]);
+        return;
+      }
+      // Case 2: dropdown not open — check for a bare @word at the caret and auto-tokenise.
+      // We do NOT call stopImmediatePropagation so the submit listener still fires,
+      // meaning the comment posts with the now-tokenised mention in one keystroke.
+      const q = getMentionQuery(inputEl);
+      if (q && q.query) {
+        const match = allMentionables.find(u => u.toLowerCase() === q.query.toLowerCase());
+        if (match) {
+          e.preventDefault(); // prevent newline; submit listener still fires
+          mentionState.inputEl    = inputEl;
+          mentionState.node       = q.node;
+          mentionState.atOffset   = q.atOffset;
+          mentionState.caretOffset = q.caretOffset;
+          selectMention(match);
+          return;
+        }
+      }
+      return;
+    }
+
+    if (!mentionState.active || mentionState.inputEl !== inputEl) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      mentionState.selectedIndex = Math.min(mentionState.selectedIndex + 1, users.length - 1);
+      renderMentionDropdown(mentionState.inputEl);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      mentionState.selectedIndex = Math.max(mentionState.selectedIndex - 1, 0);
+      renderMentionDropdown(mentionState.inputEl);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopImmediatePropagation();
+      hideMentionDropdown();
+    }
+  }
+
+  function handleMentionKeyup(e) {
+    if (e.key === ' ' || /^[.,!?;()]$/.test(e.key)) {
+      checkWordAtCaret(e.currentTarget);
+    }
+  }
+
+  function checkWordAtCaret(inputEl) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    if (!inputEl.contains(range.startContainer) || !range.collapsed) return;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    if (node.parentElement && node.parentElement.closest('.mention-token,.mention-suggestion')) return;
+    const text   = node.textContent;
+    const offset = range.startOffset;
+    if (offset < 2) return;
+    const beforeCursor = text.slice(0, offset - 1);
+    const wordMatch = beforeCursor.match(/([A-Za-z][A-Za-z0-9_-]{1,})$/);
+    if (!wordMatch) return;
+    const word      = wordMatch[1];
+    const wordStart  = beforeCursor.length - word.length;
+    const hasAtPrefix = wordStart > 0 && beforeCursor[wordStart - 1] === '@';
+    const exactUser = allMentionables.find(u => u === word);
+    const caseUser  = !exactUser && allMentionables.find(u => u.toLowerCase() === word.toLowerCase());
+    const resolvedUser = exactUser || caseUser;
+    if (!resolvedUser) return;
+    // 'Everyone' requires an explicit @ prefix to auto-tokenise
+    if (resolvedUser === 'Everyone' && !hasAtPrefix) return;
+    // Consume the @ as well if present, otherwise just keep text before word
+    const beforeAt   = hasAtPrefix ? beforeCursor.slice(0, wordStart - 1) : beforeCursor.slice(0, wordStart);
+    const after      = text.slice(wordStart + word.length); // includes the boundary char
+    const parent = node.parentNode;
+    const ref    = node.nextSibling;
+    parent.removeChild(node);
+    if (beforeAt) parent.insertBefore(document.createTextNode(beforeAt), ref);
+    parent.insertBefore(makeMentionTokenEl(resolvedUser), ref);
+    const afterNode = document.createTextNode(after);
+    parent.insertBefore(afterNode, ref);
+    const r = document.createRange();
+    r.setStart(afterNode, Math.min(1, afterNode.length));
+    r.collapse(true);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    updatePlaceholder(inputEl);
+  }
+
+  function bindMentionInput(el) {
+    el.addEventListener('input',   handleMentionInput);
+    el.addEventListener('keydown', handleMentionKeydown);
+    el.addEventListener('keyup',   handleMentionKeyup);
+    el.addEventListener('blur',    () => setTimeout(hideMentionDropdown, 150));
+    updatePlaceholder(el);
+  }
+
+  function insertMentionAt(inputEl) {
+    // Don't call focus() — onmousedown/ontouchstart + preventDefault keeps focus in the input.
+    // Calling focus() triggers a repaint which causes visible delay.
+    const sel = window.getSelection();
+    // Place caret at end if not already inside the element
+    if (!sel || sel.rangeCount === 0 || !inputEl.contains(sel.getRangeAt(0).startContainer)) {
+      inputEl.focus();
+      const r = document.createRange();
+      r.selectNodeContents(inputEl);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    // Insert '@' as a text node at the caret
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const atNode = document.createTextNode('@');
+    range.insertNode(atNode);
+    // Move caret to after the '@' — use setStart on the text node itself
+    // so getMentionQuery sees a TEXT_NODE container as required
+    const newRange = document.createRange();
+    newRange.setStart(atNode, atNode.length);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    updatePlaceholder(inputEl);
+    // Trigger mention engine directly — no input event needed
+    const q = getMentionQuery(inputEl);
+    if (q) showMentionDropdown(inputEl, q);
+  }
+
+  // Build arrays of existing field values from ALL games
+  const existingValues = {
+    pull_play: new Set({{ point_field_options.pull_play|tojson }}),
+    defense_type: new Set({{ point_field_options.defense_type|tojson }}),
+    offense_faced: new Set({{ point_field_options.offense_faced|tojson }})
+  };
+
+  // Point players data — each value is [{name, sub}] where sub is null|"off"|"on"
+  {% if player_sheet_data %}
+  const pointPlayersData = {{ player_sheet_data['point_players_js']|tojson }};
+  {% else %}
+  const pointPlayersData = {};
+  {% endif %}
+
+  // ── Player Sheet Edit Mode ────────────────────────────────────────────
+  let playerSheetEditMode = false;
+  let psChanges = {}; // key: "pointId::playerName", value: {in_point: bool, sub: null|"off"|"on"}
+
