@@ -1,0 +1,31 @@
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Comments</h2>
+        <span class="count-badge" id="commentCountBadge">0</span>
+        <button class="add-comment-btn" id="addCommentBtn" onclick="toggleCommentInput()">+ Comment</button>
+      </div>
+      <div class="comments-area">
+        <div class="comment-input-wrap" id="commentInputWrap">
+          <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
+          <div class="comment-controls">
+            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒 Private</button>
+            <button class="comment-btn" onclick="addComment()">Post Comment</button>
+            <button class="mention-at-btn"
+              onmousedown="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
+              ontouchstart="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
+              title="Mention a user">@</button>
+          </div>
+          <div class="private-to-wrap" id="privateToWrap">
+            <div class="private-to-label">Also visible to:</div>
+            <div class="private-to-chips" id="privateToChips">
+              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…" />
+            </div>
+          </div>
+        </div>
+        <div class="comments-list" id="commentsList">
+          <div class="empty-state">No comments yet.<br>Be the first to share your thoughts!</div>
+        </div>
+      </div>
+    </div>
+  </div>

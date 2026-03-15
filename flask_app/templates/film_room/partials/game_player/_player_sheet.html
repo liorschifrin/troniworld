@@ -1,0 +1,122 @@
+{% if player_sheet_data %}
+<div class="player-sheet-section">
+  <div class="player-sheet-toggle" onclick="togglePlayerSheet()">
+    <h3>📋 View Player Sheet</h3>
+    <div style="display:flex;align-items:center;gap:10px;">
+      {% if current_user and current_user.is_admin %}
+      <button id="psEditBtn" class="ps-edit-btn" onclick="event.stopPropagation(); enterPlayerSheetEdit()">✎ Edit Roster</button>
+      {% endif %}
+      <span class="toggle-icon" id="toggleIcon">▼</span>
+    </div>
+  </div>
+  <div class="player-sheet-content" id="playerSheetContent">
+    <div class="player-sheet-wrapper">
+      {% if current_user and current_user.is_admin %}
+      <div class="ps-edit-bar" id="psEditBar" style="display:none;">
+        <button class="ps-save-btn" onclick="savePlayerSheetChanges()">💾 Save Changes</button>
+        <button class="ps-cancel-btn" onclick="exitPlayerSheetEdit()">✕ Cancel</button>
+        <span class="ps-edit-hint">Click player cells to toggle on/off for each point</span>
+      </div>
+      {% endif %}
+      <table class="player-sheet-table">
+        <thead>
+          <tr>
+            <th>O/D</th>
+            {% for point in player_sheet_data['points'] %}
+            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                data-point-index="{{ point.point_index }}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+              {{ point.point_index }}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          <!-- O/D Row -->
+          <tr>
+            <td class="row-label">O/D</td>
+            {% for point in player_sheet_data['points'] %}
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+              {% if point.tron_o %}O{% else %}D{% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          
+          <!-- TRON Row -->
+          <tr>
+            <td class="row-label">TRON</td>
+            {% set ns = namespace(tron_score=0) %}
+            {% for point in player_sheet_data['points'] %}
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+              {% if point.tron_point %}
+              {% set ns.tron_score = ns.tron_score + 1 %}
+              <span class="tron-point">{{ ns.tron_score }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          
+          <!-- Enemy Row -->
+          <tr>
+            <td class="row-label">Enemy</td>
+            {% set ns = namespace(enemy_score=0) %}
+            {% for point in player_sheet_data['points'] %}
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+              {% if not point.tron_point %}
+              {% set ns.enemy_score = ns.enemy_score + 1 %}
+              <span class="opponent-point">{{ ns.enemy_score }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          
+          <!-- Empty separator row -->
+          <tr>
+            <td colspan="{{ player_sheet_data['points']|length + 1 }}" style="background: transparent; border: none; padding: 4px;"></td>
+          </tr>
+          
+          <!-- Player Rows -->
+          {% for player_name in player_sheet_data['players'] %}
+          <tr{% if current_user and current_user.player and player_name == current_user.player.name %} class="ps-my-row"{% endif %}>
+            <td class="player-name{% if current_user and current_user.player and player_name == current_user.player.name %} ps-my-name{% endif %}">{{ player_name }}</td>
+            {% set ns = namespace(player_count=0) %}
+            {% for point in player_sheet_data['points'] %}
+            {% set pt_subs = player_sheet_data.get('point_injury_subs', {}).get(point.point_index, {}) %}
+            {% set is_sub_off = player_name in pt_subs.get('off', []) %}
+            {% set is_sub_on = player_name in pt_subs.get('on', []) %}
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                data-point-id="{{ point.id }}"
+                data-player="{{ player_name }}"
+                data-in-point="{% if player_name in player_sheet_data['point_players'][point.point_index] %}1{% else %}0{% endif %}"
+                data-sub-status="{% if is_sub_off %}off{% elif is_sub_on %}on{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}
+                onclick="handlePsCellClick(this, event, {% if not point.not_filmed and point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %})">
+              {% if player_name in player_sheet_data['point_players'][point.point_index] %}
+              {% set ns.player_count = ns.player_count + 1 %}
+              {% if is_sub_off %}
+              <span class="ps-count">{{ ns.player_count }}/</span>
+              {% elif is_sub_on %}
+              <span class="ps-count">/{{ ns.player_count }}</span>
+              {% else %}
+              <span class="ps-count">{{ ns.player_count }}</span>
+              {% endif %}
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% if player_sheet_data.get('separator_index') and loop.index0 + 1 == player_sheet_data['separator_index'] %}
+          <!-- Section separator row -->
+          <tr>
+            <td colspan="{{ player_sheet_data['points']|length + 1 }}" style="background: transparent; border: none; padding: 8px;"></td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
