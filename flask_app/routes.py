@@ -241,7 +241,7 @@ def _create_article_notifs(comment, post_id, author_username):
     for s in siblings:
         _set(s.author_name, 'thread')
 
-    now = _datetime.now(_tz.utc)
+    now = _datetime.utcnow()
     for uname, ntype in priority.items():
         notif = ArticleCommentNotification(
             recipient_username=uname,

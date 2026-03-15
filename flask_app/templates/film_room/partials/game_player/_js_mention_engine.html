@@ -8,6 +8,25 @@
     el.id = 'globalMentionDropdown';
     el.addEventListener('touchstart', _dropTouchStart, { passive: true });
     el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
+    el.addEventListener('mousedown', function (event) {
+      const item = event.target.closest('.mention-dropdown-item');
+      if (!item) return;
+      event.preventDefault();
+      const user = item.dataset.user;
+      if (typeof selectMention === 'function') {
+        selectMention(user);
+      }
+    });
+    el.addEventListener('touchend', function (event) {
+      const item = event.target.closest('.mention-dropdown-item');
+      if (!item) return;
+      if (typeof _dropTouchScrolled !== 'undefined' && _dropTouchScrolled) return;
+      event.preventDefault();
+      const user = item.dataset.user;
+      if (typeof selectMention === 'function') {
+        selectMention(user);
+      }
+    });
     document.body.appendChild(el);
     return el;
   })();
@@ -211,7 +230,7 @@
         const label  = isEnemy    ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` :
                        isEveryone ? `Everyone <span style="font-size:0.65rem;opacity:0.7;">notify all members</span>` :
                        escHtml(u);
-        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
+        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
       }).join('');
     }
     let anchorRect = null;
