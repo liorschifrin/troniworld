@@ -1,14 +1,19 @@
 from flask import jsonify, request
 from datetime import datetime, timezone
 import json
+import logging
 import re
 
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import flag_modified
 
 from . import app, db
 from .models import Comment, Game, Point, User, VideoWatchSession, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .film_helpers import fmt_dt_est
+
+logger = logging.getLogger(__name__)
 
 
 def _create_notifications_for_comment(comment, game_id, author_username, author_is_leadership):
@@ -29,7 +34,7 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
     Author is never notified for their own comment.
     """
 
-    print("Debug: Creating notification for comment with text:", comment.content)
+    logger.debug("Creating notification for comment with text: %s", comment.content)
 
     PRIORITY = {'private': 5, 'everyone': 4, 'mention': 3, 'reply': 2, 'thread': 1}
     notif_map = {}  # username -> notification_type
@@ -60,21 +65,25 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
     if is_private:
         try:
             private_list = json.loads(comment.private_to)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.warning("Failed to parse private_to for comment %s: %s", comment.id, e)
             private_list = []
-        for uname in private_list:
-            if uname and User.query.filter_by(username=uname).first():
-                _set(uname, 'private')
+        if private_list:
+            valid_users = {u.username for u in User.query.filter(User.username.in_(private_list)).all()}
+            for uname in private_list:
+                if uname and uname in valid_users:
+                    _set(uname, 'private')
     else:
         mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
-        print("Debug: Found mention names in comment:", mention_names)
-        for uname in mention_names:
-            if uname == 'Everyone' and author_is_leadership:
-                print("Debug: Author is leadership and mentioned @Everyone, adding notifications for all film users except the author.")
-                for u in User.query.all():
-                    _set(u.username, 'everyone')
-            else:
-                if User.query.filter_by(username=uname).first():
+        logger.debug("Found mention names in comment: %s", mention_names)
+        if mention_names:
+            all_users = {u.username for u in User.query.all()}
+            for uname in mention_names:
+                if uname == 'Everyone' and author_is_leadership:
+                    logger.debug("Author is leadership and mentioned @Everyone, adding notifications for all film users except the author.")
+                    for username in all_users:
+                        _set(username, 'everyone')
+                elif uname in all_users:
                     _set(uname, 'mention')
 
     for uname, ntype in notif_map.items():
@@ -525,6 +534,7 @@ def get_notifications():
     current_user = get_current_user()
     notifs = (
         CommentNotification.query
+        .options(joinedload(CommentNotification.comment), joinedload(CommentNotification.game))
         .filter_by(recipient_username=current_user.username)
         .order_by(CommentNotification.created_at.desc())
         .limit(50)
@@ -735,10 +745,14 @@ def toggle_game_watched(game_id):
         db.session.commit()
         return jsonify({'watched': False, 'game_id': game_id})
     else:
-        record = GameWatched(user_id=current_user.id, game_id=game_id)
-        db.session.add(record)
-        db.session.commit()
-        return jsonify({'watched': True, 'game_id': game_id})
+        try:
+            record = GameWatched(user_id=current_user.id, game_id=game_id)
+            db.session.add(record)
+            db.session.commit()
+            return jsonify({'watched': True, 'game_id': game_id})
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify({'watched': True, 'game_id': game_id})
 
 
 @app.route('/film/api/user/<username>/watched-games', endpoint='get_user_watched_games')
