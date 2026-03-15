@@ -73,7 +73,7 @@ def manage_users():
         elif action == 'delete':
             user_id = request.form.get('user_id')
             if user_id:
-                user_to_delete = User.query.get(user_id)
+                user_to_delete = db.session.get(User, user_id)
                 if user_to_delete:
                     if user_to_delete.id == current_user.id:
                         flash('You cannot delete your own account.', 'error')
@@ -92,7 +92,7 @@ def manage_users():
             role_type = request.form.get('role_type')  # 'admin' or 'leadership'
 
             if user_id and role_type:
-                user_to_update = User.query.get(user_id)
+                user_to_update = db.session.get(User, user_id)
                 if user_to_update:
                     try:
                         if role_type == 'admin':

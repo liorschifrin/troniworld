@@ -124,7 +124,7 @@ def test_delete_user_action(client):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    assert User.query.get(target.id) is None
+    assert db.session.get(User, target.id) is None
 
 
 def test_delete_self_flashes_error(client):
@@ -137,7 +137,7 @@ def test_delete_self_flashes_error(client):
         follow_redirects=True,
     )
     assert b'cannot delete your own' in rv.data
-    assert User.query.get(admin.id) is not None
+    assert db.session.get(User, admin.id) is not None
 
 
 # ── Toggle role ───────────────────────────────────────────────────────────────

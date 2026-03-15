@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import re
 
@@ -43,7 +43,7 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
 
     # ── Reply-thread notifications ────────────────────────────────────────
     if comment.parent_id is not None:
-        parent = Comment.query.get(comment.parent_id)
+        parent = db.session.get(Comment, comment.parent_id)
         if parent:
             _set(parent.author_name, 'reply')
             # Everyone else who already replied in this thread
@@ -479,7 +479,7 @@ def track_watch_time(game_id):
             # Update existing session
             if seconds_watched > 0:
                 watch_session.watch_duration_seconds += seconds_watched
-            watch_session.last_updated = datetime.utcnow()
+            watch_session.last_updated = datetime.now(timezone.utc)
 
         # Always update last known playback position
         if playback_position is not None:
@@ -566,7 +566,7 @@ def mark_notification_read(notif_id):
     ).first_or_404()
     if not notif.is_read:
         notif.is_read = True
-        notif.read_at = datetime.utcnow()
+        notif.read_at = datetime.now(timezone.utc)
         db.session.commit()
     return jsonify({'success': True})
 
@@ -576,7 +576,7 @@ def mark_notification_read(notif_id):
 def mark_all_notifications_read():
     """Mark all unread notifications for the current user as read."""
     current_user = get_current_user()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     CommentNotification.query.filter_by(
         recipient_username=current_user.username, is_read=False
     ).update({'is_read': True, 'read_at': now})

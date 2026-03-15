@@ -256,7 +256,7 @@ def test_delete_comment_by_author(client):
 
     rv = client.delete(f'/film/api/games/{g.id}/comments/{c.id}')
     assert rv.status_code == 200
-    assert Comment.query.get(c.id) is None
+    assert db.session.get(Comment, c.id) is None
 
 
 def test_delete_comment_by_admin_succeeds(client):
