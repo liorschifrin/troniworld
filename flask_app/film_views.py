@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
@@ -7,12 +7,10 @@ import io
 import json
 import os
 
-from . import db
+from . import app, db
 from .models import Player, Game, Point, Tournament, User, Comment, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .film_helpers import fmt_dt_est
-
-film_views_bp = Blueprint('film_views', __name__)
 
 
 def link_or_create_user_for_player(player):
@@ -46,7 +44,7 @@ def link_or_create_user_for_player(player):
             db.session.flush()
 
 
-@film_views_bp.route('/film/my-games', endpoint='my_games')
+@app.route('/film/my-games', endpoint='my_games')
 @login_required
 def my_games():
     current_user = get_current_user()
@@ -152,7 +150,7 @@ def my_games():
                          my_comments=my_comments)
 
 
-@film_views_bp.route('/film/data', endpoint='tron_data')
+@app.route('/film/data', endpoint='tron_data')
 @login_required
 def tron_data():
     """Team-wide game data and statistics page."""
@@ -305,7 +303,7 @@ def tron_data():
     )
 
 
-@film_views_bp.route('/film/games', endpoint='games_list')
+@app.route('/film/games', endpoint='games_list')
 @login_required
 def games_list():
     current_user = get_current_user()
@@ -360,7 +358,7 @@ def games_list():
     )
 
 
-@film_views_bp.route('/film/games/<int:game_id>', endpoint='view_game')
+@app.route('/film/games/<int:game_id>', endpoint='view_game')
 @login_required
 def view_game(game_id):
     current_user = get_current_user()
@@ -448,7 +446,7 @@ def view_game(game_id):
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users, is_watched=is_watched)
 
 
-@film_views_bp.route('/film/games/new', methods=['GET', 'POST'], endpoint='new_game')
+@app.route('/film/games/new', methods=['GET', 'POST'], endpoint='new_game')
 @admin_required
 def new_game():
     current_user = get_current_user()
@@ -530,7 +528,7 @@ def new_game():
     return render_template('film_room/forms/new_game.html', current_user=current_user, tournaments=tournaments)
 
 
-@film_views_bp.route('/film/games/<int:game_id>/edit', methods=['GET', 'POST'], endpoint='edit_game')
+@app.route('/film/games/<int:game_id>/edit', methods=['GET', 'POST'], endpoint='edit_game')
 @admin_required
 def edit_game(game_id):
     current_user = get_current_user()
@@ -610,7 +608,7 @@ def edit_game(game_id):
     return render_template('film_room/forms/edit_game.html', current_user=current_user, game=game, tournaments=tournaments)
 
 
-@film_views_bp.route('/film/tournaments/new', methods=['GET', 'POST'], endpoint='new_tournament')
+@app.route('/film/tournaments/new', methods=['GET', 'POST'], endpoint='new_tournament')
 @admin_required
 def new_tournament():
     current_user = get_current_user()
@@ -641,7 +639,7 @@ def new_tournament():
     return render_template('film_room/forms/new_tournament.html', current_user=current_user)
 
 
-@film_views_bp.route('/film/games/<int:game_id>/upload_csv', methods=['GET', 'POST'], endpoint='upload_game_csv')
+@app.route('/film/games/<int:game_id>/upload_csv', methods=['GET', 'POST'], endpoint='upload_game_csv')
 @admin_required
 def upload_game_csv(game_id):
     """Upload CSV to populate game points and player data"""
@@ -852,7 +850,7 @@ def upload_game_csv(game_id):
     return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
 
 
-@film_views_bp.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'], endpoint='delete_player_sheet')
+@app.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'], endpoint='delete_player_sheet')
 @admin_required
 def delete_player_sheet(game_id):
     """Clear player sheet assignments without deleting point/timestamp data."""
@@ -879,7 +877,7 @@ def delete_player_sheet(game_id):
     return redirect(url_for('view_game', game_id=game.id))
 
 
-@film_views_bp.route('/film/analytics', endpoint='analytics_dashboard')
+@app.route('/film/analytics', endpoint='analytics_dashboard')
 @admin_required
 def analytics_dashboard():
     """Admin analytics dashboard showing user engagement metrics"""
