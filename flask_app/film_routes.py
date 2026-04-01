@@ -1610,7 +1610,17 @@ def get_watch_progress(game_id):
 def analytics_dashboard():
     """Admin analytics dashboard showing user engagement metrics"""
     current_user = get_current_user()
-    
+
+    # ── Game / tournament filter (same pattern as tron_data) ────────────
+    all_games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+    all_tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name).all()
+
+    selected_ids = request.args.getlist('game_ids', type=int)
+    if selected_ids:
+        selected_id_set = set(selected_ids)
+    else:
+        selected_id_set = {g.id for g in all_games}
+
     # Get all users
     users = User.query.all()
 
@@ -1623,18 +1633,21 @@ def analytics_dashboard():
 
     # Build analytics data for each user
     user_analytics = []
-    
+
     for user in users:
         # Count logins
         login_count = LoginEvent.query.filter_by(user_id=user.id).count()
-        
-        # Get total watch time across all games
+
+        # Get total watch time for selected games only
         total_watch_time_result = db.session.query(
             func.sum(VideoWatchSession.watch_duration_seconds)
-        ).filter_by(user_id=user.id).scalar()
+        ).filter(
+            VideoWatchSession.user_id == user.id,
+            VideoWatchSession.game_id.in_(selected_id_set),
+        ).scalar()
         total_watch_minutes = (total_watch_time_result or 0) / 60.0
-        
-        # Get watch time per game
+
+        # Get watch time per game (filtered to selected games)
         game_watch_times = db.session.query(
             Game.id,
             Game.title,
@@ -1643,11 +1656,12 @@ def analytics_dashboard():
         ).join(
             VideoWatchSession, VideoWatchSession.game_id == Game.id
         ).filter(
-            VideoWatchSession.user_id == user.id
+            VideoWatchSession.user_id == user.id,
+            Game.id.in_(selected_id_set),
         ).group_by(
             Game.id, Game.title, Game.opponent
         ).all()
-        
+
         game_breakdown = []
         for game_id, title, opponent, total_seconds in game_watch_times:
             game_breakdown.append({
@@ -1656,10 +1670,10 @@ def analytics_dashboard():
                 'opponent': opponent,
                 'minutes_watched': (total_seconds or 0) / 60.0
             })
-        
+
         # Sort game breakdown by minutes watched (descending)
         game_breakdown.sort(key=lambda x: x['minutes_watched'], reverse=True)
-        
+
         # Count comments made by this user
         # Comments store author_name, so we match by username
         comment_count = Comment.query.filter_by(author_name=user.username).count()
@@ -1676,7 +1690,11 @@ def analytics_dashboard():
         leadership_notif_total = _ldr_q.count()
         leadership_notif_read  = _ldr_q.filter(CommentNotification.is_read == True).count()
 
-        watched_count = GameWatched.query.filter_by(user_id=user.id).count()
+        # Count games explicitly marked watched (filtered to selected games)
+        watched_count = GameWatched.query.filter(
+            GameWatched.user_id == user.id,
+            GameWatched.game_id.in_(selected_id_set),
+        ).count()
 
         user_analytics.append({
             'user': user,
@@ -1688,21 +1706,24 @@ def analytics_dashboard():
             'leadership_notif_read':  leadership_notif_read,
             'watched_count': watched_count,
         })
-    
+
     # Sort by total watch minutes (most engaged users first)
     user_analytics.sort(key=lambda x: x['total_watch_minutes'], reverse=True)
-    
+
     # Calculate totals
     total_unique_users = len([u for u in user_analytics if u['login_count'] > 0])
     total_watch_minutes = sum([u['total_watch_minutes'] for u in user_analytics])
     total_comments = sum([u['comment_count'] for u in user_analytics])
-    
-    return render_template('film_room/pages/analytics_dashboard.html', 
+
+    return render_template('film_room/pages/analytics_dashboard.html',
                           current_user=current_user,
                           user_analytics=user_analytics,
                           total_unique_users=total_unique_users,
                           total_watch_minutes=round(total_watch_minutes, 1),
-                          total_comments=total_comments)
+                          total_comments=total_comments,
+                          all_games=all_games,
+                          all_tournaments=all_tournaments,
+                          selected_ids=selected_ids)
 
 
 # =========================
