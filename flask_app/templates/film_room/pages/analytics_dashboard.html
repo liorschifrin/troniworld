@@ -444,6 +444,193 @@
   .cm-recipients { font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); margin-top:3px; }
   .detail-active { border-bottom-color: var(--lime) !important; color: var(--lime); }
 
+  /* ── Game / tournament filter panel ── */
+  .filter-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+
+  .filter-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .filter-toggle-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .filter-active-badge {
+    background: rgba(200,241,53,0.15);
+    color: var(--lime);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid rgba(200,241,53,0.3);
+  }
+
+  .filter-toggle-arrow {
+    font-size: 0.7rem;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .filter-panel.open .filter-toggle-arrow { transform: rotate(180deg); }
+
+  .filter-body {
+    display: none;
+    padding: 0 18px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .filter-panel.open .filter-body { display: block; }
+
+  .filter-master-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0 8px;
+  }
+
+  .filter-master-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .filter-master-btn:hover { border-color: var(--lime); color: var(--lime); }
+
+  .filter-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .filter-group {
+    background: rgba(0,0,0,0.15);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+
+  .filter-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+
+  .filter-group-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    color: var(--lime);
+  }
+
+  .filter-group-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .filter-games-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .filter-game-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .filter-game-item input[type=checkbox] {
+    accent-color: var(--lime);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .filter-game-item label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    line-height: 1.2;
+  }
+
+  .filter-game-item label .fg-opp {
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+
+  .filter-apply-row {
+    display: flex;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .filter-apply-btn {
+    background: var(--lime);
+    color: var(--field);
+    border: none;
+    border-radius: 5px;
+    padding: 8px 18px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .filter-apply-btn:hover { opacity: 0.85; }
+
+  .filter-reset-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 5px;
+    padding: 8px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .filter-reset-btn:hover { border-color: var(--lime); color: var(--lime); }
+
   @media (max-width: 900px) {
     .summary-grid {
       grid-template-columns: 1fr;
@@ -465,6 +652,106 @@
 <div class="analytics-container">
   <h1 class="page-title">Analytics Dashboard</h1>
   <p class="page-subtitle">User engagement and viewing metrics</p>
+
+  {# ── Game / tournament filter ── #}
+  {% set is_filtered = selected_ids | length > 0 %}
+
+  {# Group games by tournament #}
+  {% set tourney_map = {} %}
+  {% for t in all_tournaments %}
+    {% set _ = tourney_map.update({t.id: {'tournament': t, 'games': []}}) %}
+  {% endfor %}
+  {% set no_tourney_games = [] %}
+  {% for g in all_games %}
+    {% if g.tournament_id and g.tournament_id in tourney_map %}
+      {% set _ = tourney_map[g.tournament_id]['games'].append(g) %}
+    {% else %}
+      {% set _ = no_tourney_games.append(g) %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="filter-panel {% if is_filtered %}open{% endif %}" id="filterPanel">
+    <div class="filter-toggle" onclick="document.getElementById('filterPanel').classList.toggle('open')">
+      <div class="filter-toggle-left">
+        <span class="filter-toggle-label">Filter Games</span>
+        {% if is_filtered %}
+          <span class="filter-active-badge">{{ selected_ids | length }} of {{ all_games | length }} selected</span>
+        {% endif %}
+      </div>
+      <span class="filter-toggle-arrow">▼</span>
+    </div>
+    <div class="filter-body">
+      <form method="get" action="" id="filterForm">
+        <div class="filter-master-row">
+          <button type="button" class="filter-master-btn" onclick="filterSelectAll(true)">Select All</button>
+          <button type="button" class="filter-master-btn" onclick="filterSelectAll(false)">Clear All</button>
+        </div>
+        <div class="filter-groups">
+
+          {% for t_id, t_data in tourney_map.items() %}
+            {% if t_data.games %}
+            <div class="filter-group">
+              <div class="filter-group-header">
+                <input type="checkbox" class="group-check" data-group="{{ t_id }}"
+                       onchange="filterGroupChange(this)"
+                       {% if not is_filtered or t_data.games | selectattr('id', 'in', selected_ids) | list | length == t_data.games | length %}checked{% endif %}>
+                <span class="filter-group-name">{{ t_data.tournament.name }}</span>
+                <span class="filter-group-count">({{ t_data.games | length }} game{{ 's' if t_data.games | length != 1 else '' }})</span>
+              </div>
+              <div class="filter-games-grid">
+                {% for g in t_data.games %}
+                <div class="filter-game-item">
+                  <input type="checkbox" name="game_ids" value="{{ g.id }}" id="afg_{{ g.id }}"
+                         data-group="{{ t_id }}"
+                         onchange="updateGroupCheck({{ t_id }})"
+                         {% if not is_filtered or g.id in selected_ids %}checked{% endif %}>
+                  <label for="afg_{{ g.id }}">
+                    vs {{ g.opponent }}
+                    {% if g.game_date %}<span class="fg-opp"> · {{ g.game_date }}</span>{% endif %}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+
+          {% if no_tourney_games %}
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <input type="checkbox" class="group-check" data-group="no_tourney"
+                     onchange="filterGroupChange(this)"
+                     {% if not is_filtered or no_tourney_games | selectattr('id', 'in', selected_ids) | list | length == no_tourney_games | length %}checked{% endif %}>
+              <span class="filter-group-name">No Tournament</span>
+              <span class="filter-group-count">({{ no_tourney_games | length }} game{{ 's' if no_tourney_games | length != 1 else '' }})</span>
+            </div>
+            <div class="filter-games-grid">
+              {% for g in no_tourney_games %}
+              <div class="filter-game-item">
+                <input type="checkbox" name="game_ids" value="{{ g.id }}" id="afg_{{ g.id }}"
+                       data-group="no_tourney"
+                       onchange="updateGroupCheck('no_tourney')"
+                       {% if not is_filtered or g.id in selected_ids %}checked{% endif %}>
+                <label for="afg_{{ g.id }}">
+                  vs {{ g.opponent }}
+                  {% if g.game_date %}<span class="fg-opp"> · {{ g.game_date }}</span>{% endif %}
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+        <div class="filter-apply-row">
+          <button type="submit" class="filter-apply-btn">Apply Filter</button>
+          {% if is_filtered %}
+            <a href="{{ url_for('analytics_dashboard') }}" class="filter-reset-btn">Reset</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Summary Statistics -->
   <div class="summary-grid">
@@ -826,5 +1113,35 @@ function _escHtml(str) {
   d.appendChild(document.createTextNode(str || ''));
   return d.innerHTML;
 }
+
+function filterSelectAll(checked) {
+  document.querySelectorAll('#filterForm input[type=checkbox]').forEach(cb => cb.checked = checked);
+}
+
+function filterGroupChange(groupCb) {
+  const group = groupCb.dataset.group;
+  document.querySelectorAll(`#filterForm input[name=game_ids][data-group="${group}"]`)
+    .forEach(cb => cb.checked = groupCb.checked);
+}
+
+function updateGroupCheck(group) {
+  const items = [...document.querySelectorAll(`#filterForm input[name=game_ids][data-group="${group}"]`)];
+  const groupCb = document.querySelector(`.group-check[data-group="${group}"]`);
+  if (!groupCb) return;
+  const allChecked = items.every(c => c.checked);
+  const noneChecked = items.every(c => !c.checked);
+  groupCb.indeterminate = !allChecked && !noneChecked;
+  groupCb.checked = allChecked;
+}
+
+// Sync indeterminate state on page load
+document.querySelectorAll('.group-check').forEach(gc => {
+  const group = gc.dataset.group;
+  const items = [...document.querySelectorAll(`#filterForm input[name=game_ids][data-group="${group}"]`)];
+  const allChecked = items.every(c => c.checked);
+  const noneChecked = items.every(c => !c.checked);
+  gc.indeterminate = !allChecked && !noneChecked;
+  gc.checked = allChecked;
+});
 </script>
 {% endblock %}
