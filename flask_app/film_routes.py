@@ -447,6 +447,12 @@ def tron_data():
         all_games = [g for g in all_games if not g.is_hidden]
     all_tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name).all()
 
+    # Only expose games that have points data in the filter panel
+    game_ids_with_points = {
+        row[0] for row in db.session.query(Point.game_id).distinct().all()
+    }
+    all_games = [g for g in all_games if g.id in game_ids_with_points]
+
     # ── Filter by selected game IDs (default = all) ─────────────────
     selected_ids = request.args.getlist('game_ids', type=int)
     if selected_ids:
