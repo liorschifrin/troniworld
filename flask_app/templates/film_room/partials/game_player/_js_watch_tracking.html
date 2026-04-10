@@ -1,0 +1,143 @@
+  // =========================
+  // VIDEO WATCH TIME TRACKING
+  // =========================
+  let watchSessionId = null;
+  let lastTrackTime = 0;
+  let accumulatedWatchSeconds = 0;
+  const TRACK_INTERVAL_SECONDS = 10; // Send tracking data every 10 seconds
+
+  function sendWatchTimeTracking() {
+    if (accumulatedWatchSeconds <= 0 && !watchSessionId) return;
+
+    const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
+    const data = {
+      seconds_watched: accumulatedWatchSeconds,
+      session_id: watchSessionId,
+      playback_position: currentPosition
+    };
+
+    fetch('/film/api/games/{{ game.id }}/track-watch-time', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        // Update session ID for future requests
+        watchSessionId = result.session_id;
+        // Reset accumulated time
+        accumulatedWatchSeconds = 0;
+      }
+    })
+    .catch(error => {
+      console.error('Error tracking watch time:', error);
+    });
+  }
+
+  function trackVideoWatchTime() {
+    if (!player || !playerReady) return;
+
+    try {
+      const state = player.getPlayerState();
+      const currentTime = Date.now() / 1000; // Current timestamp in seconds
+
+      // Only track time when video is actually playing
+      if (state === YT.PlayerState.PLAYING) {
+        if (lastTrackTime > 0) {
+          const elapsed = currentTime - lastTrackTime;
+          // Only add if elapsed time is reasonable (prevent tracking when tab was inactive)
+          if (elapsed < 2) {
+            accumulatedWatchSeconds += elapsed;
+            
+            // Send tracking data if we've accumulated enough time
+            if (accumulatedWatchSeconds >= TRACK_INTERVAL_SECONDS) {
+              sendWatchTimeTracking();
+            }
+          }
+        }
+        lastTrackTime = currentTime;
+      } else {
+        // Reset last track time when video is not playing
+        lastTrackTime = 0;
+        // Send any accumulated time when video is paused/stopped
+        if (accumulatedWatchSeconds > 0) {
+          sendWatchTimeTracking();
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  // Send watch time before user leaves the page
+  window.addEventListener('beforeunload', () => {
+    if (accumulatedWatchSeconds > 0 || watchSessionId) {
+      // Use sendBeacon for reliable tracking on page unload
+      const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
+      const payload = new Blob(
+        [JSON.stringify({
+          seconds_watched: accumulatedWatchSeconds,
+          session_id: watchSessionId,
+          playback_position: currentPosition
+        })],
+        { type: 'application/json' }
+      );
+      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', payload);
+    }
+  });
+
+  function toggleTheaterMode() {
+    const layout = document.querySelector('.layout');
+    const btn = document.getElementById('vcTheaterBtn');
+    layout.classList.toggle('theater-mode');
+    const on = layout.classList.contains('theater-mode');
+    document.body.classList.toggle('theater-mode', on);
+    btn.classList.toggle('vc-active', on);
+    // Always collapse the comment input when switching modes so state is consistent
+    const wrap = document.getElementById('commentInputWrap');
+    const addBtn = document.getElementById('addCommentBtn');
+    if (wrap)   wrap.classList.remove('mobile-open');
+    if (addBtn) addBtn.classList.remove('active');
+    // Persist preference
+    try { localStorage.setItem('theaterMode', on ? '1' : '0'); } catch(e) {}
+  }
+
+  // Restore theater mode preference on load
+  (function() {
+    try {
+      if (localStorage.getItem('theaterMode') === '1') {
+        const layout = document.querySelector('.layout');
+        const btn = document.getElementById('vcTheaterBtn');
+        if (layout) { layout.classList.add('theater-mode'); }
+        if (btn) { btn.classList.add('vc-active'); }
+        document.body.classList.add('theater-mode');
+      }
+    } catch(e) {}
+  })();
+
+  function resumeFromLastPosition() {
+    fetch('/film/api/games/{{ game.id }}/watch-progress')
+      .then(r => r.json())
+      .then(data => {
+        if (data.last_position) {
+          pendingResumePosition = data.last_position;
+        }
+      })
+      .catch(() => {});
+  }
+
+  // Load YouTube IFrame API
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+
+  window.onYouTubeIframeAPIReady = function() {
+    {% if game.youtube_id %}
+    // Auto-load the video
+    loadVideo('{{ game.youtube_id }}');
+    {% endif %}
+  };
+
