@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 import logging
 import re
@@ -190,7 +190,10 @@ def create_comment(game_id):
     # Get the current user
     current_user = get_current_user()
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'error': 'Request body must be a JSON object'}), 400
+
     content = data.get('content', '').strip()
     # Use the logged-in user's username, or fallback to Anonymous if not logged in
     author_name = current_user.username if current_user else 'Anonymous'
@@ -488,7 +491,7 @@ def track_watch_time(game_id):
             # Update existing session
             if seconds_watched > 0:
                 watch_session.watch_duration_seconds += seconds_watched
-            watch_session.last_updated = datetime.now(timezone.utc)
+            watch_session.last_updated = datetime.utcnow()
 
         # Always update last known playback position
         if playback_position is not None:
@@ -576,7 +579,7 @@ def mark_notification_read(notif_id):
     ).first_or_404()
     if not notif.is_read:
         notif.is_read = True
-        notif.read_at = datetime.now(timezone.utc)
+        notif.read_at = datetime.utcnow()
         db.session.commit()
     return jsonify({'success': True})
 
@@ -586,7 +589,7 @@ def mark_notification_read(notif_id):
 def mark_all_notifications_read():
     """Mark all unread notifications for the current user as read."""
     current_user = get_current_user()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     CommentNotification.query.filter_by(
         recipient_username=current_user.username, is_read=False
     ).update({'is_read': True, 'read_at': now})

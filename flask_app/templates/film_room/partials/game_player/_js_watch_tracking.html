@@ -77,12 +77,15 @@
     if (accumulatedWatchSeconds > 0 || watchSessionId) {
       // Use sendBeacon for reliable tracking on page unload
       const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
-      const data = JSON.stringify({
-        seconds_watched: accumulatedWatchSeconds,
-        session_id: watchSessionId,
-        playback_position: currentPosition
-      });
-      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', data);
+      const payload = new Blob(
+        [JSON.stringify({
+          seconds_watched: accumulatedWatchSeconds,
+          session_id: watchSessionId,
+          playback_position: currentPosition
+        })],
+        { type: 'application/json' }
+      );
+      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', payload);
     }
   });
 

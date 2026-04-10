@@ -211,6 +211,9 @@
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
+    // If another handler has already handled this event, don't process it again
+    if (e.defaultPrevented) return;
+
     const active = document.activeElement;
     const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
     if (tagNamesToIgnore.includes(active.tagName)) return;
@@ -222,6 +225,8 @@
     const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', ',', '.', 'k', 'K', 'f', 'F'];
     if (keysToPrevent.includes(e.key)) {
       e.preventDefault();
+      // Stop propagation so other keydown listeners (e.g., video controls) don't re-handle this key
+      e.stopPropagation();
     }
 
     // Play/Pause: Space or K

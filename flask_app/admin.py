@@ -73,7 +73,12 @@ def manage_users():
         elif action == 'delete':
             user_id = request.form.get('user_id')
             if user_id:
-                user_to_delete = db.session.get(User, user_id)
+                try:
+                    user_id_int = int(user_id)
+                except (TypeError, ValueError):
+                    flash('Invalid user id.', 'error')
+                    return redirect(url_for('manage_users'))
+                user_to_delete = db.session.get(User, user_id_int)
                 if user_to_delete:
                     if user_to_delete.id == current_user.id:
                         flash('You cannot delete your own account.', 'error')
