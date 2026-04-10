@@ -35,8 +35,22 @@
     }
     privateUserDropdownEl.innerHTML = users.map((u, i) => {
       const cls = 'mention-dropdown-item' + (i === privateUserDropState.selectedIndex ? ' selected' : '');
-      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser('${escHtml(u)}');}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
+      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
     }).join('');
+    // Attach event listeners programmatically to avoid interpolating usernames into inline handlers.
+    const privateUserItems = privateUserDropdownEl.querySelectorAll('.mention-dropdown-item');
+    privateUserItems.forEach(function (item) {
+      item.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        selectPrivateUser(this.dataset.user);
+      });
+      item.addEventListener('touchend', function (event) {
+        if (!_dropTouchScrolled) {
+          event.preventDefault();
+          selectPrivateUser(this.dataset.user);
+        }
+      }, { passive: false });
+    });
     privateUserDropdownEl.style.display = 'block';
     // Reparent into .private-to-wrap so position:absolute places it below the input.
     const pvContainer = inputEl.closest('.private-to-wrap') || inputEl.parentElement;
