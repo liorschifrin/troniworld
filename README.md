@@ -4,6 +4,13 @@ The Ultimate Frisbee team platform: enhanced film viewing experience and team ar
 <br>
 Built for Tron, the Brandeis Men's Ultimate Frisbee team.
 
+## Tech Stack
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+
 # Features
 ### The Ultimate Film Experience
 
@@ -23,8 +30,15 @@ Built for Tron, the Brandeis Men's Ultimate Frisbee team.
 <img width="80%" height="80%" alt="Tronworld Data" src="https://github.com/user-attachments/assets/893fa092-09ab-4144-bca3-d2b193499d10" />
 
 ### Ultiworld-inspired Team Articles
+- Postable by coaches and team admin
+- Rich text editor
+- Threadable comments
 <img width="80%" height="80%" alt="Troniworld Article" src="https://github.com/user-attachments/assets/10b5b5b5-c6bc-46d7-a6f5-5cf25c70bfcd" />
 
+
+
+# The Story
+I was asked to build a Ultiworld inspired website for Tron, where coaches could post their own articles. However, I didn't stop there. Annoyed by the film watching experience, I wanted something better. Created over the span of a a few months, supported by Claude Code, Troniworld grew to have a film viewer with all the features I could want.
 
 # Setup
 
@@ -52,7 +66,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Updating the DB
+#### Updating the DB
 After changing models.py, create a migration
 ```bash
 flask db migrate -m "message"
