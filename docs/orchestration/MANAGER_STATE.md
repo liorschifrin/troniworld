@@ -52,7 +52,7 @@
 
 ## Current phase
 
-- Phase: IDLE — T03 active with remaining items above; no task running; no workers active.
+- Phase: IMPLEMENT — finishing T03 (user-selected 2026-10-25). Decision: retire `/api/v1` (user confirmed). Brief in `tasks/T03.md` (finish-T03). Implementer launching on `task/t03-finish-visibility` from origin/main; Codex gpt-6-sol medium (Standard).
 - Blocking questions: none for merged scope. Open for later: T03 remaining items; Q2–Q5; `/api/v1` retirement confirmation; T03a selection.
 - Next action: wait for the user to select the next task or T03 follow-up. Do not start any task automatically.
 
