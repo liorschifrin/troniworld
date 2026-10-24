@@ -80,13 +80,13 @@ State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dro
 
 ### T02 — Remove credential and private-content logging
 
-State: [ ] proposed [x] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dropped
 
 - **Stage/dependencies:** A; none. P0.
 - **Scope/read:** login logging in `routes.login`, notification debug prints in `film_routes._create_notifications_for_comment`, other request/content debug prints. Replace with minimal structured event logging where useful.
-- **Acceptance:** [ ] captured logs contain no submitted passwords or private comment bodies; [ ] useful non-sensitive error context remains; [ ] no secret values enter tests/docs.
+- **Acceptance:** [x] captured logs contain no submitted passwords or private comment bodies; [x] useful non-sensitive error context remains; [x] no secret values enter tests/docs.
 - **Decision notes:** source-inspected exposure is confirmed. Reviewing historical hosting logs/credential rotation is an operational follow-up, not something this source change can claim to complete.
-- **Evidence/checkpoint:** implemented on branch `task/t02-credential-logging` (pending review/merge; acceptance boxes above left unchecked until then). Source-inspected: removed all `print` calls in `routes.login` (form dict, usernames), `routes.new_post` (title/author/content), and `film_routes._create_notifications_for_comment` (comment text, mention names); replaced with module-logger events (`login_failed reason=… [user_id]`, `comment_notifications_created comment_id game_id count private`). No other `print`/`logging` calls exist under `flask_app/` outside `templates/unused/`. Observed by test: `tests/test_logging_privacy.py` (8 cases; all fail on the prior source, pass now) asserts caplog/stdout contain no synthetic password, username, private body or post content. Not covered: historical hosting logs and credential rotation (operational follow-up). Rollback: preserve safe logging; never reintroduce raw credentials to debug a regression.
+- **Evidence/checkpoint (2026-10-24):** merged to `main` as `ab343ec` (squash of [PR #7](https://github.com/liorschifrin/troniworld/pull/7); reviewed and merged head `14d2651`, identical tree). Independent review approved with zero blocking findings; `not known_failure` 24 passed; `known_failure` 7 xfailed (unchanged). Limitation: the INFO-level `comment_notifications_created` event is not emitted under default Python logging (WARNING+ only); a future logging-config task must enable INFO. Historical hosting logs and credential rotation are operational follow-ups, not completed by this change. See [task record](docs/orchestration/tasks/T02.md). Rollback: revert logging-only changes; no data migration.
 
 ### T03 — One visibility policy for games, comments, and notifications
 
