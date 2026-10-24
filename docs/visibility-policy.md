@@ -77,7 +77,7 @@ Anonymous users are redirected (`302 → /login`) on every surface below.
 | Admin reports (`/film/api/user/<u>/comments`, `/leadership-tags`): private bodies | hidden for admin; nonadmin → 302 `/` | visible if admin | visible if admin | visible if admin | hidden for admin; nonadmin → 302 `/` |
 | `/film/analytics`: comment totals and leadership-tag read/total counts | inaccessible rows excluded | entitled rows counted if admin | entitled rows counted if admin | entitled rows counted if admin | inaccessible rows excluded; nonadmin → 302 `/` |
 
-All reply cells require **every** ancestor and the reply itself to admit the viewer, even when the viewer authored the reply. Reports use this rule at arbitrary depth; the main film comments UI still renders one level of replies.
+All reply cells require **every** ancestor and the reply itself to admit the viewer, even when the viewer authored the reply. Reports use this rule at arbitrary depth; the main film comments UI still renders one level of replies. The exception is `my_games`: it lists the caller's own comments and replies on visible games without walking ancestors. It returns only the caller's own text and visible-game metadata, so no private content from others is exposed.
 
 ## Known limits
 

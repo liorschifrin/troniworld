@@ -90,7 +90,7 @@ State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dro
 
 ### T03 — One visibility policy for games, comments, and notifications
 
-State: [x] proposed [x] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** B; T01; Q1 option A decided by the user on 2026-10-25. P0.
 - **Scope/read:** both film APIs, `view_game`, notification creation/reads, user comment/tag reports, personal-comment list. Establish reusable policies; determine whether `/api/v1` has a real consumer before retirement.
