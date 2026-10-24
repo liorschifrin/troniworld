@@ -1,6 +1,6 @@
 # Sequential development manager
 
-- Updated: 2026-10-24T16:10:00Z.
+- Updated: 2026-10-24T16:15:00Z.
 - Authority: existing roadmap scope through sequential implementation/review; only one worker active. No production operations or new Flask server. Merge requires user approval after all gates pass.
 - Durable root: `/Users/liorschifrin/Desktop/Desktop/code/troniworld/docs/orchestration/` (outside worker worktrees). Manager owns this file; task detail: `tasks/T01.md`.
 
@@ -34,17 +34,17 @@
 |---|---|---|---|
 | Manager `30def5f5-1990-4660-9167-72520a4b71f3` | claudeAgent / `claude-sonnet-5-5` (was Codex) | Standard | Coordination only; switched after Codex usage limit. |
 | T01 impl `mcp:86180843-89e3-405d-b2e2-021dc69d4a70` | codex / `gpt-6-astra` | Heavy | Chosen before tiering rules existed; completed. Not re-evaluated. |
-| T01 review round 1 | none launched | — | Planned: claudeAgent / `claude-sonnet-5-5`, medium effort (Standard; cross-provider vs. Codex implementer; test-harness review is not heavy-tier). |
+| T01 review round 1 `mcp:13d9b7a0-6575-4f37-8974-58c7c8c72610` | claudeAgent / `claude-sonnet-5-5`, effort medium | Standard | Cross-provider vs. Codex implementer; test-harness review is not heavy-tier. Launched 2026-10-24 ~16:14Z. |
 
 ## Current task
 
-- Task/phase: T01 / REVIEW (awaiting launch); implementer completed/idle, no review worker running. Review launch is on hold: user instructed "do not start a task" in this reconciliation.
-- Threads: manager above; implementation `mcp:86180843-89e3-405d-b2e2-021dc69d4a70` (completed); review: none. Reconciled 16:09Z: T3 lists no other active workers.
+- Task/phase: T01 / REVIEW round 1 RUNNING (user said "Resume T01 review"); implementer completed/idle.
+- Threads: manager above; implementation `mcp:86180843-89e3-405d-b2e2-021dc69d4a70` (completed); review round 1: `mcp:13d9b7a0-6575-4f37-8974-58c7c8c72610` (run ordinal 1, bound to task worktree/branch, read-only, preparing at launch). Reconciled 16:09Z: T3 lists no other active workers.
 - Branch `task/t01-regression-harness`; worktree `/Users/liorschifrin/.t3/worktrees/troniworld/task-t01-regression-harness` (verified clean).
 - Base: main/origin/main `c5c37a332a82d34909f822d5941b46248f2adccc`; latest head (verified): `01b2ad17561d166f66a6306f8c9b51e692f46f35`.
-- PR: https://github.com/liorschifrin/troniworld/pull/5 (draft/open, MERGEABLE; overall BLOCKED); registered to manager and implementer threads. Merge approval absent. Review round: 0 completed (round 1 launch intent recorded in `tasks/T01.md`); findings: none.
+- PR: https://github.com/liorschifrin/troniworld/pull/5 (draft/open, MERGEABLE; overall BLOCKED); registered to manager and implementer threads. Merge approval absent. Review round: 1 in progress; findings pending.
 - Tests/evidence: worker checkpoints in `tasks/T01.md`; 16 pass / 7 strict xfail; hosted checks SUCCESS observed, exact-head policy pending.
 - Blocking questions: none for T01. Later product decisions Q1–Q5 remain open.
-- Next action: wait for user instruction. On "resume"/explicit go for T01 review: re-run `orchestrator_capabilities`, launch one fresh read-only review thread on claudeAgent `claude-sonnet-5-5` (medium) bound to the task worktree, record returned ID immediately. No other task may be started without explicit user selection.
+- Next action: wait for review thread completion (do not poll in a loop; use t3_thread_wait once). Then read its report, stop it, record findings in `tasks/T01.md`. If changes required: repair brief to implementer (Heavy tier, per rules; Codex UNAVAILABLE until ~17:10Z so use claude-opus-5-5 high or wait). If approved: confirm exact-head CI, then ask the user for merge approval. No other task without explicit selection.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds. Review must cover exact current PR head; never merge without approval.
