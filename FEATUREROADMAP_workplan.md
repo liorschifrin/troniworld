@@ -90,13 +90,24 @@ State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dro
 
 ### T03 — One visibility policy for games, comments, and notifications
 
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
+
+- **Stage/dependencies:** B; T01; Q1 option A decided by the user on 2026-10-25. P0.
+- **Scope/read:** both film APIs, `view_game`, notification creation/reads, user comment/tag reports, personal-comment list. Establish reusable policies; determine whether `/api/v1` has a real consumer before retirement.
+- **Acceptance:** [x] nonadmins cannot enumerate/open hidden games through applicable tested surfaces; [x] nonrecipients cannot retrieve private bodies/snippets through comment reads, notifications, or admin reports; [x] reply/parent privacy has explicit rules; [x] a role/author/recipient/leadership matrix covers the affected serializers; [x] API compatibility or retirement is documented.
+- **Decision notes:** Q1 option A removes the main-route leadership exception. Admin reports use the same author/explicit-recipient rule, checking every ancestor's audience and game. Dashboard comment totals and leadership-tag read/total counts match the viewing admin's detail lists. This resolves T03's Q1 dependency (superseding the earlier unresolved Q1 planning status); leadership-group audiences are a separate T03a proposal below. Comment edits retain notification identity/read history for still-entitled recipients and remove rows only for recipients who lost access to the edited comment.
+- **Evidence/checkpoint (2026-10-25, repair round 1, unmerged):** draft [PR #8](https://github.com/liorschifrin/troniworld/pull/8), branch `task/t03-visibility-policy`; shared `flask_app/visibility.py` covers game/comment visibility, now including admin reports and every ancestor's game. [Policy matrix](docs/visibility-policy.md); `tests/test_visibility.py` has 106 cases. Python 3.12, synthetic in-memory SQLite: `python -m pytest -m 'not known_failure'` **130 passed, 3 deselected**; `python -m pytest -m known_failure` **3 xfailed, 130 deselected** (T04 ×2, T09; no XPASS). Final visibility tests copied into archives: original pre-T03 `8cfda2f` **70 failed, 36 passed**; pre-repair `d43fa1d` **8 failed, 98 passed**. Passing baseline cases are explicit regression guards, not claimed fixes. `/api/v1` has no in-repo consumer (client removed in `e6ba8e7`); it remains registered, fails closed, and awaits owner confirmation before retirement. See [task record](docs/orchestration/tasks/T03.md). No T03a implementation, migration, live data, server, browser or load test. Awaiting manager handoff; not reviewed or merged by this repair implementer. Rollback: revert code/tests/docs; no schema migration (revoked notification rows removed during edits are not restored by a code revert).
+
+### T03a — Private comments addressed to the leadership group
+
 State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
-- **Stage/dependencies:** B; T01; Q1 for final policy. P0.
-- **Scope/read:** both film APIs, `view_game`, notification creation/reads, user comment/tag reports, personal-comment list. Establish reusable policies; determine whether `/api/v1` has a real consumer before retirement.
-- **Acceptance:** [ ] nonadmins cannot enumerate/open hidden games through any applicable surface; [ ] nonrecipients cannot retrieve private bodies/snippets; [ ] reply/parent privacy has explicit rules; [ ] a role/author/recipient/leadership matrix covers every serializer; [ ] API compatibility or retirement is documented.
-- **Decision notes:** audit reproduced private content in `/api/v1`, direct hidden-game access, and private-reply notification leaks. Fix obvious leakage while preserving only explicitly chosen leadership exceptions; do not broaden access to make tests pass.
-- **Evidence/checkpoint:** not implemented. Next: inventory all read paths and write the policy matrix. Rollback: changes must fail closed without destroying stored content.
+- **Stage/dependencies:** C; T03 (policy) and the Q1 decision (option A, 2026-10-25). Priority P1. Separate larger frontend + backend change; not part of T03 privacy fixes.
+- **Scope:** a "Leadership group" audience option in the create and edit comment composers (alongside explicit recipients), backend storage, notifications, and a visible audience label.
+- **Decisions:** membership snapshot at post time (users with `is_leadership` at post time); admin-only accounts without the leadership flag are excluded; group members are notified; only the author can change the audience. Viewer rule: author, explicit recipients, and snapshot group members.
+- **Acceptance:** [ ] group selectable on create and edit; [ ] snapshot membership at post time; [ ] members see the comment and get notifications; [ ] later leadership grants do not add access to existing comments; [ ] unflagged admins excluded; [ ] policy matrix and tests updated; [ ] data-model/migration decision recorded (likely migration → Heavy tier).
+- **Open items:** data model choice (marker vs. snapshot table), UI copy. Decide in the T03a brief, not now.
+- **Evidence:** not implemented.
 
 ### T04 — Typed inputs and relationship validation
 
