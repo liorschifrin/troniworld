@@ -21,7 +21,7 @@
 
 | Provider | Status | Detail |
 |---|---|---|
-| codex | UNAVAILABLE_UNTIL 2026-10-24T17:10:00Z (assumed +1h; no reset time given) | Manager run hit "Subscription Sharing usage limit" on runs 2–3 (before 16:09Z). Not used since; re-probe after the retry time. |
+| codex | AUTH_EXPIRED 2026-10-24T23:39Z (401 token_expired; user must re-authenticate). Earlier: UNAVAILABLE_UNTIL 2026-10-24T17:10:00Z (assumed +1h; no reset time given) | Manager run hit "Subscription Sharing usage limit" on runs 2–3 (before 16:09Z). Not used since; re-probe after the retry time. |
 | claudeAgent | AVAILABLE | Used for manager, T01 review round 1 (`claude-sonnet-5-5`). |
 
 ## Model-tier choice per thread
@@ -52,7 +52,7 @@
 
 ## Current phase
 
-- Phase: IMPLEMENT — finishing T03 (user-selected 2026-10-25). Decision: retire `/api/v1` (user confirmed). Brief in `tasks/T03.md` (finish-T03). Implementer `mcp:bf4fe346-6d88-447a-9062-53bc7a18c451` (Codex gpt-6-sol medium) FAILED after uncommitted work (run ended at docs step; reported 134 passed / 3 xfailed before failure). Continuation `mcp:090daac9-141b-4f0c-9187-bb6f92c127ab` (Codex gpt-6-sol medium) in the same worktree to verify, commit, push, open draft PR. Branch `task/t03-finish-visibility` from origin/main `5e1f11f`.
+- Phase: BLOCKED_AUTH — finishing T03; Codex returned 401 token_expired (2026-10-24 23:39Z, thread `mcp:090daac9-141b-4f0c-9187-bb6f92c127ab`). User must re-authenticate Codex, or approve a Claude failover. Worktree `task-t03-finish-visibility` holds UNCOMMITTED finish work (preserved). Prior: IMPLEMENT — finishing T03 (user-selected 2026-10-25). Decision: retire `/api/v1` (user confirmed). Brief in `tasks/T03.md` (finish-T03). Implementer `mcp:bf4fe346-6d88-447a-9062-53bc7a18c451` (Codex gpt-6-sol medium) FAILED after uncommitted work (run ended at docs step; reported 134 passed / 3 xfailed before failure). Continuation `mcp:090daac9-141b-4f0c-9187-bb6f92c127ab` (Codex gpt-6-sol medium) in the same worktree to verify, commit, push, open draft PR. Branch `task/t03-finish-visibility` from origin/main `5e1f11f`.
 - Blocking questions: none for merged scope. Open for later: T03 remaining items; Q2–Q5; `/api/v1` retirement confirmation; T03a selection.
 - Next action: wait for the user to select the next task or T03 follow-up. Do not start any task automatically.
 
