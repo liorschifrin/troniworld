@@ -69,7 +69,7 @@ Every regeneration iteration proceeds in this order:
 
 ### T01 — Isolated regression harness and CI
 
-State: [ ] proposed [x] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** A; none. Priority P0. Actor: developer maintaining behavior safely.
 - **Scope:** introduce tracked tests, a development test dependency definition, isolated fixtures, and CI. Start with permission denial and the reproduced regressions, separating known-failing characterization from passing release gates.
