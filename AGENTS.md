@@ -114,7 +114,7 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 
 ### Hidden games
 - `Game.is_hidden` DB column (Boolean, default False, `NOT NULL`). When `True`, the game is invisible to all non-admin users.
-- **Filtering**: `games_list`, `my_games`, and `tron_data` routes in `film_routes.py` all skip hidden games for non-admins (`[g for g in games if not g.is_hidden]`). Every game-scoped film and `/api/v1` route uses `get_visible_game_or_404()` from `flask_app/visibility.py`, so non-admins get the same 404 as for a missing game. Policy matrix: `docs/visibility-policy.md`.
+- **Filtering**: `games_list`, `my_games`, and `tron_data` routes in `film_routes.py` all skip hidden games for non-admins (`[g for g in games if not g.is_hidden]`). Every game-scoped film route uses `get_visible_game_or_404()` from `flask_app/visibility.py`, so non-admins get the same 404 as for a missing game. Policy matrix: `docs/visibility-policy.md`.
 - **Forms**: a "Hide this game" checkbox (`name="is_hidden"`) is present in both `new_game.html` and `edit_game.html`. In the edit form the checkbox is pre-checked when `game.is_hidden` is True.
 - **Visual indicator**: on the games list (admin view only), hidden cards receive the `.game-card--hidden` class (dashed orange border, reduced opacity) and a 🚫 Hidden `.hidden-badge` in the meta row.
 - Migration: `j5k6l7m8n9o0` (down_revision: `i4j5k6l7m8n9`).

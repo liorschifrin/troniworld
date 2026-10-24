@@ -11,7 +11,7 @@ Shared code: `flask_app/visibility.py` (`can_view_game`, `get_visible_game_or_40
 3. **Replies.** A reply inherits the private audience of its whole parent chain. A viewer can see a reply only if they can see every ancestor's game and audience and the reply's own `private_to` (if set) also includes them. A nonrecipient of a private parent therefore gets neither the parent body nor any reply body, including public replies. A private reply under a public parent is visible only to the reply's author and recipients. A reply whose parent row is missing is not visible.
 4. **Notifications.** A notification row is created only for a user who can view the comment under rules 1–3. Reads return only the caller's own rows (`recipient_username`). Older rows whose comment or game the caller cannot view are left out of the response entirely (no snippet, title, author or id) and are not deleted.
 5. **Admin reports and counts.** Comment lists and leadership-tag reports filter with the same policy for the viewing admin, including every ancestor. Dashboard per-user comment counts, total comments, and leadership-tag read/total counts use the exact same selections as their detail endpoints. They represent what that admin may read, not global activity totals. Leadership tags still exclude admin-only authors without the leadership flag.
-6. **Fail closed.** This repair does not rewrite or delete stored comments. There is no schema change or migration.
+6. **Fail closed.** T03 does not rewrite or delete stored comments. There is no schema change or migration.
 
 ### Comment edits and notification history
 
@@ -21,11 +21,9 @@ Edits reconcile notifications instead of wiping and recreating them. Existing ro
 
 T03a proposes a separately selectable leadership-group audience with membership captured at posting time. It is **not implemented** here. Existing leadership flags alone grant no access to a private comment.
 
-## `/api/v1` decision
+## `/api/v1` retirement
 
-`/api/v1` has no consumer in the repository. Its only client was the React film-room bundle (`flask_app/static/js/film-room/**`, `film_room_app.html`). That bundle was deleted in commit `e6ba8e7` ("rm-old-files", 2026-03-10). No template, static asset or document calls `/api/v1` today; only tests and ProductSpec mention it.
-
-Decision: **retire `/api/v1` after an owner confirmation that no external client uses it.** Until then, the blueprint stays registered but **fails closed**. It applies the same game and comment policy, with no leadership exception. Its responses keep their shape apart from the filtered entries. Do not add features to it. The blueprint has not been deleted.
+The user confirmed on 2026-10-25 that nothing else uses `/api/v1`; the React client was removed in `e6ba8e7`. The blueprint and its implementation were removed. `/api/v1/games` now returns 404 for anonymous and admin callers. The main film API is the supported route for game and comment operations.
 
 ## Policy matrix
 
@@ -39,7 +37,7 @@ Role meanings:
 - **Leadership author**: a leadership user who wrote the comment.
 - **Leadership nonrecipient**: a leadership user who is neither author nor explicit recipient.
 
-Anonymous users are redirected (`302 → /login`) on every surface below.
+Anonymous users are redirected (`302 → /login`) on the film surfaces below. Article administration and registration have the route-specific responses in the admin inventory.
 
 ### A. Game-level surfaces
 
@@ -47,15 +45,28 @@ Anonymous users are redirected (`302 → /login`) on every surface below.
 |---|---|---|---|
 | `GET /film/games` (list) | 302 login | hidden games not listed | all games, hidden marked |
 | `GET /film/games/<id>` (`view_game`) | 302 login | hidden → 404 = missing | 200 |
-| `view_game` / `/api/v1/games/<id>` point option lists | 302 login | labels from visible games only | all games |
+| `view_game` point option lists | 302 login | labels from visible games only | all games |
 | `GET /film/my-games` (games and own comments) | 302 login | hidden games and own comments on them left out | unchanged (includes hidden) |
 | `GET /film/data` (list, `game_ids`, leaderboard `games_played`, tendencies) | 302 login | hidden ids treated as missing; counts and statistics from visible games only | unchanged |
 | `GET/POST /film/api/games/<id>/comments`, `PATCH/DELETE .../<comment_id>` | 302 login | hidden → 404 = missing, no write | unchanged |
 | `POST .../track-watch-time`, `GET .../watch-progress`, `POST .../toggle-watched` | 302 login | hidden → 404 = missing, no write. A missing game used to return 500 on toggle; now 404 | unchanged |
-| `GET /api/v1/games` | 302 login | hidden games not listed | all games |
-| `GET /api/v1/games/<id>`, `GET/POST .../comments`, `PATCH/DELETE .../comments/<cid>`, `POST .../track-watch-time` | 302 login | hidden → 404 = missing, no write | unchanged |
 | `GET /film/api/notifications` | 302 login | rows for hidden-game comments left out; none created | unchanged |
 | Admin reports: `/film/analytics`, `/film/api/user/<u>/comments`, `/leadership-tags`, `/watched-games` | 302 login | 302 → `/` (admin-only) | all games; private bodies and comment/tag counts follow the viewing admin’s audience (rule 5) |
+
+### Admin-only route inventory
+
+Ordinary and leadership callers go to `/`. Anonymous callers go to `/login` for registration and film administration, to `/` for article administration, and get JSON 403 for image upload. The upload endpoint also returns JSON 403 for signed-in nonadmins. Admins retain the listed behavior. Registration is admin-only once an admin exists; the initial no-admin registration path is outside this matrix.
+
+| Surface | Nonadmin | Admin |
+|---|---|---|
+| `GET/POST /register` (after an admin exists) | 302 `/` | form / existing registration flow |
+| `GET/POST /admin/users`; `POST /admin/users/create_all_players` | 302 `/` | user management form / account operations |
+| `GET/POST /film/tournaments/new`, `/film/games/new`, `/film/games/<id>/edit`, `/film/games/<id>/upload_csv` | 302 `/` | forms / existing mutations |
+| `POST /film/games/<id>/delete_player_sheet` | 302 `/` | clear sheet, redirect to game |
+| `PATCH /film/api/games/<id>/points/<point_id>`; `POST /film/api/games/<id>/update_player_sheet` | 302 `/` | 200 JSON for valid requests |
+| `GET /film/analytics`; `GET /film/api/user/<u>/comments`, `/leadership-tags`, `/watched-games` | 302 `/` | 200; comment/tag content follows rule 5 |
+| `GET/POST /new_post`, `/post/<id>/edit`; `POST /post/<id>/delete` | 302 `/` | article forms / existing mutations |
+| `POST /upload_image` | JSON 403 | 201 with valid image upload; 400 without a file |
 
 ### B. Comment bodies and notification snippets (visible game)
 
@@ -67,8 +78,6 @@ Anonymous users are redirected (`302 → /login`) on every surface below.
 | same: private top-level | hidden | visible | visible | visible (own) | hidden |
 | same: reply under private parent | hidden (parent and reply) | visible | visible | visible (own thread) | hidden (parent and reply) |
 | same: private reply under public parent | hidden | visible | visible | visible (own) | hidden |
-| `GET /api/v1/games/<id>` and `/comments`: all of the above | hidden (private, inherited) | visible | visible | visible (own) | hidden |
-| `/api/v1` POST/PATCH response `replies` | only replies the caller may see | same | same | same | hidden |
 | Notification **creation** (mention, reply, thread, private, everyone) | not created | created | never for own comment | never for own comment | not created, e.g. a `thread` row for a leadership-authored private thread |
 | `GET /film/api/notifications` | stored rows the caller cannot view are left out | served with snippet | n/a (no own rows) | n/a | left out |
 | `POST /film/api/notifications/<id>/read` | own rows only; another user's id → 404 | own rows only | own rows only | own rows only | own rows only |
