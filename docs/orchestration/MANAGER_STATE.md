@@ -1,6 +1,6 @@
 # Sequential development manager
 
-- Updated: 2026-10-24T16:45:00Z.
+- Updated: 2026-10-24T16:46:00Z.
 - Authority: only tasks the user explicitly selects; one worker at a time; no production operations or new Flask server. Merge requires explicit user approval per PR.
 - Durable root: `/Users/liorschifrin/Desktop/Desktop/code/troniworld/docs/orchestration/`. Manager owns this file; task detail: `tasks/<TASK_ID>.md`.
 
@@ -31,6 +31,11 @@
 | T01 impl `mcp:86180843-89e3-405d-b2e2-021dc69d4a70` | codex / `gpt-6-astra` | Heavy | Chosen before tiering rules existed; completed. |
 | T01 review round 1 `mcp:13d9b7a0-6575-4f37-8974-58c7c8c72610` | claudeAgent / `claude-sonnet-5-5`, medium | Standard | Cross-provider vs. Codex implementer; test-harness review. Completed, idle. |
 
+## User decisions (standing)
+
+- **Direct push to `main` bypassed a PR-only rule (2026-10-24 ~16:41Z).** Manager pushed `8cfda2f` (roadmap/orchestration docs only) to `origin/main`; remote warned "Bypassed rule violations ... must be made through a pull request." User chose to KEEP it. Standing rule from now: never push to `main` directly; all changes via PR, and never bypass branch protection.
+- Q1 (privacy/leadership visibility) is unresolved and must be asked before any leadership exception is added.
+
 ## Task status
 
 - **T01 — DONE.** Squash-merged PR #5 → `main` `2ed6e5b`. Review APPROVE (`01b2ad1`); CI trigger tweak `647e8da` applied at user direction without re-review; hosted CI passed on `647e8da`.
@@ -40,8 +45,9 @@
 
 ## Current phase
 
-- Phase: MERGED for T01 and T02. No task running. No worker threads active.
+- Phase: IMPLEMENT — T03 slice 1 (user-selected 2026-10-24 ~16:41Z). Tier Heavy: claudeAgent `claude-opus-5-5` effort high (Codex UNAVAILABLE_UNTIL 17:10Z). Brief: `tasks/T03.md`. Implementer thread: pending launch.
 - Blocking questions: how to land roadmap/state updates on `main` (direct or PR). Product decisions Q1–Q5 remain open for later tasks.
-- Next action: wait for the user to explicitly select the next task. Candidate ready items (NOT selected, do not start): T03 (depends on T01, done) and any other ready item the user names. Do not start any task automatically.
+- Next action: launch T03 implementer (branch `task/t03-visibility-policy` from origin/main `8cfda2f`); record IDs; ask user Q1.
+- (Prior, superseded) Next action: wait for the user to explicitly select the next task. Candidate ready items (NOT selected, do not start): T03 (depends on T01, done) and any other ready item the user names. Do not start any task automatically.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds.
