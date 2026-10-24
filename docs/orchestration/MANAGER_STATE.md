@@ -6,6 +6,7 @@
 
 ## Standing rules (survive resumes)
 
+0. **Ask before starting any task that depends on an open question.** Before beginning, ask the user about the whole task (all open questions, decisions, and scope) so the full task is understood up front. Do not start a slice of a dependent task while its questions are open. (User instruction 2026-10-24 ~17:05Z; T03 slice 1 was started before this rule and is pending the user's decision.)
 1. **Explicit task selection only.** Implement only tasks the user explicitly selects. Never auto-select or start another task. After the selected task completes: save checkpoint and wait. If a task the user did not select is running, pause it safely and preserve its work.
 2. **Failover/model choice never authorizes** starting an unselected task or merging without approval. One worker at a time.
 3. **Model tiering.** Call `orchestrator_capabilities` at the start of each task; use only listed models; pick the cheapest likely to meet acceptance criteria; record choice + reason below. No max/ultra effort unless the user asks. Manager runs on standard-or-lower.
