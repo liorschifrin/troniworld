@@ -7,6 +7,7 @@ from sqlalchemy.orm import joinedload
 import csv
 import io
 import json
+import logging
 import os
 import re
 
@@ -22,6 +23,8 @@ def fmt_dt_est(dt):
 from . import app, db
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
+
+logger = logging.getLogger(__name__)
 
 
 # =========================
@@ -45,8 +48,6 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
 
     Author is never notified for their own comment.
     """
-
-    print("Debug: Creating notification for comment with text:", comment.content)
 
     PRIORITY = {'private': 5, 'everyone': 4, 'mention': 3, 'reply': 2, 'thread': 1}
     notif_map = {}  # username -> notification_type
@@ -84,10 +85,8 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
                 _set(uname, 'private')
     else:
         mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
-        print("Debug: Found mention names in comment:", mention_names)
         for uname in mention_names:
             if uname == 'Everyone' and author_is_leadership:
-                print("Debug: Author is leadership and mentioned @Everyone, adding notifications for all film users except the author.")
                 for u in User.query.all():
                     _set(u.username, 'everyone')
             else:
@@ -103,6 +102,9 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
             is_read=False,
         )
         db.session.add(notif)
+
+    logger.info("comment_notifications_created comment_id=%s game_id=%s count=%d private=%s",
+                comment.id, game_id, len(notif_map), is_private)
 
 
 def link_or_create_user_for_player(player):
