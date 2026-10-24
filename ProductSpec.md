@@ -87,7 +87,7 @@ Dates on games/tournaments are ISO-format strings, not database date types. Null
 - `VideoWatchSession`: user/game, accumulated duration, last position, session start/update times; multiple visits may create multiple rows.
 - `GameWatched`: explicit user/game completion mark with a unique pair constraint.
 
-Film privacy representation: SQL null means public; JSON `[]` (or any malformed value) means author-only; a populated JSON list names recipients. Replies inherit their parent chain's audience. `flask_app/visibility.py` holds the shared game/comment policy; see [docs/visibility-policy.md](docs/visibility-policy.md) for the role × surface matrix. Only the main film comments read (`GET /film/api/games/<id>/comments`) keeps the pre-existing exception letting leadership see a leadership-authored private comment with at least one recipient; every other surface applies the author/recipient baseline until Q1 is decided. Admin reporting has different, unchanged rules (pending Q1); see section 8.
+Film privacy representation: SQL null means public; JSON `[]` (or any malformed value) means author-only; a populated JSON list names recipients. Replies inherit their parent chain's audience. `flask_app/visibility.py` holds the shared game/comment policy; see [docs/visibility-policy.md](docs/visibility-policy.md) for the role × surface matrix. Q1 option A (2026-10-25) applies on every comment-reading surface and admin report: leadership and admin status grant no private access; only authors and explicit recipients may read, with every ancestor's audience and game checked. Admin report lists and dashboard comment/tag counts use the viewing admin's entitlement. Leadership-group audiences are proposed separately as T03a, not implemented.
 
 Ownership and recipients use usernames instead of user foreign keys. Renaming/reusing usernames can break identity continuity. Foreign keys and unique association keys are valuable existing safeguards, but they do not establish same-game parent/point membership. SQLite foreign keys are explicitly enabled per connection. ORM cascade behavior must also agree with database cascades.
 
@@ -137,7 +137,7 @@ A film comment create body uses `content`, optional `timestamp`, `parent_id`, `p
 
 ### Alternate API (`api_routes.py`)
 
-`/api/v1/games`, `/games/<id>`, comment GET/POST/PATCH/DELETE, point PATCH, and watch-tracking POST duplicate main film functions and omit newer point/watch behavior. It has no in-repository consumer (its React client was removed in `e6ba8e7`); it now applies the shared hidden-game and private-comment policy (author/recipient baseline, no leadership exception) and is slated for retirement after Q1 and owner confirmation; see [docs/visibility-policy.md](docs/visibility-policy.md). Do not add features to it.
+`/api/v1/games`, `/games/<id>`, comment GET/POST/PATCH/DELETE, point PATCH, and watch-tracking POST duplicate main film functions and omit newer point/watch behavior. It has no in-repository consumer (its React client was removed in `e6ba8e7`); it now applies the shared hidden-game and private-comment policy (author/recipient baseline, no leadership exception) and is slated for retirement after owner confirmation; see [docs/visibility-policy.md](docs/visibility-policy.md). Do not add features to it.
 
 Authentication decorators generally redirect to HTML for unauthenticated/unauthorized requests, including JSON endpoints. Some article endpoints instead return JSON 401/403. Normalize this when introducing API contracts.
 
@@ -161,7 +161,7 @@ Watch tracking accumulates playback time and posts increments around ten seconds
 
 ### Comments and notifications
 
-Comment bodies use mention tokens such as `@[Alice]`; Everyone is `@[Everyone]`. The main create endpoint flushes the comment, creates notification rows, then commits. Notification priority is private > everyone > mention > reply > thread. Navigation polls approximately every 60 seconds and links to `?comment=<id>`; the player expands the target reply thread and scrolls it into view.
+Comment bodies use mention tokens such as `@[Alice]`; Everyone is `@[Everyone]`. The main create endpoint flushes the comment, creates notification rows, then commits. Notification priority is private > everyone > mention > reply > thread. Film comment edits preserve notification identity and read timestamps for recipients who remain entitled, add newly targeted recipients as unread, and delete rows for recipients who lost access; descendant rows are filtered on read if an ancestor changes. See the visibility policy for details. Navigation polls approximately every 60 seconds and links to `?comment=<id>`; the player expands the target reply thread and scrolls it into view.
 
 Editing a film comment deletes and recreates notification rows, resetting read history. Article comment creation commits the comment before separately creating notifications, so those operations are not atomic. Thread depth and cross-parent association checks need improvement.
 
@@ -186,6 +186,7 @@ The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's te
 - Nonrecipient private content returned from alternate API game/detail comments (fixed by T03 slice 1).
 - Hidden game player returned 200 to a regular user (fixed by T03 slice 1).
 - Private reply content appeared in a nonrecipient parent's notifications (fixed by T03 slice 1).
+- Leadership nonrecipients and admin reports had separate private-content exceptions (removed by T03 round 1 under Q1 option A); admin comment/tag counts now match the viewing admin’s detail lists.
 - Cross-game parent references and nonnumeric timestamps were accepted.
 - JSON text sent with a string-beacon media type failed with HTTP 500.
 - User deletion with login history raised a non-null foreign-key integrity error.

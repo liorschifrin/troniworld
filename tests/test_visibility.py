@@ -96,9 +96,6 @@ def test_film_comments_matrix(client_for, records, scenario, role):
     response = client_for(role).get(f'/film/api/games/{records["game"].id}/comments')
     assert response.status_code == 200
     expected = set(BASELINE[role])
-    if role == 'leadership':
-        # Pending Q1: the pre-existing leadership exception is retained here only.
-        expected.add('leader_private')
     visible, _ = _visible(response.json['comments'], scenario)
     assert visible == expected
     _assert_no_hidden_bodies(response.text, scenario, expected)
@@ -121,7 +118,6 @@ def test_alternate_api_matrix(client_for, records, scenario, role, suffix):
     assert response.status_code == 200
     payload = response.json['game']['comments'] if not suffix else response.json['comments']
     visible, _ = _visible(payload, scenario)
-    # Pending Q1: no leadership exception on this surface (current baseline applied).
     assert visible == BASELINE[role]
     _assert_no_hidden_bodies(response.text, scenario, BASELINE[role])
 
@@ -291,8 +287,8 @@ def test_reply_under_private_parent_notifies_only_audience(client_for, records, 
     assert any(n['comment_id'] == new_id for n in _notifications(client_for('author'))['notifications'])
 
 
-def test_leadership_thread_notification_pending_q1(client_for, records, scenario, db):
-    """Pending Q1 (current baseline applied): no leadership exception for notifications."""
+def test_leadership_nonrecipient_thread_not_notified(client_for, records, scenario, db):
+    """Q1 option A: leadership does not confer private-thread access."""
     from flask_app.models import Comment, CommentNotification
     db.session.add(Comment(game_id=records['game'].id, author_name='leadership', comment_type='Comment',
                            parent_id=scenario['leader_private'].id, content='Synthetic leadership reply'))
@@ -386,3 +382,214 @@ def test_admin_reports_deny_nonadmins(client_for, scenario, role, path):
     response = client_for(role).get(path)
     assert response.status_code == 302
     assert urlsplit(response.location).path == '/'
+
+
+# ── Repair round 1: Q1 option A, reports, legacy rows, edit history ──────────
+
+@pytest.mark.parametrize('leadership_author', [False, True])
+@pytest.mark.parametrize('relation', ['author', 'recipient', 'nonrecipient'])
+def test_admin_reports_and_counts_share_viewer_policy(
+        admin, records, db, app, relation, leadership_author):
+    from flask import template_rendered
+    from flask_app.models import Comment, CommentNotification
+
+    author = records['users']['admin' if relation == 'author' else 'ordinary']
+    author.is_leadership = leadership_author
+    audience = '["admin", "recipient"]' if relation == 'recipient' else '["recipient"]'
+    parent = Comment(game_id=records['game'].id, author_name=author.username,
+                     content='Synthetic report private parent', comment_type='Comment',
+                     private_to=audience)
+    db.session.add(parent)
+    db.session.flush()
+    reply = Comment(game_id=records['game'].id, author_name=author.username,
+                    content='Synthetic report public reply', comment_type='Comment', parent_id=parent.id)
+    db.session.add(reply)
+    db.session.flush()
+    grandchild = Comment(game_id=records['game'].id, author_name=author.username,
+                         content='Synthetic report deep reply', comment_type='Comment', parent_id=reply.id)
+    public = Comment(game_id=records['game'].id, author_name=author.username,
+                     content='Synthetic report public control', comment_type='Comment')
+    db.session.add_all([grandchild, public])
+    db.session.flush()
+    comments = [parent, reply, grandchild, public]
+    for i, comment in enumerate(comments):
+        db.session.add(CommentNotification(recipient_username='recipient', comment_id=comment.id,
+                                          game_id=comment.game_id, notification_type='private',
+                                          is_read=i % 2 == 0))
+    db.session.commit()
+
+    expected = {c.id for c in (comments if relation != 'nonrecipient' else [public])}
+    listing = admin.get(f'/film/api/user/{author.username}/comments')
+    tags = admin.get('/film/api/user/recipient/leadership-tags')
+    assert listing.status_code == tags.status_code == 200
+    ids = {c.id for c in comments}
+    assert {c['id'] for c in listing.json['comments']} & ids == expected
+    assert {t['comment_id'] for t in tags.json['tags']} == (expected if leadership_author else set())
+    if relation == 'nonrecipient':
+        for comment in (parent, reply, grandchild):
+            assert comment.content not in listing.text + tags.text
+
+    contexts = []
+    def capture(sender, template, context, **extra):
+        contexts.append(context)
+    with template_rendered.connected_to(capture, app):
+        dashboard = admin.get('/film/analytics')
+    assert dashboard.status_code == 200
+    context = contexts[-1]
+    total = 0
+    for row in context['user_analytics']:
+        name = row['user'].username
+        visible_comments = admin.get(f'/film/api/user/{name}/comments').json['comments']
+        visible_tags = admin.get(f'/film/api/user/{name}/leadership-tags').json['tags']
+        assert row['comment_count'] == len(visible_comments)
+        assert row['leadership_notif_total'] == len(visible_tags)
+        assert row['leadership_notif_read'] == sum(t['is_read'] for t in visible_tags)
+        total += len(visible_comments)
+    assert context['total_comments'] == total
+
+
+@pytest.mark.parametrize('surface', ['film', 'alternate', 'admin-report'])
+@pytest.mark.parametrize('stored', [
+    pytest.param('', id='empty-string-was-public'),
+    pytest.param('"recipient"', id='json-string-was-substring-membership'),
+    pytest.param('{"recipient": true}', id='json-object-was-key-membership'),
+])
+def test_legacy_nonlist_audiences_fail_closed(client_for, records, db, stored, surface):
+    """Before T03, film GET exposed '' to everyone and strings/objects to matching
+    usernames. Now all three stored forms are author-only, not public/recipients.
+    These are stored legacy rows, not changes to T04 request validation.
+    """
+    from flask_app.models import Comment
+    comment = Comment(game_id=records['game'].id, author_name='ordinary',
+                      content='Synthetic legacy private body', comment_type='Comment', private_to=stored)
+    db.session.add(comment)
+    db.session.commit()
+    if surface == 'admin-report':
+        # Both viewers must be admins to exercise report content, not its role gate.
+        records['users']['ordinary'].is_admin = True
+        records['users']['recipient'].is_admin = True
+        db.session.commit()
+        path = '/film/api/user/ordinary/comments'
+    else:
+        prefix = '/film/api' if surface == 'film' else '/api/v1'
+        path = f'{prefix}/games/{records["game"].id}/comments'
+    for role in ('ordinary', 'recipient'):
+        response = client_for(role).get(path)
+        assert response.status_code == 200
+        assert (comment.content in response.text) is (role == 'ordinary')
+        assert (comment.id in {c['id'] for c in response.json['comments']}) is (role == 'ordinary')
+
+
+def test_hidden_game_ancestor_denies_cross_game_reply(client_for, records, db):
+    from flask_app.models import Comment, CommentNotification
+    parent = Comment(game_id=records['hidden'].id, author_name='ordinary',
+                     content='Synthetic hidden ancestor', comment_type='Comment')
+    db.session.add(parent)
+    db.session.flush()
+    child = Comment(game_id=records['game'].id, author_name='ordinary', parent_id=parent.id,
+                    content='Synthetic cross-game descendant', comment_type='Comment')
+    db.session.add(child)
+    db.session.flush()
+    for role in ('ordinary', 'admin'):
+        db.session.add(CommentNotification(recipient_username=role, comment_id=child.id,
+                                          game_id=child.game_id, notification_type='mention'))
+    db.session.commit()
+    assert child.content in client_for('admin').get('/film/api/notifications').text
+    assert child.content not in client_for('ordinary').get('/film/api/notifications').text
+    response = client_for('admin').post(
+        f'/film/api/games/{records["game"].id}/comments',
+        json={'content': 'Synthetic cross-game deep reply @[ordinary]', 'parent_id': child.id})
+    assert response.status_code == 201
+    assert CommentNotification.query.filter_by(comment_id=response.json['comment']['id']).count() == 0
+
+
+def test_deep_reply_notification_creation_and_revoked_ancestor(client_for, records, scenario, db):
+    from flask_app.models import CommentNotification
+    response = client_for('author').post(
+        f'/film/api/games/{records["game"].id}/comments',
+        json={'content': 'Synthetic grandchild @[recipient] @[ordinary] @[leadership]',
+              'parent_id': scenario['reply_in_private'].id})
+    assert response.status_code == 201
+    comment_id = response.json['comment']['id']
+    rows = CommentNotification.query.filter_by(comment_id=comment_id).all()
+    assert [n.recipient_username for n in rows] == ['recipient']
+    assert any(n['comment_id'] == comment_id for n in _notifications(client_for('recipient'))['notifications'])
+    assert all(n['comment_id'] != comment_id for n in _notifications(client_for('ordinary'))['notifications'])
+    # Grandparent changes do not rewrite descendant rows; reads enforce the full chain.
+    scenario['private'].private_to = '[]'
+    db.session.commit()
+    assert all(n['comment_id'] != comment_id for n in _notifications(client_for('recipient'))['notifications'])
+    assert CommentNotification.query.filter_by(comment_id=comment_id).count() == 1
+
+
+def test_comment_edit_preserves_entitled_notification_history(client_for, records, scenario, db):
+    from datetime import datetime
+    from flask_app.models import CommentNotification
+    path = f'/film/api/games/{records["game"].id}/comments'
+    response = client_for('author').post(path, json={
+        'content': 'Synthetic initial note', 'private_to': ['recipient', 'bystander']})
+    assert response.status_code == 201
+    comment_id = response.json['comment']['id']
+    kept = CommentNotification.query.filter_by(comment_id=comment_id, recipient_username='recipient').one()
+    kept.is_read = True
+    kept.read_at = datetime(2026, 1, 2, 3, 4, 5)
+    db.session.commit()
+    history = (kept.id, kept.created_at, kept.read_at)
+    for _ in range(2):
+        response = client_for('author').patch(f'{path}/{comment_id}', json={
+            'content': 'Synthetic updated note', 'private_to': ['recipient', 'ordinary']})
+        assert response.status_code == 200
+        db.session.expire_all()
+        rows = CommentNotification.query.filter_by(comment_id=comment_id).all()
+        assert {n.recipient_username for n in rows} == {'recipient', 'ordinary'}
+        kept = next(n for n in rows if n.recipient_username == 'recipient')
+        assert (kept.id, kept.created_at, kept.read_at) == history
+        assert kept.is_read
+        added = next(n for n in rows if n.recipient_username == 'ordinary')
+        assert not added.is_read and added.read_at is None
+    # Removing a mention/audience target on a now-public comment preserves history
+    # for recipients who still have access, without generating duplicate notices.
+    response = client_for('author').patch(f'{path}/{comment_id}', json={
+        'content': 'Synthetic public edit without mentions', 'private_to': None})
+    assert response.status_code == 200
+    assert CommentNotification.query.filter_by(comment_id=comment_id).count() == 2
+    db.session.expire_all()
+    kept = db.session.get(CommentNotification, history[0])
+    assert kept.is_read and kept.read_at == history[2]
+
+
+@pytest.mark.parametrize('game_key', ['game', 'hidden'])
+@pytest.mark.parametrize('prefix', ['/film/api', '/api/v1'])
+def test_admin_comment_writes_and_watch_tracking_unchanged(admin, records, db, game_key, prefix):
+    from flask_app.models import Comment, VideoWatchSession
+    game_id = records[game_key].id
+    path = f'{prefix}/games/{game_id}'
+    created = admin.post(path + '/comments', json={'content': 'Synthetic admin write'})
+    assert created.status_code == 201
+    comment_id = created.json['comment']['id']
+    edited = admin.patch(f'{path}/comments/{comment_id}', json={'content': 'Synthetic admin edit'})
+    assert edited.status_code == 200
+    assert db.session.get(Comment, comment_id).content == 'Synthetic admin edit'
+    watched = admin.post(path + '/track-watch-time', json={'seconds_watched': 5})
+    assert watched.status_code == 200
+    row = VideoWatchSession.query.filter_by(user_id=records['users']['admin'].id, game_id=game_id).one()
+    assert row.watch_duration_seconds == 5
+    assert admin.delete(f'{path}/comments/{comment_id}').status_code == 200
+    assert db.session.get(Comment, comment_id) is None
+
+
+@pytest.mark.parametrize('game_key', ['game', 'hidden'])
+def test_admin_watch_progress_and_toggle_unchanged(admin, records, db, game_key):
+    from flask_app.models import GameWatched
+    game_id = records[game_key].id
+    path = f'/film/api/games/{game_id}'
+    assert admin.post(path + '/track-watch-time', json={
+        'seconds_watched': 5, 'playback_position': 65}).status_code == 200
+    response = admin.get(path + '/watch-progress')
+    assert response.status_code == 200
+    assert response.json == {'last_position': 65}
+    for expected in (True, False):
+        response = admin.post(path + '/toggle-watched')
+        assert response.status_code == 200
+        assert response.json == {'watched': expected, 'game_id': game_id}
+        assert GameWatched.query.filter_by(user_id=records['users']['admin'].id, game_id=game_id).count() == int(expected)

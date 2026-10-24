@@ -48,7 +48,8 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 
 ### Private comments
 - `Comment.private_to` DB column (Text, nullable) stores a JSON list of allowed usernames (e.g. `["alice","bob"]`). `null` = public.
-- Server-side filtering uses `can_view_comment()` in `flask_app/visibility.py`: a comment is returned only if `private_to` is NULL, or the viewer is the author, or the viewer's username is in the list; replies also require every ancestor to be visible. `get_comments()` alone keeps the pre-existing leadership exception (pending product decision Q1). Notifications are created and served only for comments the recipient may view. See `docs/visibility-policy.md`.
+- Server-side filtering uses `can_view_comment()` in `flask_app/visibility.py`: a comment is returned only if `private_to` is NULL, or the viewer is the author, or the viewer's username is in the list; replies also require every ancestor to be visible. Q1 option A (2026-10-25) removes the leadership exception. Admin reports apply the same author/recipient rule, and dashboard comment/tag counts match the viewing admin’s visible detail lists. Every ancestor’s game must also be visible. Leadership-group audiences are proposed only in T03a. Notifications are created and served only for comments the recipient may view. See `docs/visibility-policy.md`.
+- Comment edits preserve notification IDs and read history for still-entitled recipients, create unread rows for newly targeted recipients, and remove rows for recipients who lost access. Descendant notification rows are checked against ancestor visibility on read.
 - `create_comment` / `update_comment` accept `private_to` (list or null) in the request body.
 - Frontend globals: `isPrivateComment` (bool), `privateToUsers` (array), `editIsPrivate`, `editPrivateToUsers`.
 - UI: 🔒 lock button (`.privacy-toggle-btn`) in `.comment-controls`. When active (yellow border), a chip-input section (`.private-to-wrap`) appears. Users type a username and press Enter/comma to add a chip; click × to remove.
@@ -76,8 +77,8 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - **Led Tags column**: `<button class="ldr-notif">` (read/total display) calls `openTagsModal(username, total)` — fetches `GET /film/api/user/<username>/leadership-tags` (admin-only), renders list with read/unread badges and author attribution. Links open in new tab. Only includes comments from leadership users (not admin-only users).
 - Two modals: `#commentModal` and `#tagsModal`, both use `.modal-overlay` / `.modal-box` structure. Backdrop click closes via `document.addEventListener('click', ...)`.
 - New API endpoints in `film_routes.py`:
-  - `GET /film/api/user/<username>/comments` → all comments by user (newest first), fields: id, content, timestamp, created_at_iso, game_id, is_reply, game_title, game_opponent.
-  - `GET /film/api/user/<username>/leadership-tags` → all notifications for user from leadership authors (excludes admin-only users), fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
+  - `GET /film/api/user/<username>/comments` → comments by user visible to the viewing admin (newest first), fields: id, content, timestamp, created_at_iso, game_id, is_reply, game_title, game_opponent.
+  - `GET /film/api/user/<username>/leadership-tags` → notifications for user from leadership authors whose comments the viewing admin may read (excludes admin-only authors), fields: notif_id, is_read, notification_type, comment_id, content, timestamp, created_at_iso, author_name, game_id, is_reply, game_title, game_opponent.
 
 ### Article comment notifications (`routes.py` + `articles/base.html`)
 - `ArticleCommentNotification` DB model (`article_comment_notifications` table). Fields: `recipient_username`, `comment_id` (FK → article_comments), `post_id` (FK → post), `notification_type` ('reply' | 'thread'), `is_read` (bool), `created_at`, `read_at` (nullable).
