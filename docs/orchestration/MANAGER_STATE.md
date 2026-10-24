@@ -52,7 +52,7 @@
 
 ## Current phase
 
-- Phase: REVIEW — finish-T03 PR #11 (draft). Head `1f2c063` (merged origin/main, which added PR #10 roadmap Stage F/T17–T20; merge keeps main roadmap; diff vs main is T03 lines only). Prior head `4b697bb` (implementer continuation 3 `mcp:0a3a2de2-0266-492d-894e-d41c73ec455a`, 160 passed / 3 xfailed). Review `mcp:457d2b33-f37d-4576-8dbb-dfaf90922535` (Claude sonnet-5-5 medium, different provider from implementer) launched. Earlier history: Codex 401 token_expired at 23:39Z and 23:44Z (threads `mcp:090daac9-...`, `mcp:57e9ab03-...`); retry succeeded.
+- Phase: READY_TO_MERGE — finish-T03 PR #11 (draft) head `1f2c063`. Review `mcp:457d2b33-f37d-4576-8dbb-dfaf90922535` APPROVE (zero blocking/major; 3 minor/nit: write-denial tests lack unchanged-row assertions; admin write probes assert status only; upload_image doc row 201 covered elsewhere). Awaiting user merge approval. Earlier: Codex 401 token_expired at 23:39Z and 23:44Z; retry succeeded.
 - Blocking questions: none for merged scope. Open for later: T03 remaining items; Q2–Q5; `/api/v1` retirement confirmation; T03a selection.
 - Next action: wait for the user to select the next task or T03 follow-up. Do not start any task automatically.
 
