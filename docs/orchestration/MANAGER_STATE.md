@@ -47,6 +47,7 @@
 - Manager branch `orchestration/sequential-manager` is merged with `main` (`7248193`). Manager-only records are not on `main`; roadmap T01/T02 done marks are on the manager branch only.
 - Standing rule: no direct pushes to `main`; all changes through PRs.
 - **Task PR process (user 2026-10-25):** each task PR contains its spec, roadmap section, and task record. After approval, the manager may add a small docs-only commit to the task branch (roadmap state → done, record updates) before the squash merge, WITHOUT another review. Anything else needed before merge is also allowed without re-review if it is docs-only.
+- **After each finished task, suggest the next task with a few options** (user 2026-10-25): list the dependency-ready items, their risks and open questions, and recommend one. Do not start any suggested task without explicit selection.
 - **Manager state stays on `orchestration/sequential-manager`.** That branch is pushed for backup and is never merged to `main`. PR #9 (records-only) was closed on 2026-10-25 in favor of this rule.
 
 ## Current phase
