@@ -40,7 +40,7 @@
 
 ## Current phase
 
-- Current task: T02 (user-selected 2026-10-24) — phase IMPLEMENT. Implementer thread `mcp:62d6af13-ef43-406d-bb68-16cc0e7178d4` (claudeAgent `claude-sonnet-5-5`, medium), run `run:thread:mcp%3A62d6af13-ef43-406d-bb68-16cc0e7178d4:ordinal:1`, status preparing at launch (~16:37Z). Worktree/branch: new worktree from `origin/main` `f3a3091`, branch `task/t02-credential-logging`; path to be confirmed via t3_worktree_list.
+- Current task: T02 (user-selected 2026-10-24) — phase REVIEW. Implementer `mcp:62d6af13-ef43-406d-bb68-16cc0e7178d4` completed/idle. PR #7 (draft) head `14d2651`, branch `task/t02-credential-logging`, worktree `/Users/liorschifrin/.t3/worktrees/troniworld/task-t02-credential-logging`. Review round 1 launching (claudeAgent `claude-sonnet-5-5`, medium, same-provider fresh thread because Codex unavailable). Previous text: phase IMPLEMENT. Implementer thread `mcp:62d6af13-ef43-406d-bb68-16cc0e7178d4` (claudeAgent `claude-sonnet-5-5`, medium), run `run:thread:mcp%3A62d6af13-ef43-406d-bb68-16cc0e7178d4:ordinal:1`, status preparing at launch (~16:37Z). Worktree/branch: new worktree from `origin/main` `f3a3091`, branch `task/t02-credential-logging`; path to be confirmed via t3_worktree_list.
 - Base: `origin/main` `f3a3091` (PR #6 README restore landed after T01; local `main` still at `2ed6e5b` until fetched).
 - Model choice: claudeAgent `claude-sonnet-5-5`, medium — Standard tier; codex UNAVAILABLE_UNTIL 17:10Z (Heavy tier codex not available). Review: fresh same-provider thread (Claude) acceptable while Codex unavailable.
 - Phase before this: MERGED (T01).
