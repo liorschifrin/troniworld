@@ -1,6 +1,6 @@
 # Sequential development manager
 
-- Updated: 2026-10-24T16:40:00Z.
+- Updated: 2026-10-24T16:36:00Z.
 - Authority: only tasks the user explicitly selects; one worker at a time; no production operations or new Flask server. Merge requires explicit user approval per PR.
 - Durable root: `/Users/liorschifrin/Desktop/Desktop/code/troniworld/docs/orchestration/`. Manager owns this file; task detail: `tasks/<TASK_ID>.md`.
 
@@ -40,8 +40,11 @@
 
 ## Current phase
 
-- Phase: MERGED (T01). No task running. No worker threads active.
+- Current task: T02 (user-selected 2026-10-24) — phase IMPLEMENT, launch intent recorded in `tasks/T02.md`; implementer not yet started.
+- Base: `origin/main` `f3a3091` (PR #6 README restore landed after T01; local `main` still at `2ed6e5b` until fetched).
+- Model choice: claudeAgent `claude-sonnet-5-5`, medium — Standard tier; codex UNAVAILABLE_UNTIL 17:10Z (Heavy tier codex not available). Review: fresh same-provider thread (Claude) acceptable while Codex unavailable.
+- Phase before this: MERGED (T01).
 - Blocking questions: how to land the roadmap/state update on `main` (see above). Product decisions Q1–Q5 remain open for later tasks.
-- Next action: wait for the user to explicitly select the next task (T02 is the next ready P0 item, but it is NOT selected). Do not start it.
+- Next action: launch T02 implementer on branch `task/t02-credential-logging` from `origin/main` `f3a3091` (startFromOrigin true); record thread/worktree/SHA immediately.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds.
