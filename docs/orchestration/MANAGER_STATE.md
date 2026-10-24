@@ -45,7 +45,7 @@
 - **T03a (proposed, roadmap only):** leadership-group private comments. Decisions: membership snapshot at post time; unflagged admins excluded; members notified; author-only audience changes. User said it should be unconnected to T03; roadmap entry still lists T03 as a dependency (user accepted as is). Not started; needs user selection.
 - Worktrees: T01, T02, T03 removed (no unpushed work). Local branches kept.
 - Manager branch `orchestration/sequential-manager` is merged with `main` (`7248193`). Manager-only records are not on `main`; roadmap T01/T02 done marks are on the manager branch only.
-- Standing rule: no direct pushes to `main`; all changes through PRs.
+- Standing rule: no direct pushes to `main`; all changes through PRs. Manager records PR: #9 (`orchestration/sequential-manager` → main), docs only.
 
 ## Current phase
 
