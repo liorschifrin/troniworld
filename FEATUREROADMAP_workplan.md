@@ -6,8 +6,8 @@
 - **Current iteration:** I000 — project documentation and foundation planning.
 - **Iteration status:** [ ] planned [ ] active [ ] paused [ ] blocked [x] complete.
 - **Completed scope:** README, current-state product spec, staged backlog, regeneration/execution prompts. No application fixes are claimed by this document.
-- **Active implementation task:** none.
-- **Next suggested slice:** T01, isolated regression harness; T02 logging removal can proceed independently.
+- **Active implementation task:** T01 implementation prepared; paused awaiting independent review/merge (see T01 checkpoint).
+- **Next suggested slice:** independently review T01; T02 logging removal remains a separate authorized-task decision.
 - **Current blocker:** none for planning. Product choices Q1–Q5 below affect later tasks.
 - **Working-tree/commit status:** documentation prepared locally; check `git status` on resume. Do not infer a commit or push occurred.
 - **Last validation:** documentation links, route references, CSV example, and disposable-database setup checked during I000; see iteration record for scope.
@@ -69,14 +69,14 @@ Every regeneration iteration proceeds in this order:
 
 ### T01 — Isolated regression harness and CI
 
-State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [ ] active [x] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** A; none. Priority P0. Actor: developer maintaining behavior safely.
 - **Scope:** introduce tracked tests, a development test dependency definition, isolated fixtures, and CI. Start with permission denial and the reproduced regressions, separating known-failing characterization from passing release gates.
 - **Read:** `flask_app/__init__.py`, `utils.py`, models, relevant routes; `git ls-files tests .github`. Do not assume ignored local tests are part of the repository.
-- **Acceptance:** [ ] database URL overridden before app import and isolation asserted; [ ] ordinary/admin/leadership/anonymous fixtures; [ ] deterministic tests run from a fresh clone; [ ] CI has no production secrets; [ ] known failures are explicitly tracked rather than silently skipped.
+- **Acceptance:** [x] database URL overridden before app import and isolation asserted; [x] ordinary/admin/leadership/anonymous fixtures; [x] deterministic tests run from a fresh clone; [x] CI has no production secrets; [x] known failures are explicitly tracked rather than silently skipped.
 - **Decision notes:** keep the current app layout initially; an app factory is optional if isolation requires it, not a prerequisite rewrite. Existing audit scripts were temporary and provide observations, not durable coverage.
-- **Evidence/checkpoint:** not implemented. Next: inspect ignored test provenance without executing fixtures that may touch real data, then create the smallest isolated test setup. Rollback: remove test-only/config changes if needed.
+- **Evidence/checkpoint (2026-10-24):** implemented on `task/t01-regression-harness` from `c5c37a3`; harness commit `4e6a704`. Fresh local clone/new Python 3.12.9 venv installed `requirements-dev.txt`; `pip check` passed; CI-equivalent commands reported 16 passing gates and seven strict xfails (T03/T04/T09), with no unexpected failures or tracked-file mutation. No application source changes. See [bounded brief and checkpoints](docs/orchestration/tasks/T01.md) and [coverage limits](tests/README.md). Paused awaiting independent review/merge; hosted Ubuntu CI remains to be observed by the manager. Next: review PR at its final head; merge requires user approval. Rollback: revert test/config/doc additions; no data migration.
 
 ### T02 — Remove credential and private-content logging
 
