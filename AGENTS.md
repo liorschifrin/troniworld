@@ -12,6 +12,12 @@ If you change of the below information, or add significantly to the page, update
 - `FILM_AUTH_SETUP.md` is historical and superseded for current setup/authentication. Some older notes below also describe removed fields/routes or earlier behavior; confirm source and ProductSpec before acting.
 - Update current-state documentation when behavior changes; record proposals and task checkpoints in the roadmap. Documentation does not imply permission to run the roadmap automatically or deploy.
 
+## Regression harness (T01)
+
+- Run `python -m pip install -r requirements-dev.txt` and `python -m pytest` in an isolated Python 3.12 venv; no server or real database is needed.
+- `tests/conftest.py` must configure synthetic environment values before importing `flask_app`; it rejects prior imports, disables dotenv, asserts the in-memory engine before schema operations, and redirects filesystem writes to temporary storage.
+- `pytest.ini` makes expected failures strict; `known_failure` cases identify roadmap defects and must not hide unrelated errors. CI runs passing gates and known defects separately. Coverage boundaries are in `tests/README.md`.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
