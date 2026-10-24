@@ -4,6 +4,14 @@ Don't run the flask server, I already have one running
 
 If you change of the below information, or add significantly to the page, update this file accordingly.
 
+## Project documentation (2026-10-24)
+
+- `README.md` is the canonical GitHub overview, usage guide, and local setup reference. Keep its existing uppercase filename.
+- `ProductSpec.md` documents current architecture, data contracts, routes, onboarding, and verified limitations against the reviewed baseline.
+- `FEATUREROADMAP_workplan.md` tracks proposed work with stable task IDs, dependencies, acceptance criteria, decision notes, and resumable regeneration/execution prompts. Roadmap items are not implemented features.
+- `FILM_AUTH_SETUP.md` is historical and superseded for current setup/authentication. Some older notes below also describe removed fields/routes or earlier behavior; confirm source and ProductSpec before acting.
+- Update current-state documentation when behavior changes; record proposals and task checkpoints in the roadmap. Documentation does not imply permission to run the roadmap automatically or deploy.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)

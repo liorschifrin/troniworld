@@ -1,4 +1,6 @@
-# Film Authentication System - Setup & Usage Guide
+# Film Authentication System - Historical Setup Guide
+
+> Superseded: this document describes an older authentication implementation, including removed routes, fields, and separate sessions. Do not follow its setup commands for the current app. Use [README.md](README.md) and [ProductSpec.md](ProductSpec.md) for current setup and behavior.
 
 ## Overview
 The film side of Troniworld now has separate authentication from the blog. All film routes require authentication, and users are redirected to a film-specific login page if not authenticated.
