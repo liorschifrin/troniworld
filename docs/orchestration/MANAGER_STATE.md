@@ -1,6 +1,6 @@
 # Sequential development manager
 
-- Updated: 2026-10-24T16:15:00Z.
+- Updated: 2026-10-24T16:20:00Z.
 - Authority: existing roadmap scope through sequential implementation/review; only one worker active. No production operations or new Flask server. Merge requires user approval after all gates pass.
 - Durable root: `/Users/liorschifrin/Desktop/Desktop/code/troniworld/docs/orchestration/` (outside worker worktrees). Manager owns this file; task detail: `tasks/T01.md`.
 
@@ -38,13 +38,13 @@
 
 ## Current task
 
-- Task/phase: T01 / REVIEW round 1 RUNNING (user said "Resume T01 review"); implementer completed/idle.
+- Task/phase: T01 / READY_TO_MERGE (pending user approval). Review round 1 completed: APPROVE, zero blocking findings; reviewer idle; implementer idle.
 - Threads: manager above; implementation `mcp:86180843-89e3-405d-b2e2-021dc69d4a70` (completed); review round 1: `mcp:13d9b7a0-6575-4f37-8974-58c7c8c72610` (run ordinal 1, bound to task worktree/branch, read-only, preparing at launch). Reconciled 16:09Z: T3 lists no other active workers.
 - Branch `task/t01-regression-harness`; worktree `/Users/liorschifrin/.t3/worktrees/troniworld/task-t01-regression-harness` (verified clean).
 - Base: main/origin/main `c5c37a332a82d34909f822d5941b46248f2adccc`; latest head (verified): `01b2ad17561d166f66a6306f8c9b51e692f46f35`.
-- PR: https://github.com/liorschifrin/troniworld/pull/5 (draft/open, MERGEABLE; overall BLOCKED); registered to manager and implementer threads. Merge approval absent. Review round: 1 in progress; findings pending.
+- PR: https://github.com/liorschifrin/troniworld/pull/5 (draft/open, MERGEABLE; overall BLOCKED); registered to manager and implementer threads. Merge approval absent. Review round: 1 (APPROVE for head 01b2ad1; findings minor/nit only, details in `tasks/T01.md`). Hosted CI: both "Regression tests / tests" runs (push + PR) SUCCESS on head `01b2ad1`. main unchanged at c5c37a3 (compatible). PR is still draft and GitHub reports REVIEW_REQUIRED/BLOCKED (branch protection; not bypassed).
 - Tests/evidence: worker checkpoints in `tasks/T01.md`; 16 pass / 7 strict xfail; hosted checks SUCCESS observed, exact-head policy pending.
 - Blocking questions: none for T01. Later product decisions Q1–Q5 remain open.
-- Next action: wait for review thread completion (do not poll in a loop; use t3_thread_wait once). Then read its report, stop it, record findings in `tasks/T01.md`. If changes required: repair brief to implementer (Heavy tier, per rules; Codex UNAVAILABLE until ~17:10Z so use claude-opus-5-5 high or wait). If approved: confirm exact-head CI, then ask the user for merge approval. No other task without explicit selection.
+- Next action: ask user for (a) merge approval for PR #5 (squash) and (b) permission to mark the draft PR ready for review; GitHub requires a review approval per branch protection, which the user must supply. Optional minor fix (push trigger limited to main) only if user wants it; any new commit invalidates review evidence. After merge: verify PR + main commit, mark T01 done in roadmap, update local main, remove worktree only if no unique work, then STOP and wait for explicit next-task selection.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds. Review must cover exact current PR head; never merge without approval.
