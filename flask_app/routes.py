@@ -2,6 +2,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
+import logging
 import os
 import uuid
 
@@ -9,6 +10,8 @@ from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
 from .utils import get_current_user
+
+logger = logging.getLogger(__name__)
 
 def is_allowed_image(filename: str) -> bool:
     if not filename or '.' not in filename:
@@ -95,14 +98,12 @@ def login():
 
     if request.method == 'POST':
 
-        print("Login attempt with data:", request.form)
-
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip().lower()
 
         user = User.query.filter(func.lower(User.username) == username.lower()).first()
         if not user:
-            print("Login failed - user not found:", username)
+            logger.warning("login_failed reason=unknown_user")
             flash('Invalid username or password.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
@@ -113,13 +114,13 @@ def login():
             expected_password = os.getenv('FILM_USER_PASSWORD')
         
         if not expected_password:
-            print("Shared passwords not configured in environment variables.")
+            logger.error("login_failed reason=password_not_configured user_id=%s", user.id)
             flash('Authentication system not configured properly.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
         
         # Verify entered password matches the expected shared password for this role
         if password != expected_password.lower():
-            print("Invalid username or password attempt for user:", username)
+            logger.warning("login_failed reason=bad_password user_id=%s", user.id)
             flash('Invalid username or password.')
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
 
@@ -333,18 +334,12 @@ def edit_article_comment(post_id, comment_id):
 def new_post():    
     current_user = get_current_user()
     if not current_user or not current_user.is_admin:
-        print("not admin")
         return redirect(url_for('index'))
 
-    print("admin")
-
-    print(request.method)
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
         content = request.form.get('content', '').strip()
-
-        print(title, author, content)
 
         if not title or not author or not content:
             flash('Title, author, and content are required.')
