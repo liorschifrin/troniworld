@@ -74,7 +74,7 @@ Reimporting reuses matching point numbers and preserves their timestamps, but mi
 
 ## Local development setup
 
-The inspected environment uses Python 3.13. Python 3.11+ is a reasonable starting point, but no compatibility matrix is currently maintained. Dependencies are pinned in `requirements.txt`; there is no Node build step.
+The regression harness and CI use Python 3.12. Other Python versions are not covered by a compatibility matrix. Dependencies are pinned in `requirements.txt`; there is no Node build step.
 
 ```bash
 git clone https://github.com/liorschifrin/troniworld.git
@@ -167,7 +167,19 @@ After reviewing the applicable migrations, `flask --app app db upgrade` applies 
 
 Read [ProductSpec.md](ProductSpec.md) for architecture, routes, data contracts, and known limitations. Read [FEATUREROADMAP_workplan.md](FEATUREROADMAP_workplan.md) for dependency-ordered work and resumable agent prompts. Follow [AGENTS.md](AGENTS.md) for repository-specific instructions.
 
-At the documented baseline, `main` has no tracked automated test suite or CI workflow. Earlier diagnostic checks used Flask's test client, synthetic users, and in-memory SQLite; they are not a substitute for a maintained regression suite. Never point mutation tests at the team database.
+Run the tracked regression harness from a fresh checkout (no `.env`, database bootstrap, secrets, or running server required):
+
+```bash
+python3.12 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pip check
+python -m pytest
+```
+
+The harness overrides database and credential settings before importing the global app, disables dotenv loading, asserts an in-memory SQLite engine before schema creation/cleanup, and uses synthetic users with a fresh schema per test. Import-time directories and uploaded files are redirected to temporary storage. Never point mutation tests at the team database. Run tests in their own Python process; importing the application first is rejected.
+
+CI runs passing gates (`python -m pytest -m 'not known_failure'`) separately from audited defects (`python -m pytest -m known_failure`). Known defects use narrow, strict expected failures tied to roadmap IDs: a fix produces an unexpected pass and requires updating its test marker; unrelated exceptions still fail. Expected failures do **not** mean the application is safe to release. See [test coverage and limitations](tests/README.md).
 
 The first planned improvements address permissions, input validation, identity, migrations, and watch tracking before adding features that depend on them. Existing code uses Flask, SQLAlchemy, Jinja, vanilla JavaScript, the YouTube IFrame API, and CKEditor loaded from a CDN.
 
