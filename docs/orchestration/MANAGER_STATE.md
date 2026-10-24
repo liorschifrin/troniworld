@@ -45,7 +45,9 @@
 - **T03a (proposed, roadmap only):** leadership-group private comments. Decisions: membership snapshot at post time; unflagged admins excluded; members notified; author-only audience changes. User said it should be unconnected to T03; roadmap entry still lists T03 as a dependency (user accepted as is). Not started; needs user selection.
 - Worktrees: T01, T02, T03 removed (no unpushed work). Local branches kept.
 - Manager branch `orchestration/sequential-manager` is merged with `main` (`7248193`). Manager-only records are not on `main`; roadmap T01/T02 done marks are on the manager branch only.
-- Standing rule: no direct pushes to `main`; all changes through PRs. Manager records PR: #9 (`orchestration/sequential-manager` → main), docs only.
+- Standing rule: no direct pushes to `main`; all changes through PRs.
+- **Task PR process (user 2026-10-25):** each task PR contains its spec, roadmap section, and task record. After approval, the manager may add a small docs-only commit to the task branch (roadmap state → done, record updates) before the squash merge, WITHOUT another review. Anything else needed before merge is also allowed without re-review if it is docs-only.
+- **Manager state stays on `orchestration/sequential-manager`.** That branch is pushed for backup and is never merged to `main`. PR #9 (records-only) was closed on 2026-10-25 in favor of this rule.
 
 ## Current phase
 
