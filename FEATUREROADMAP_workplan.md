@@ -23,6 +23,8 @@ Current blockers include privacy leakage, shared identities, unsafe inputs, unre
 
 Use [ProductSpec.md](ProductSpec.md) for existing behavior and [README.md](README.md) for setup. `FILM_AUTH_SETUP.md` is historical. Follow repository instructions, activate `venv/` before Flask commands, and use the already-running server where applicable. Test against isolated databases and synthetic users.
 
+Secondary direction (D004): present the project publicly as a free, open-source, self-hosted tool for ultimate teams, with a static live demo and landing page. There is no hosted multi-team service, signup, or onboarding; the primary goal is a portfolio showcase that reads credibly as a product.
+
 ## 3. Status and evidence rules
 
 Each task has exactly one checked state: **proposed**, **ready**, **active**, **paused**, **blocked**, **done**, or **dropped**. Proposed means not yet sufficiently specified/selected. Ready means prerequisites are satisfied and acceptance criteria are understood, not automatically authorized execution. Tasks awaiting unfinished dependencies remain proposed or blocked. Keep at most one task active per worker; parallel work requires explicit delegation scope and nonconflicting ownership.
@@ -52,6 +54,10 @@ T11 modularization/query efficiency; T12 accessibility/browser coverage; T13 pro
 ### Stage E — Add selected product features
 
 T14 saved film collections, T15 coaching assignments, T16 scoped search. These are **candidate features**, not agreed requirements. Choose based on user feedback. Each must inherit authorization, validation, test, and accessibility contracts from earlier stages. T15 may build on T14; search must never bypass T03.
+
+### Stage F — Public presence (portfolio showcase)
+
+T17 demo dataset, T18 static demo build, T19 landing page and Pages deployment, T20 self-host readiness gate. Stage F is independent of the T03–T09 privacy/security chain because the demo serves only public footage and synthetic-or-public data and runs without a backend. T17→T18→T19 is the showcase path; T20 gates only the "other teams can run this" claim. See D004.
 
 Every regeneration iteration proceeds in this order:
 
@@ -242,19 +248,69 @@ State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dro
 - **Decision notes:** proposed. Search amplifies any privacy flaw. Choose database indexing only after measuring data volume and query patterns.
 - **Evidence/checkpoint:** no user validation or implementation yet. Next: gather five real search questions, then identify the minimal searchable fields. Rollback: disable search endpoint without modifying underlying records.
 
+### T17 — Demo dataset
+
+State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+
+- **Stage/dependencies:** F; T01. P1. Blocked on maintainer choosing the game (Q8) and manual point tagging.
+- **Actor/problem:** a portfolio visitor needs realistic film, points, and discussion without any private team data.
+- **Scope:** one fully annotated public club-nationals game (maintainer to select; likely a Pony or DIG game). Commit under `demo/`: game metadata with a public embeddable YouTube URL, roster with real public player names, a point CSV in the existing importer format (README example) including injury notation if the game has any, per-point video timestamps, and about 10–15 maintainer-authored comments/threads (including at least one reply thread and one `@mention`) attributed to fictional demo users. Non-goals: private comments, hidden games, real Tron data, admin/leadership accounts beyond what the build needs, a second game.
+- **Read:** README CSV example; ProductSpec CSV import and point-timestamp sections; `film_routes.py` upload/point-update paths; `tests/conftest.py` fixtures.
+- **Acceptance:** [ ] dataset loads into a fresh in-memory database through the existing importer with no manual steps; [ ] every point has a timestamp or an explicit not-filmed flag; [ ] a test asserts roster, point count, and score totals; [ ] no Tron-team private data, passwords, or real accounts present; [ ] source of footage and name data documented in `demo/README.md`.
+- **Decision notes:** seeds through the current importer, so T10 is not a prerequisite. Real names come from a public broadcast; the site footer (T19) states the content is unaffiliated. One polished game is preferred to two thin ones.
+- **Evidence/checkpoint:** not started. Next: maintainer picks the game (Q8) and tags timestamps; agent specifies the file layout. Rollback: delete `demo/`.
+
+### T18 — Static demo build
+
+State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+
+- **Stage/dependencies:** F; T01, T17. P1.
+- **Actor/problem:** hosting a live Flask instance for a demo is operational overhead; the real UI should still be what visitors see.
+- **Scope:** a build script that loads the T17 dataset into an isolated in-memory app, renders the real pages through the Flask test client (games list, game player, team data; my-games and a frozen articles page optional), and writes static HTML with relative or configurable-base-path links. A `demo-shim.js` intercepts `fetch('/film/api/...')`: reads come from generated fixture JSON; writes (comment, reply, edit/delete own comment, mark watched, watch-progress/time tracking) update in-memory state and optionally `localStorage` and never leave the browser. The demo views as a regular player; admin-only controls are hidden or absent (see Q6). Non-goals: any backend, real login, admin pages, analytics dashboard, persistence across visitors.
+- **Read:** `game_player.html` fetch call sites and Jinja-injected data (`users`, `point_field_options`, `point_players_js`); `film_base.html` notification polling; `games_list.html`; `tron_data.html`; `tests/conftest.py`.
+- **Acceptance:** [ ] built output works when served from a subpath such as `/troniworld/` with no 404s for pages, assets, or API calls; [ ] comments/replies/mark-watched work for the visitor and reset on reload (or per the documented localStorage choice); [ ] drift guard: a test fails if any template references a `/film/api/` endpoint the shim does not handle; [ ] output contains no secrets, database files, or production URLs; [ ] build is deterministic and reruns with one documented command; [ ] YouTube player, seek-on-click points, scoreboard, and player sheet verified in a real browser at desktop and mobile widths.
+- **Decision notes:** freezing the real templates is preferred over a hand-built mock to prevent drift (D004). Drive the app through the test client, not route internals, to stay robust against T03/T11 refactoring. Keep template edits to a minimal demo-mode flag. Notification bell may be fed static sample notifications or hidden.
+- **Evidence/checkpoint:** not started. Next: inventory every endpoint and Jinja-dependent page the demo pages hit. Rollback: remove the build script, shim, and flag; app behavior unchanged.
+
+### T19 — Landing page and GitHub Pages deployment
+
+State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+
+- **Stage/dependencies:** F; T18. P1.
+- **Actor/problem:** visitors need to understand the product in seconds and reach the demo.
+- **Scope:** static `site/` landing page: hero, short feature sections (point-synced film, player sheets, threaded comments with mentions and private notes, team/player stats, team articles), screenshots or short GIFs including admin features the demo omits, "Built for Brandeis Tron" story, "Try the live demo" and "View on GitHub" buttons, footer stating footage and player names come from a public broadcast and the project is unaffiliated with the teams. A GitHub Action builds the T18 demo and the site and deploys both to GitHub Pages. Non-goals: signup, analytics beyond what Pages provides, custom backend, pricing or hosted-service claims.
+- **Acceptance:** [ ] Pages deployment succeeds from `main` via Action with no secrets; [ ] landing page links to a working demo; [ ] responsive and keyboard-navigable; [ ] copy makes no claim the repo cannot support (no "easy setup" or hosting claims until T20); [ ] README links to the live site; [ ] media is optimized and properly attributed.
+- **Decision notes:** keep the site framework-free unless a measured need appears. Pages base path is parameterized (Q7).
+- **Evidence/checkpoint:** not started. Next: after T18, capture screenshots/GIFs and draft copy. Rollback: disable the Pages workflow.
+
+### T20 — Self-host readiness gate
+
+State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+
+- **Stage/dependencies:** F; T07; Q5 (license). P1 for the adoption claim only; not required for T17–T19.
+- **Actor/problem:** another team must be able to install and run the project from the README; today fresh migration replay fails and login uses two shared environment passwords.
+- **Scope:** add a `LICENSE`; rewrite README setup as a verified self-hosting guide (environment values, database bootstrap, creating the first admin, importing a first game); confirm a clean setup on a machine with no prior state. Individual-account limitations (T06) must be stated honestly if unresolved.
+- **Acceptance:** [ ] `LICENSE` present and consistent with Q5 outcome; [ ] documented steps succeed on a fresh clone and empty database; [ ] known limitations listed; [ ] landing page CTA updated from "View on GitHub" to a self-host guide link only after the first criterion is met.
+- **Decision notes:** T19 may ship before T20 with a repository link only. Do not advertise teams self-hosting while the documented setup is known to fail.
+- **Evidence/checkpoint:** not started. Next: resolve the license choice in Q5; track T07. Rollback: documentation-only.
+
 ## 6. Product decisions and open questions
 
 - **Q1 — Privacy:** should leadership see all leadership-authored private feedback, only explicitly addressed feedback, or another documented policy? Who may see private content in admin reports? Owner: maintainer. Status: unresolved. Affects T03, T14–T16.
 - **Q2 — Identity:** individual passwords/invitations or an external identity provider? What recovery/contact channel exists? Owner: maintainer. Status: unresolved. Affects T06/T08.
 - **Q3 — Coaching powers:** should leadership publish articles/manage film/assign reviews, or remain distinct from admins? Status: unresolved. Affects T15 and role design.
 - **Q4 — Notifications:** in-app only, email, or another channel? Status: in-app is current; other channels are unselected proposals. Affects T15.
-- **Q5 — Release:** target host, expected team/data size, license, public/private repository intent, and acceptable recovery time/data loss? Status: unresolved. Affects T13.
+- **Q5 — Release:** target host, expected team/data size, license, public/private repository intent, and acceptable recovery time/data loss? Status: unresolved. Affects T13, T20 (license).
+- **Q6 — Demo viewer role:** regular player view only (default), or an admin-mode demo showing roster editing and not-filmed tools? Default: player view; admin features shown as landing-page GIFs. Owner: maintainer. Status: default assumed, unconfirmed beyond approval of the Stage F proposal. Affects T18/T19.
+- **Q7 — Pages URL:** default project site `liorschifrin.github.io/troniworld`; a custom domain changes the link base path. Status: default assumed. Affects T18/T19.
+- **Q8 — Demo game:** which public club-nationals game, and its YouTube URL. Owner: maintainer. Status: unresolved; maintainer will choose later. Blocks T17.
 
 Decision record template: `D### | date | question/task | chosen option | alternatives | rationale/evidence | owner | consequences | revisit trigger`. Preserve prior decisions; supersede with a new record instead of silently rewriting history.
 
 - **D001 | 2026-10-24 | documentation scope:** retain canonical `README.md`; add ProductSpec and this roadmap; no application changes. Rationale: current request is groundwork. Revisit when implementation is selected.
 - **D002 | 2026-10-24 | architecture recommendation:** keep Flask/Jinja initially; consolidate security/business behavior before broad refactoring. This is an engineering recommendation, not a permanent technology mandate. Revisit with measured frontend/backend constraints.
 - **D003 | 2026-10-24 | initial priorities:** known privacy/data-integrity defects precede features that amplify their impact. Candidate feature ranking remains subject to user evidence.
+- **D004 | 2026-10-25 | public presence:** build a portfolio showcase presented as a free, open-source, self-hosted product, with a landing page and a static live demo on GitHub Pages (no backend). The demo is produced by freezing the real templates against a seeded in-memory app plus a fetch shim, not a hand-built mock. Data: one real, publicly broadcast club-nationals game with real player names; comments authored by the maintainer under fictional users. Alternatives: hosted demo instance (rejected: hosting overhead and public attack surface while auth is shared-password); hand-built static mock (rejected: drift from the real UI); multi-team signup/onboarding (rejected: out of scope). Owner: maintainer. Consequences: Stage F runs parallel to Stages B–D; self-hosting claims wait on T20/T07. Revisit if team adoption demand appears or the shim cost exceeds expectation.
 
 ## 7. Task and iteration templates
 
