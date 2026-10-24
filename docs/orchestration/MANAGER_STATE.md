@@ -35,7 +35,7 @@
 ## User decisions (standing)
 
 - **Direct push to `main` bypassed a PR-only rule (2026-10-24 ~16:41Z).** Manager pushed `8cfda2f` (roadmap/orchestration docs only) to `origin/main`; remote warned "Bypassed rule violations ... must be made through a pull request." User chose to KEEP it. Standing rule from now: never push to `main` directly; all changes via PR, and never bypass branch protection.
-- Q1 (privacy/leadership visibility) is unresolved and must be asked before any leadership exception is added.
+- Q1 (privacy/leadership visibility): user chose option (a) author + explicit recipients only for comment surfaces (2026-10-25). Admin-report privacy still OPEN. User also requested a roadmap item for private comments addressed to a selectable leadership group (visible to all members); details OPEN. Do not implement until the user answers the open questions (standing rule 0).
 
 ## Task status
 
@@ -47,7 +47,7 @@
 ## Current phase
 
 - Phase: READY_TO_MERGE (slice 1 only; T03 NOT done) — awaiting user: (a) merge approval for PR #8 at `d43fa1d`; (b) decision on Q1. Review round 1 `mcp:cae944da-ed62-4470-b82c-a1b2626259e1` APPROVE, zero blocking/major; minors: hidden-game ancestors not checked in `can_view_comment` (visibility.py:85); comment edit wipes notification rows (film_routes.py:1156); no tests for main route `private_to=''`/non-list JSON; Q1 decision must list the surface inconsistency. Prior: REVIEW — T03 slice 1 (user-selected 2026-10-24 ~16:41Z). PR #8 draft head `d43fa1d`; implementer `mcp:ea569f2d-8fab-43d4-a036-3a51960dde09` completed/idle. Review round 1 thread `mcp:cae944da-ed62-4470-b82c-a1b2626259e1` (claudeAgent `claude-opus-5-5` high, Heavy; same-provider because Codex unavailable), launched ~16:58Z. Flags for review: kept one pre-existing leadership exception (main film comments route) pending Q1; 27/82 tests pass pre-change (brief violation, needs justification); `/api/v1` not retired. Tier Heavy: claudeAgent `claude-opus-5-5` effort high (Codex UNAVAILABLE_UNTIL 17:10Z). Brief: `tasks/T03.md`. Implementer thread `mcp:ea569f2d-8fab-43d4-a036-3a51960dde09` (claudeAgent `claude-opus-5-5` high), run ordinal 1, launched ~16:46Z, status preparing; branch `task/t03-visibility-policy` from origin/main `8cfda2f`.
-- Blocking questions: how to land roadmap/state updates on `main` (direct or PR). Product decisions Q1–Q5 remain open for later tasks.
+- Blocking questions: (1) admin-report privacy rule; (2) leadership-group private comment definition; (3) confirm roadmap item placement. Product decisions Q2–Q5 remain open for later tasks.
 - Next action: wait for implementer; then fresh Heavy-tier review (claudeAgent, same-provider because Codex unavailable) on its worktree; ask user Q1 when the implementer report is in.
 - (Prior, superseded) Next action: wait for the user to explicitly select the next task. Candidate ready items (NOT selected, do not start): T03 (depends on T01, done) and any other ready item the user names. Do not start any task automatically.
 
