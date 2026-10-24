@@ -87,7 +87,7 @@ Dates on games/tournaments are ISO-format strings, not database date types. Null
 - `VideoWatchSession`: user/game, accumulated duration, last position, session start/update times; multiple visits may create multiple rows.
 - `GameWatched`: explicit user/game completion mark with a unique pair constraint.
 
-Film privacy representation: SQL null means public; JSON `[]` means author-only; a populated JSON list names recipients. Current regular film reads also let leadership see a leadership-authored private comment with at least one recipient. Admin reporting has different rules; see section 8.
+Film privacy representation: SQL null means public; JSON `[]` (or any malformed value) means author-only; a populated JSON list names recipients. Replies inherit their parent chain's audience. `flask_app/visibility.py` holds the shared game/comment policy; see [docs/visibility-policy.md](docs/visibility-policy.md) for the role × surface matrix. Only the main film comments read (`GET /film/api/games/<id>/comments`) keeps the pre-existing exception letting leadership see a leadership-authored private comment with at least one recipient; every other surface applies the author/recipient baseline until Q1 is decided. Admin reporting has different, unchanged rules (pending Q1); see section 8.
 
 Ownership and recipients use usernames instead of user foreign keys. Renaming/reusing usernames can break identity continuity. Foreign keys and unique association keys are valuable existing safeguards, but they do not establish same-game parent/point membership. SQLite foreign keys are explicitly enabled per connection. ORM cascade behavior must also agree with database cascades.
 
@@ -109,9 +109,9 @@ Ownership and recipients use usernames instead of user foreign keys. Renaming/re
 ### Film pages and administrative forms (`film_routes.py`)
 
 - `GET /film/games`: authenticated game list, hides hidden games from non-admins.
-- `GET /film/games/<id>`: authenticated player; currently missing hidden-game authorization.
-- `GET /film/my-games`: linked-player participation and own comments.
-- `GET /film/data`: team/player/tactical statistics, optional repeated `game_ids` query values.
+- `GET /film/games/<id>`: authenticated player; hidden games return the same 404 as missing games for non-admins.
+- `GET /film/my-games`: linked-player participation and own comments (hidden games and comments on them omitted for non-admins).
+- `GET /film/data`: team/player/tactical statistics, optional repeated `game_ids` query values (hidden ids behave as missing for non-admins).
 - `GET /film/analytics`: admin engagement dashboard.
 - `GET/POST /admin/users`: admin account creation, deletion, role changes.
 - `POST /admin/users/create_all_players`: admin bulk account creation.
@@ -122,7 +122,7 @@ Ownership and recipients use usernames instead of user foreign keys. Renaming/re
 
 ### Main film JSON API (`film_routes.py`)
 
-All require login; point and roster edits require admin:
+All require login; point and roster edits require admin. Every game-scoped route returns the missing-game 404 for hidden games to non-admins, and notifications are created and served only for comments the recipient may view:
 
 - `GET/POST /film/api/games/<id>/comments`; `PATCH/DELETE .../comments/<comment_id>`.
 - `PATCH /film/api/games/<id>/points/<point_id>`: tactical labels, timestamp, not-filmed flag.
@@ -137,7 +137,7 @@ A film comment create body uses `content`, optional `timestamp`, `parent_id`, `p
 
 ### Alternate API (`api_routes.py`)
 
-`/api/v1/games`, `/games/<id>`, comment GET/POST/PATCH/DELETE, point PATCH, and watch-tracking POST duplicate main film functions. It lacks private-comment filtering and hidden-game filtering and omits newer point/watch behavior. Do not add another feature independently to both implementations: establish shared services or retire the unused interface.
+`/api/v1/games`, `/games/<id>`, comment GET/POST/PATCH/DELETE, point PATCH, and watch-tracking POST duplicate main film functions and omit newer point/watch behavior. It has no in-repository consumer (its React client was removed in `e6ba8e7`); it now applies the shared hidden-game and private-comment policy (author/recipient baseline, no leadership exception) and is slated for retirement after Q1 and owner confirmation; see [docs/visibility-policy.md](docs/visibility-policy.md). Do not add features to it.
 
 Authentication decorators generally redirect to HTML for unauthenticated/unauthorized requests, including JSON endpoints. Some article endpoints instead return JSON 401/403. Normalize this when introducing API contracts.
 
@@ -183,16 +183,16 @@ Fresh migration replay fails because the first revision assumes `user` already e
 
 The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's test client, not the running server or team database. Observed:
 
-- Nonrecipient private content returned from alternate API game/detail comments.
-- Hidden game player returned 200 to a regular user.
-- Private reply content appeared in a nonrecipient parent's notifications.
+- Nonrecipient private content returned from alternate API game/detail comments (fixed by T03 slice 1).
+- Hidden game player returned 200 to a regular user (fixed by T03 slice 1).
+- Private reply content appeared in a nonrecipient parent's notifications (fixed by T03 slice 1).
 - Cross-game parent references and nonnumeric timestamps were accepted.
 - JSON text sent with a string-beacon media type failed with HTTP 500.
 - User deletion with login history raised a non-null foreign-key integrity error.
 - Migration replay on an empty database failed with `no such table: user`.
 - Thirteen major page reads returned 200; twenty HTML templates compiled.
 
-Source inspection also found login-form/password logging, private comment logging, unsafe timestamp interpolation into inline JavaScript, no application-level CSRF protection, unsanitized article HTML rendered with `safe`, inconsistent visibility rules, unbounded client watch increments, query-per-user/comment patterns, and no tracked CI/tests on the original audit baseline. Browser execution of the injection path, real YouTube controls, deployment security, dependency vulnerability scanning, accessibility, and load behavior were not tested. Temporary diagnostic scripts were not committed. T01 now supplies a tracked pytest harness and secret-free CI using Python 3.12, synthetic users, fresh in-memory schemas, pre-import environment overrides, and temporary filesystem storage. The global application architecture is unchanged. Passing permission/isolation checks and seven strict expected-failure cases for T03/T04/T09 are separated in CI; see [tests/README.md](tests/README.md) for the precise coverage boundary. Migration replay, deletion integrity, and browser behavior remain outside this initial suite.
+Source inspection also found login-form/password logging, private comment logging, unsafe timestamp interpolation into inline JavaScript, no application-level CSRF protection, unsanitized article HTML rendered with `safe`, inconsistent visibility rules, unbounded client watch increments, query-per-user/comment patterns, and no tracked CI/tests on the original audit baseline. Browser execution of the injection path, real YouTube controls, deployment security, dependency vulnerability scanning, accessibility, and load behavior were not tested. Temporary diagnostic scripts were not committed. T01 now supplies a tracked pytest harness and secret-free CI using Python 3.12, synthetic users, fresh in-memory schemas, pre-import environment overrides, and temporary filesystem storage. The global application architecture is unchanged. Passing permission/isolation/visibility checks and three strict expected-failure cases for T04/T09 (the four T03 cases became passing tests in T03 slice 1) are separated in CI; see [tests/README.md](tests/README.md) for the precise coverage boundary. Migration replay, deletion integrity, and browser behavior remain outside this initial suite.
 
 Release priorities and acceptance criteria live in the roadmap. Do not silently reinterpret these observations as fixes already made.
 

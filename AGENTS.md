@@ -48,7 +48,7 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 
 ### Private comments
 - `Comment.private_to` DB column (Text, nullable) stores a JSON list of allowed usernames (e.g. `["alice","bob"]`). `null` = public.
-- Server-side filtering in `get_comments()` (`film_routes.py`): a comment is returned only if `private_to` is NULL, or the viewer is the author, or the viewer's username is in the list. Same filter applied to replies.
+- Server-side filtering uses `can_view_comment()` in `flask_app/visibility.py`: a comment is returned only if `private_to` is NULL, or the viewer is the author, or the viewer's username is in the list; replies also require every ancestor to be visible. `get_comments()` alone keeps the pre-existing leadership exception (pending product decision Q1). Notifications are created and served only for comments the recipient may view. See `docs/visibility-policy.md`.
 - `create_comment` / `update_comment` accept `private_to` (list or null) in the request body.
 - Frontend globals: `isPrivateComment` (bool), `privateToUsers` (array), `editIsPrivate`, `editPrivateToUsers`.
 - UI: 🔒 lock button (`.privacy-toggle-btn`) in `.comment-controls`. When active (yellow border), a chip-input section (`.private-to-wrap`) appears. Users type a username and press Enter/comma to add a chip; click × to remove.
@@ -113,7 +113,7 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 
 ### Hidden games
 - `Game.is_hidden` DB column (Boolean, default False, `NOT NULL`). When `True`, the game is invisible to all non-admin users.
-- **Filtering**: `games_list`, `my_games`, and `tron_data` routes in `film_routes.py` all skip hidden games for non-admins (`[g for g in games if not g.is_hidden]`).
+- **Filtering**: `games_list`, `my_games`, and `tron_data` routes in `film_routes.py` all skip hidden games for non-admins (`[g for g in games if not g.is_hidden]`). Every game-scoped film and `/api/v1` route uses `get_visible_game_or_404()` from `flask_app/visibility.py`, so non-admins get the same 404 as for a missing game. Policy matrix: `docs/visibility-policy.md`.
 - **Forms**: a "Hide this game" checkbox (`name="is_hidden"`) is present in both `new_game.html` and `edit_game.html`. In the edit form the checkbox is pre-checked when `game.is_hidden` is True.
 - **Visual indicator**: on the games list (admin view only), hidden cards receive the `.game-card--hidden` class (dashed orange border, reduced opacity) and a 🚫 Hidden `.hidden-badge` in the meta row.
 - Migration: `j5k6l7m8n9o0` (down_revision: `i4j5k6l7m8n9`).

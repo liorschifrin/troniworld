@@ -23,6 +23,7 @@ def fmt_dt_est(dt):
 from . import app, db
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
+from .visibility import can_view_comment, get_visible_game_or_404, visible_games_query
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,9 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
       - Public comment: notify every @[username] mentioned in the content.
         @[Everyone] (leadership only) notifies all film users except the author.
 
-    Author is never notified for their own comment.
+    Author is never notified for their own comment. Recipients who cannot view
+    the comment under the shared visibility policy (hidden game, private
+    comment, or private ancestor) are never notified.
     """
 
     PRIORITY = {'private': 5, 'everyone': 4, 'mention': 3, 'reply': 2, 'thread': 1}
@@ -92,6 +95,12 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
             else:
                 if User.query.filter_by(username=uname).first():
                     _set(uname, 'mention')
+
+    users_by_name = {
+        u.username: u for u in User.query.filter(User.username.in_(list(notif_map))).all()
+    } if notif_map else {}
+    notif_map = {uname: ntype for uname, ntype in notif_map.items()
+                 if can_view_comment(users_by_name.get(uname), comment)}
 
     for uname, ntype in notif_map.items():
         notif = CommentNotification(
@@ -405,6 +414,7 @@ def my_games():
         )
         .join(Game, Comment.game_id == Game.id)
         .filter(Comment.author_name == current_user.username)
+        .filter(Game.id.in_(visible_games_query(current_user).with_entities(Game.id)))
         .order_by(Comment.created_at.desc())
         .all()
     )
@@ -450,12 +460,14 @@ def tron_data():
     all_tournaments = Tournament.query.order_by(Tournament.start_date.desc().nullslast(), Tournament.name).all()
 
     # ── Filter by selected game IDs (default = all) ─────────────────
+    visible_ids = {g.id for g in all_games}
     selected_ids = request.args.getlist('game_ids', type=int)
     if selected_ids:
-        selected_id_set = set(selected_ids)
+        # Hidden ids behave like nonexistent ids for nonadmins.
+        selected_id_set = set(selected_ids) & visible_ids
         games = [g for g in all_games if g.id in selected_id_set]
     else:
-        selected_id_set = {g.id for g in all_games}
+        selected_id_set = visible_ids
         games = all_games
 
     # ── Per-game stats ──────────────────────────────────────────────
@@ -513,7 +525,7 @@ def tron_data():
         player_stats.append({
             'player': player,
             'total_pts': len(all_pts),
-            'games_played': len(player.games),
+            'games_played': len([g for g in player.games if g.id in visible_ids]),
             'o_count': o_count, 'o_scored': o_scored,
             'hold_pct': (o_scored / o_count * 100) if o_count > 0 else None,
             'd_count': d_count, 'd_scored': d_scored,
@@ -681,14 +693,17 @@ def new_tournament():
 @login_required
 def view_game(game_id):
     current_user = get_current_user()
-    game = Game.query.get_or_404(game_id)
+    game = get_visible_game_or_404(game_id, current_user)
     
     # Get all unique point detail field values across ALL games
     all_pull_plays = set()
     all_defense_types = set()
     all_offense_faced = set()
     
-    all_points = Point.query.all()
+    # Option lists must not reveal labels used only in hidden games.
+    all_points = Point.query.filter(
+        Point.game_id.in_(visible_games_query(current_user).with_entities(Game.id))
+    ).all()
     for point in all_points:
         if point.pull_play:
             all_pull_plays.add(point.pull_play)
@@ -935,36 +950,19 @@ def edit_game(game_id):
 @login_required
 def get_comments(game_id):
     """Get all comments for a game"""
-    game = Game.query.get_or_404(game_id)
     current_user = get_current_user()
-    viewer_username = current_user.username if current_user else None
+    game = get_visible_game_or_404(game_id, current_user)
 
     # Sort by timestamp (nulls last), then by created_at for comments without timestamps
     comments = Comment.query.filter_by(game_id=game_id, parent_id=None).order_by(
         Comment.timestamp.asc().nullslast(),
         Comment.created_at.asc()
     ).all()
-    
+
     def can_see(comment):
         """Return True if the current viewer is allowed to see this comment."""
-        if not comment.private_to:
-            return True  # public comment (private_to IS NULL)
-        if viewer_username is None:
-            return False
-        try:
-            allowed = json.loads(comment.private_to)
-        except (ValueError, TypeError):
-            allowed = []
-        # Direct access: author or explicitly listed recipient
-        if viewer_username == comment.author_name or viewer_username in allowed:
-            return True
-        # Leadership visibility rule: if the author is leadership and the comment
-        # was sent to at least one specific person, all leadership members can see it.
-        if allowed and current_user and current_user.is_leadership:
-            author_user = User.query.filter_by(username=comment.author_name).first()
-            if author_user and author_user.is_leadership:
-                return True
-        return False
+        # This surface keeps its pre-existing leadership exception pending Q1.
+        return can_view_comment(current_user, comment, leadership_exception=True)
 
     comments_list = []
     for comment in comments:
@@ -1019,10 +1017,9 @@ def get_comments(game_id):
 @login_required
 def create_comment(game_id):
     """Create a new comment for a game"""
-    game = Game.query.get_or_404(game_id)
-    
     # Get the current user
     current_user = get_current_user()
+    game = get_visible_game_or_404(game_id, current_user)
     
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -1101,6 +1098,7 @@ def delete_comment(game_id, comment_id):
     """Delete a comment - users can delete their own comments, admins can delete any"""
     current_user = get_current_user()
     
+    get_visible_game_or_404(game_id, current_user)
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
     
     # Check if user is authorized to delete this comment
@@ -1122,6 +1120,7 @@ def update_comment(game_id, comment_id):
     """Update a comment - users can only edit their own comments"""
     current_user = get_current_user()
     
+    get_visible_game_or_404(game_id, current_user)
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
     
     # Check if user is authorized to edit this comment (only own comments)
@@ -1531,8 +1530,8 @@ def track_watch_time(game_id):
     """Track how much time a user has spent watching a game video"""
     current_user = get_current_user()
     
-    # Verify game exists
-    game = Game.query.get_or_404(game_id)
+    # Verify game exists and is visible to this user
+    game = get_visible_game_or_404(game_id, current_user)
     
     try:
         data = request.get_json()
@@ -1592,7 +1591,7 @@ def track_watch_time(game_id):
 def get_watch_progress(game_id):
     """Get the last saved playback position for this user and game"""
     current_user = get_current_user()
-    Game.query.get_or_404(game_id)
+    get_visible_game_or_404(game_id, current_user)
     
     # Find the most recently updated session for this user+game
     session = VideoWatchSession.query.filter_by(
@@ -1726,6 +1725,10 @@ def get_notifications():
 
     result = []
     for n in notifs:
+        # Rows created before T03 may reference comments or games the caller
+        # cannot view; omit them entirely rather than serve title or snippet.
+        if not can_view_comment(current_user, n.comment):
+            continue
         snippet = ''
         if n.comment:
             raw = n.comment.content
@@ -1922,6 +1925,7 @@ def user_leadership_tags(username):
 def toggle_game_watched(game_id):
     """Toggle the current user's explicit watched mark for a game."""
     current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
     existing = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first()
     if existing:
         db.session.delete(existing)

@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request
 from . import db
 from .models import Comment, Game, Point, User, VideoWatchSession
 from .utils import admin_required, get_current_user, login_required
+from .visibility import can_view_comment, get_visible_game_or_404, visible_games_query
 
 api_v1 = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
@@ -72,8 +73,14 @@ def _serialize_reply(reply: Comment) -> dict:
     }
 
 
-def _serialize_comment(comment: Comment) -> dict:
-    replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
+def _serialize_comment(comment: Comment, viewer: User) -> dict:
+    # Callers check the comment itself; replies are filtered here. This API
+    # applies the explicit author/recipient baseline with no leadership exception.
+    replies = [
+        reply
+        for reply in Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
+        if can_view_comment(viewer, reply)
+    ]
     return {
         "id": comment.id,
         "author_name": comment.author_name,
@@ -103,10 +110,13 @@ def _serialize_viewer() -> dict:
     }
 
 
-def _collect_point_field_options() -> dict:
+def _collect_point_field_options(user: User) -> dict:
+    visible_points = db.session.query(Point).filter(
+        Point.game_id.in_(visible_games_query(user).with_entities(Game.id))
+    )
     pull_play = [
         row[0]
-        for row in db.session.query(Point.pull_play)
+        for row in visible_points.with_entities(Point.pull_play)
         .filter(Point.pull_play.isnot(None), Point.pull_play != "")
         .distinct()
         .order_by(Point.pull_play.asc())
@@ -114,7 +124,7 @@ def _collect_point_field_options() -> dict:
     ]
     defense_type = [
         row[0]
-        for row in db.session.query(Point.defense_type)
+        for row in visible_points.with_entities(Point.defense_type)
         .filter(Point.defense_type.isnot(None), Point.defense_type != "")
         .distinct()
         .order_by(Point.defense_type.asc())
@@ -122,7 +132,7 @@ def _collect_point_field_options() -> dict:
     ]
     offense_faced = [
         row[0]
-        for row in db.session.query(Point.offense_faced)
+        for row in visible_points.with_entities(Point.offense_faced)
         .filter(Point.offense_faced.isnot(None), Point.offense_faced != "")
         .distinct()
         .order_by(Point.offense_faced.asc())
@@ -135,7 +145,7 @@ def _collect_point_field_options() -> dict:
     }
 
 
-def _serialize_game(game: Game) -> dict:
+def _serialize_game(game: Game, user: User) -> dict:
     points = game.points.order_by(Point.point_index).all()
     comments = Comment.query.filter_by(game_id=game.id, parent_id=None).order_by(
         Comment.timestamp.asc().nullslast(),
@@ -188,8 +198,10 @@ def _serialize_game(game: Game) -> dict:
         else None,
         "roster": sorted([p.name for p in game.roster]),
         "points": [_serialize_point(point) for point in points],
-        "comments": [_serialize_comment(comment) for comment in comments],
-        "point_field_options": _collect_point_field_options(),
+        "comments": [
+            _serialize_comment(comment, user) for comment in comments if can_view_comment(user, comment)
+        ],
+        "point_field_options": _collect_point_field_options(user),
         "viewer": viewer,
         "mentionables": mentionables,
         "player_sheet": {
@@ -203,7 +215,9 @@ def _serialize_game(game: Game) -> dict:
 @api_v1.route("/games", methods=["GET"])
 @login_required
 def games_index():
-    games = Game.query.order_by(Game.game_date.desc().nullslast(), Game.id.desc()).all()
+    games = visible_games_query(get_current_user()).order_by(
+        Game.game_date.desc().nullslast(), Game.id.desc()
+    ).all()
     payload = []
     for game in games:
         payload.append(
@@ -223,26 +237,34 @@ def games_index():
 @api_v1.route("/games/<int:game_id>", methods=["GET"])
 @login_required
 def game_detail(game_id: int):
-    game = Game.query.get_or_404(game_id)
-    return jsonify({"game": _serialize_game(game)})
+    current_user = get_current_user()
+    game = get_visible_game_or_404(game_id, current_user)
+    return jsonify({"game": _serialize_game(game, current_user)})
 
 
 @api_v1.route("/games/<int:game_id>/comments", methods=["GET"])
 @login_required
 def game_comments(game_id: int):
-    Game.query.get_or_404(game_id)
+    current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
     comments = Comment.query.filter_by(game_id=game_id, parent_id=None).order_by(
         Comment.timestamp.asc().nullslast(),
         Comment.created_at.asc(),
     ).all()
-    return jsonify({"comments": [_serialize_comment(comment) for comment in comments]})
+    return jsonify({
+        "comments": [
+            _serialize_comment(comment, current_user)
+            for comment in comments
+            if can_view_comment(current_user, comment)
+        ]
+    })
 
 
 @api_v1.route("/games/<int:game_id>/comments", methods=["POST"])
 @login_required
 def create_game_comment(game_id: int):
-    Game.query.get_or_404(game_id)
     current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
     data = request.get_json(silent=True) or {}
 
     content = (data.get("content") or "").strip()
@@ -269,13 +291,14 @@ def create_game_comment(game_id: int):
     )
     db.session.add(comment)
     db.session.commit()
-    return jsonify({"success": True, "comment": _serialize_comment(comment)}), 201
+    return jsonify({"success": True, "comment": _serialize_comment(comment, current_user)}), 201
 
 
 @api_v1.route("/games/<int:game_id>/comments/<int:comment_id>", methods=["PATCH"])
 @login_required
 def update_game_comment(game_id: int, comment_id: int):
     current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
     data = request.get_json(silent=True) or {}
 
@@ -289,13 +312,14 @@ def update_game_comment(game_id: int, comment_id: int):
     comment.content = new_content
     comment.comment_type = "Comment"
     db.session.commit()
-    return jsonify({"success": True, "comment": _serialize_comment(comment)})
+    return jsonify({"success": True, "comment": _serialize_comment(comment, current_user)})
 
 
 @api_v1.route("/games/<int:game_id>/comments/<int:comment_id>", methods=["DELETE"])
 @login_required
 def delete_game_comment(game_id: int, comment_id: int):
     current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
     comment = Comment.query.filter_by(id=comment_id, game_id=game_id).first_or_404()
     if not current_user.is_admin and comment.author_name != current_user.username:
         return jsonify({"error": "Unauthorized"}), 403
@@ -327,7 +351,7 @@ def update_game_point(game_id: int, point_id: int):
 @login_required
 def track_watch_time(game_id: int):
     current_user = get_current_user()
-    Game.query.get_or_404(game_id)
+    get_visible_game_or_404(game_id, current_user)
 
     data = request.get_json(silent=True)
     if data is None:
