@@ -45,9 +45,9 @@
 
 ## Current phase
 
-- Phase: IMPLEMENT — T03 slice 1 (user-selected 2026-10-24 ~16:41Z). Tier Heavy: claudeAgent `claude-opus-5-5` effort high (Codex UNAVAILABLE_UNTIL 17:10Z). Brief: `tasks/T03.md`. Implementer thread: pending launch.
+- Phase: IMPLEMENT — T03 slice 1 (user-selected 2026-10-24 ~16:41Z). Tier Heavy: claudeAgent `claude-opus-5-5` effort high (Codex UNAVAILABLE_UNTIL 17:10Z). Brief: `tasks/T03.md`. Implementer thread `mcp:ea569f2d-8fab-43d4-a036-3a51960dde09` (claudeAgent `claude-opus-5-5` high), run ordinal 1, launched ~16:46Z, status preparing; branch `task/t03-visibility-policy` from origin/main `8cfda2f`.
 - Blocking questions: how to land roadmap/state updates on `main` (direct or PR). Product decisions Q1–Q5 remain open for later tasks.
-- Next action: launch T03 implementer (branch `task/t03-visibility-policy` from origin/main `8cfda2f`); record IDs; ask user Q1.
+- Next action: wait for implementer; then fresh Heavy-tier review (claudeAgent, same-provider because Codex unavailable) on its worktree; ask user Q1 when the implementer report is in.
 - (Prior, superseded) Next action: wait for the user to explicitly select the next task. Candidate ready items (NOT selected, do not start): T03 (depends on T01, done) and any other ready item the user names. Do not start any task automatically.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds.
