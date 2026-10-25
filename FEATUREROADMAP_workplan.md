@@ -153,13 +153,14 @@ State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T07 — Reproducible database bootstrap and upgrades
 
-State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dropped
 
 - **Stage/dependencies:** C; T01. P0.
 - **Scope/read:** complete Alembic history, current model schema, README demo workaround. Define a fresh baseline and safe path from existing stamped databases without casually rewriting deployed revisions.
 - **Acceptance:** [x] documented setup works on an empty database; [x] representative prior revisions upgrade with data preserved; [x] model/schema drift checked; [x] backup/restore rehearsal recorded; [x] README workaround replaced when no longer necessary.
 - **Decision notes:** empty migration replay failed at the first `user` alteration. `create_all` plus a stamp is only a documented disposable-demo workaround, not evidence that upgrades work. T07 makes it a guarded command (`flask bootstrap-db`) for new databases and tests upgrades separately.
 - **Evidence/checkpoint (2026-10-25, unmerged):** branch `task/t07-bootstrap`, record `docs/orchestration/tasks/T07.md`. `flask bootstrap-db` creates and head-stamps an empty database; `migrations/env.py` no longer lets SQLite foreign keys cascade-delete rows during batch rebuilds (7 of 12 seeded upgrade starts lost rows before); 12 synthetic snapshots, reconstructed from the revision files and models (not representative production databases), from `f65e956efdb9` upgrade with every seeded row preserved value for value and every prior column still present except the one intended removal, `user.is_film_user` (dropped by `f1a2b3c4d5e6`); CHECK constraints were not compared; older stamps cannot reach the head (two revisions drop the same legacy tables); 19 model/migration drift items are pinned, not fixed. 986 passed (repair round 1: foreign-key check now inside the migration transaction). Awaiting review; not done. Rollback: restore a tested snapshot when downgrading would lose data.
+- **Completion (2026-10-25):** finished via PR #16 at reviewed head `f7a2273` (user approval "merge"). Six repair rounds from review and CodeRabbit findings are recorded in the task record. Deferred: the 19 model-versus-migration drift items are pinned, not fixed; databases stamped before `f65e956efdb9` remain unsupported; past row loss in deployed databases is not audited.
 
 ### T08 — Deletion and identity integrity
 
