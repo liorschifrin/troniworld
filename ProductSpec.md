@@ -30,7 +30,7 @@ Success means players can reach relevant film quickly, coaches can communicate f
 
 `app.py` imports the global app from `flask_app/__init__.py`. Initialization loads dotenv configuration, creates the Flask app, initializes SQLAlchemy and Flask-Migrate, registers routes, and installs Jinja helpers. The application is not currently an application factory.
 
-`routes.py` and `film_routes.py` register directly on the global app. `api_routes.py` defines the registered `api_v1` blueprint at `/api/v1`. Python imports therefore configure the application and database engine immediately; tests must override environment variables **before importing** the package.
+`routes.py` and `film_routes.py` register directly on the global app. Python imports therefore configure the application and database engine immediately; tests must override environment variables **before importing** the package.
 
 Core modules:
 
@@ -39,7 +39,6 @@ Core modules:
 - `flask_app/utils.py`: current user lookup and login/admin/leadership decorators.
 - `flask_app/routes.py`: public articles, authentication, editor uploads, article comment APIs and notifications.
 - `flask_app/film_routes.py`: film pages, admin operations, imports, statistics, comments, notifications, watch tracking.
-- `flask_app/api_routes.py`: overlapping JSON API originally described in code as supporting a React app; no React frontend is present here.
 - `migrations/`: Alembic history. Current documented head is `k6l7m8n9o0p1`.
 
 Frontend:
@@ -135,9 +134,9 @@ All require login; point and roster edits require admin. Every game-scoped route
 
 A film comment create body uses `content`, optional `timestamp`, `parent_id`, `point_id`, `private_to`, and `comment_type`. The UI uses `Comment`; the backend still accepts legacy types. API shape is not currently a formally versioned compatibility guarantee.
 
-### Alternate API (`api_routes.py`)
+### Retired alternate API
 
-`/api/v1/games`, `/games/<id>`, comment GET/POST/PATCH/DELETE, point PATCH, and watch-tracking POST duplicate main film functions and omit newer point/watch behavior. It has no in-repository consumer (its React client was removed in `e6ba8e7`); it now applies the shared hidden-game and private-comment policy (author/recipient baseline, no leadership exception) and is slated for retirement after owner confirmation; see [docs/visibility-policy.md](docs/visibility-policy.md). Do not add features to it.
+The user confirmed on 2026-10-25 that the removed React client was the only consumer of `/api/v1`. Its blueprint and routes were removed; `/api/v1/games` returns 404. Use the main film routes above. See [docs/visibility-policy.md](docs/visibility-policy.md).
 
 Authentication decorators generally redirect to HTML for unauthenticated/unauthorized requests, including JSON endpoints. Some article endpoints instead return JSON 401/403. Normalize this when introducing API contracts.
 
@@ -183,7 +182,7 @@ Fresh migration replay fails because the first revision assumes `user` already e
 
 The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's test client, not the running server or team database. Observed:
 
-- Nonrecipient private content returned from alternate API game/detail comments (fixed by T03 slice 1).
+- Nonrecipient private content returned from the former alternate API game/detail comments (fixed by T03 slice 1; API retired in the T03 finish checkpoint).
 - Hidden game player returned 200 to a regular user (fixed by T03 slice 1).
 - Private reply content appeared in a nonrecipient parent's notifications (fixed by T03 slice 1).
 - Leadership nonrecipients and admin reports had separate private-content exceptions (removed by T03 round 1 under Q1 option A); admin comment/tag counts now match the viewing admin’s detail lists.

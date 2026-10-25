@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 import pytest
 
 
-@pytest.mark.parametrize('path', ['/film/games', '/film/api/games/1/comments', '/api/v1/games'])
+@pytest.mark.parametrize('path', ['/film/games', '/film/api/games/1/comments'])
 def test_anonymous_requires_login(anonymous, path):
     response = anonymous.get(path)
     assert response.status_code == 302

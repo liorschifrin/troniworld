@@ -101,43 +101,11 @@ def test_film_comments_matrix(client_for, records, scenario, role):
     _assert_no_hidden_bodies(response.text, scenario, expected)
 
 
-# ── Alternate /api/v1 (no in-repo consumer; fails closed) ──────────────────
+# ── Retired alternate API ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize('suffix', ['', '/comments'])
-def test_alternate_api_hides_private_comments(ordinary, records, suffix):
-    response = ordinary.get(f'/api/v1/games/{records["game"].id}{suffix}')
-    assert response.status_code == 200
-    payload = response.json['game'] if not suffix else response.json
-    assert records['private'].id not in {c['id'] for c in payload['comments']}
-
-
-@pytest.mark.parametrize('suffix', ['', '/comments'])
-@pytest.mark.parametrize('role', sorted(BASELINE))
-def test_alternate_api_matrix(client_for, records, scenario, role, suffix):
-    response = client_for(role).get(f'/api/v1/games/{records["game"].id}{suffix}')
-    assert response.status_code == 200
-    payload = response.json['game']['comments'] if not suffix else response.json['comments']
-    visible, _ = _visible(payload, scenario)
-    assert visible == BASELINE[role]
-    _assert_no_hidden_bodies(response.text, scenario, BASELINE[role])
-
-
-def test_alternate_api_write_response_filters_replies(ordinary, records, db):
-    from flask_app.models import Comment
-    parent = Comment(game_id=records['game'].id, author_name='ordinary', comment_type='Comment',
-                     content='Synthetic own parent')
-    db.session.add(parent)
-    db.session.flush()
-    reply = Comment(game_id=records['game'].id, author_name='admin', comment_type='Comment',
-                    parent_id=parent.id, content='Synthetic restricted reply', private_to='["recipient"]')
-    db.session.add(reply)
-    db.session.commit()
-    response = ordinary.patch(f'/api/v1/games/{records["game"].id}/comments/{parent.id}',
-                              json={'content': 'Synthetic edited parent'})
-    assert response.status_code == 200
-    assert response.json['comment']['replies'] == []
-    assert 'Synthetic restricted reply' not in response.text
-    assert db.session.get(Comment, reply.id).content == 'Synthetic restricted reply'
+@pytest.mark.parametrize('role', [None, 'admin'])
+def test_retired_alternate_api_is_not_registered(client_for, role):
+    assert client_for(role).get('/api/v1/games').status_code == 404
 
 
 # ── Hidden games: same response as a nonexistent game ─────────────────────
@@ -151,12 +119,6 @@ HIDDEN_SURFACES = [
     ('post', '/film/api/games/{id}/track-watch-time', {'seconds_watched': 5}),
     ('get', '/film/api/games/{id}/watch-progress', None),
     ('post', '/film/api/games/{id}/toggle-watched', None),
-    ('get', '/api/v1/games/{id}', None),
-    ('get', '/api/v1/games/{id}/comments', None),
-    ('post', '/api/v1/games/{id}/comments', {'content': 'Synthetic probe'}),
-    ('patch', '/api/v1/games/{id}/comments/{comment}', {'content': 'Synthetic probe'}),
-    ('delete', '/api/v1/games/{id}/comments/{comment}', None),
-    ('post', '/api/v1/games/{id}/track-watch-time', {'seconds_watched': 5}),
 ]
 
 
@@ -185,20 +147,11 @@ def test_hidden_game_matches_missing_game(client_for, records, scenario, db, rol
     assert db.session.get(type(comment), comment.id).content == 'Synthetic hidden-game body'
 
 
-@pytest.mark.parametrize('path', ['/film/games/{id}', '/film/api/games/{id}/comments', '/api/v1/games/{id}'])
+@pytest.mark.parametrize('path', ['/film/games/{id}', '/film/api/games/{id}/comments'])
 def test_hidden_game_denied_directly_but_admin_unchanged(client_for, records, scenario, path):
     url = path.format(id=records['hidden'].id)
     assert client_for('ordinary').get(url).status_code == 404
     assert client_for('admin').get(url).status_code == 200
-
-
-def test_alternate_api_index_hides_hidden_games(client_for, records):
-    for role, listed in (('ordinary', False), ('leadership', False), ('admin', True)):
-        response = client_for(role).get('/api/v1/games')
-        assert response.status_code == 200
-        ids = {g['id'] for g in response.json['games']}
-        assert records['game'].id in ids
-        assert (records['hidden'].id in ids) is listed, role
 
 
 def test_my_games_omits_hidden_game_and_comments(client_for, records, scenario, db):
@@ -244,7 +197,7 @@ def test_hidden_point_labels_not_offered(ordinary, records, db):
     from flask_app.models import Point
     db.session.add(Point(game_id=records['hidden'].id, point_index=1, pull_play='Synthetic hidden pull'))
     db.session.commit()
-    for path in (f'/film/games/{records["game"].id}', f'/api/v1/games/{records["game"].id}'):
+    for path in (f'/film/games/{records["game"].id}',):
         response = ordinary.get(path)
         assert response.status_code == 200
         assert 'Synthetic hidden pull' not in response.text
@@ -364,8 +317,7 @@ ANONYMOUS_PATHS = [
     ('get', '/film/games/{id}'), ('get', '/film/my-games'), ('get', '/film/data'),
     ('get', '/film/api/games/{id}/comments'), ('post', '/film/api/games/{id}/comments'),
     ('post', '/film/api/games/{id}/toggle-watched'), ('get', '/film/api/notifications'),
-    ('post', '/film/api/notifications/read-all'), ('get', '/api/v1/games/{id}'),
-    ('get', '/api/v1/games/{id}/comments'),
+    ('post', '/film/api/notifications/read-all'),
 ]
 
 
@@ -382,6 +334,103 @@ def test_admin_reports_deny_nonadmins(client_for, scenario, role, path):
     response = client_for(role).get(path)
     assert response.status_code == 302
     assert urlsplit(response.location).path == '/'
+
+
+@pytest.mark.parametrize('path', [
+    '/admin/users', '/film/tournaments/new', '/film/games/new',
+    '/film/games/{game_id}/edit', '/film/games/{game_id}/upload_csv',
+    '/film/analytics', '/film/api/user/ordinary/comments',
+    '/film/api/user/ordinary/leadership-tags',
+    '/film/api/user/ordinary/watched-games', '/new_post',
+    '/post/{post_id}/edit',
+])
+@pytest.mark.parametrize('role', ['ordinary', 'leadership'])
+def test_admin_only_pages_and_reports(client_for, records, db, role, path):
+    from flask_app.models import Post
+    post = Post(title='Synthetic article', author='Synthetic author', content='Synthetic body')
+    db.session.add(post)
+    db.session.commit()
+    path = path.format(game_id=records['game'].id, post_id=post.id)
+    denied = client_for(role).get(path)
+    assert denied.status_code == 302
+    assert urlsplit(denied.location).path == '/'
+    assert client_for('admin').get(path).status_code == 200
+
+
+@pytest.mark.parametrize('method,path,payload,admin_status', [
+    ('post', '/admin/users', {'action': 'invalid'}, 200),
+    ('post', '/admin/users/create_all_players', {}, 302),
+    ('post', '/film/tournaments/new', {}, 200),
+    ('post', '/film/games/new', {}, 200),
+    ('post', '/film/games/{game_id}/edit', {}, 200),
+    ('post', '/film/games/{game_id}/upload_csv', {}, 200),
+    ('post', '/film/games/{game_id}/delete_player_sheet', {}, 302),
+    ('patch', '/film/api/games/{game_id}/points/{point_id}', {}, 200),
+    ('post', '/film/api/games/{game_id}/update_player_sheet', {'changes': []}, 200),
+    ('post', '/new_post', {}, 302),
+    ('post', '/post/{post_id}/edit', {}, 302),
+    ('post', '/post/{post_id}/delete', {}, 302),
+    ('post', '/upload_image', {}, 400),
+])
+def test_admin_only_writes(client_for, records, db, method, path, payload, admin_status):
+    from flask_app.models import Post
+    post = Post(title='Synthetic article', author='Synthetic author', content='Synthetic body')
+    db.session.add(post)
+    db.session.commit()
+    path = path.format(game_id=records['game'].id, point_id=records['point'].id, post_id=post.id)
+    for role in ('ordinary', 'leadership'):
+        denied = getattr(client_for(role), method)(path, **({'json': payload} if method == 'patch' or 'api/games' in path else {'data': payload}))
+        assert denied.status_code == (403 if path == '/upload_image' else 302)
+        if denied.status_code == 302:
+            assert urlsplit(denied.location).path == '/'
+    response = getattr(client_for('admin'), method)(path, **({'json': payload} if method == 'patch' or 'api/games' in path else {'data': payload}))
+    assert response.status_code == admin_status
+
+
+@pytest.mark.parametrize('method', ['get', 'post'])
+@pytest.mark.parametrize('role', ['ordinary', 'leadership'])
+def test_registration_with_existing_admin_is_admin_only(client_for, records, role, method):
+    denied = getattr(client_for(role), method)('/register')
+    assert denied.status_code == 302
+    assert urlsplit(denied.location).path == '/'
+    response = getattr(client_for('admin'), method)('/register')
+    assert response.status_code == (200 if method == 'get' else 302)
+
+
+@pytest.mark.parametrize('method,path,redirect', [
+    ('get', '/register', '/login'), ('post', '/register', '/login'),
+    ('get', '/admin/users', '/login'), ('post', '/admin/users', '/login'),
+    ('post', '/admin/users/create_all_players', '/login'),
+    ('get', '/film/tournaments/new', '/login'), ('post', '/film/tournaments/new', '/login'),
+    ('get', '/film/games/new', '/login'), ('post', '/film/games/new', '/login'),
+    ('get', '/film/games/{game_id}/edit', '/login'),
+    ('post', '/film/games/{game_id}/edit', '/login'),
+    ('get', '/film/games/{game_id}/upload_csv', '/login'),
+    ('post', '/film/games/{game_id}/upload_csv', '/login'),
+    ('post', '/film/games/{game_id}/delete_player_sheet', '/login'),
+    ('patch', '/film/api/games/{game_id}/points/{point_id}', '/login'),
+    ('post', '/film/api/games/{game_id}/update_player_sheet', '/login'),
+    ('get', '/film/analytics', '/login'),
+    ('get', '/film/api/user/ordinary/comments', '/login'),
+    ('get', '/film/api/user/ordinary/leadership-tags', '/login'),
+    ('get', '/film/api/user/ordinary/watched-games', '/login'),
+    ('get', '/new_post', '/'), ('post', '/new_post', '/'),
+    ('get', '/post/{post_id}/edit', '/'), ('post', '/post/{post_id}/edit', '/'),
+    ('post', '/post/{post_id}/delete', '/'),
+    ('post', '/upload_image', None),
+])
+def test_admin_only_routes_deny_anonymous(anonymous, records, db, method, path, redirect):
+    from flask_app.models import Post
+    post = Post(title='Synthetic article', author='Synthetic author', content='Synthetic body')
+    db.session.add(post)
+    db.session.commit()
+    path = path.format(game_id=records['game'].id, point_id=records['point'].id, post_id=post.id)
+    response = getattr(anonymous, method)(path)
+    if redirect is None:
+        assert response.status_code == 403
+    else:
+        assert response.status_code == 302
+        assert urlsplit(response.location).path == redirect
 
 
 # ── Repair round 1: Q1 option A, reports, legacy rows, edit history ──────────
@@ -448,7 +497,7 @@ def test_admin_reports_and_counts_share_viewer_policy(
     assert context['total_comments'] == total
 
 
-@pytest.mark.parametrize('surface', ['film', 'alternate', 'admin-report'])
+@pytest.mark.parametrize('surface', ['film', 'admin-report'])
 @pytest.mark.parametrize('stored', [
     pytest.param('', id='empty-string-was-public'),
     pytest.param('"recipient"', id='json-string-was-substring-membership'),
@@ -471,7 +520,7 @@ def test_legacy_nonlist_audiences_fail_closed(client_for, records, db, stored, s
         db.session.commit()
         path = '/film/api/user/ordinary/comments'
     else:
-        prefix = '/film/api' if surface == 'film' else '/api/v1'
+        prefix = '/film/api'
         path = f'{prefix}/games/{records["game"].id}/comments'
     for role in ('ordinary', 'recipient'):
         response = client_for(role).get(path)
@@ -559,11 +608,10 @@ def test_comment_edit_preserves_entitled_notification_history(client_for, record
 
 
 @pytest.mark.parametrize('game_key', ['game', 'hidden'])
-@pytest.mark.parametrize('prefix', ['/film/api', '/api/v1'])
-def test_admin_comment_writes_and_watch_tracking_unchanged(admin, records, db, game_key, prefix):
+def test_admin_comment_writes_and_watch_tracking_unchanged(admin, records, db, game_key):
     from flask_app.models import Comment, VideoWatchSession
     game_id = records[game_key].id
-    path = f'{prefix}/games/{game_id}'
+    path = f'/film/api/games/{game_id}'
     created = admin.post(path + '/comments', json={'content': 'Synthetic admin write'})
     assert created.status_code == 201
     comment_id = created.json['comment']['id']
