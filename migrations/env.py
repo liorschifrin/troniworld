@@ -125,6 +125,8 @@ def run_migrations_online():
             sqlite_pragma(connection, 'PRAGMA foreign_keys=OFF')
             sqlite_pragma(connection, 'BEGIN')
             configure_args['transactional_ddl'] = True
+            # Keep every revision and the foreign-key check in one transaction.
+            configure_args['transaction_per_migration'] = False
         try:
             context.configure(
                 connection=connection,
@@ -145,12 +147,18 @@ def run_migrations_online():
             if sqlite:
                 failing = sys.exc_info()[0] is not None
                 try:
+                    # PRAGMA foreign_keys is ignored inside a transaction, so
+                    # end any that is still open before restoring it.
+                    if connection.in_transaction():
+                        connection.rollback()
+                    if connection.connection.in_transaction:
+                        connection.connection.rollback()
                     sqlite_pragma(connection, 'PRAGMA foreign_keys=%d' % (1 if restore_foreign_keys else 0))
                 except Exception:
                     # Do not replace an exception already in flight.
                     if not failing:
                         raise
-                    logger.exception('Could not restore PRAGMA foreign_keys')
+                    logger.exception('Could not roll back or restore PRAGMA foreign_keys')
 
 
 if context.is_offline_mode():

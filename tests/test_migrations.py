@@ -271,3 +271,27 @@ def test_successful_migration_restores_the_original_foreign_key_setting(tmp_path
     report = run_driver(tmp_path, initial, failing=False)
     assert report['error'] is None and 'scratch' in report['tables']
     assert report['foreign_keys_after'] == initial
+
+
+def test_bootstrap_stamp_failure_leaves_an_empty_database(tmp_path):
+    path = tmp_path / 'stampfail.db'
+    script = (
+        "from flask_app import app, bootstrap\n"
+        "def broken(**kwargs):\n"
+        "    raise RuntimeError('stamp failed')\n"
+        "with app.app_context():\n"
+        "    bootstrap.stamp = broken\n"
+        "    try:\n"
+        "        bootstrap.bootstrap_database()\n"
+        "    except RuntimeError as error:\n"
+        "        print('raised', error)\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k not in ('DATABASE_URI', 'SECRET_KEY')}
+    env.update(DATABASE_URI=f'sqlite:///{path}', SECRET_KEY='synthetic-migration-key', PYTHON_DOTENV_DISABLED='1')
+    result = subprocess.run([sys.executable, '-c', script], cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+    assert 'raised stamp failed' in result.stdout, result.stderr
+    conn = sqlite3.connect(path)
+    assert conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall() == []
+    conn.close()
+    assert flask_command(path, 'bootstrap-db').returncode == 0
+    assert stamped_revision(path) == [(HEAD,)]

@@ -37,7 +37,13 @@ def bootstrap_database(directory=MIGRATIONS_DIRECTORY):
             + 'older stamps need docs/orchestration/tasks/T07.md before any upgrade.'
         )
     db.create_all()
-    stamp(directory=directory, revision='head')
+    try:
+        stamp(directory=directory, revision='head')
+    except BaseException:
+        # The database was verified empty, so everything in it is ours: undo
+        # the schema so a rerun is not refused as "not empty".
+        db.drop_all()
+        raise
 
 
 def init_app(app):
