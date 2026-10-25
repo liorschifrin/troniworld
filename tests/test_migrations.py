@@ -98,6 +98,11 @@ def test_replay_on_an_empty_database_fails_at_the_first_user_alteration(tmp_path
     assert 'no such table: user' in result.stderr
 
 
+# Columns a shipped upgrade() intentionally drops: (table, column) -> revision that drops it.
+# Found by reading every revision's upgrade(); the only one is the retired user.is_film_user.
+INTENDED_COLUMN_REMOVALS = {('user', 'is_film_user'): 'f1a2b3c4d5e6'}
+
+
 @pytest.mark.parametrize('revision', UPGRADABLE)
 def test_upgrade_from_prior_revision_preserves_data(tmp_path, revision):
     path = tmp_path / 'old.db'
@@ -116,9 +121,16 @@ def test_upgrade_from_prior_revision_preserves_data(tmp_path, revision):
     assert set(before) <= set(after)
     for table, old_rows in before.items():
         assert len(after[table]) == len(old_rows), f'{table} lost rows'
-        new_rows = [{k: row[k] for k in old_rows[0] if k in row} for row in after[table]]
-        old_kept = [{k: v for k, v in row.items() if k in new_rows[0]} for row in old_rows]
-        assert new_rows == old_kept, table
+        old_columns = set(old_rows[0])
+        # A removal applies only to snapshots that still have the column.
+        removed = {c for (t, c), rev in INTENDED_COLUMN_REMOVALS.items()
+                   if t == table and c in old_columns and REVISIONS.index(revision) < REVISIONS.index(rev)}
+        kept = old_columns - removed
+        new_columns = set(after[table][0])
+        assert kept <= new_columns, f'{table} lost columns {kept - new_columns}'
+        assert not (removed & new_columns), f'{table} still has {removed & new_columns}'
+        # Every original row survives, value for value, in every retained column.
+        assert [{k: row[k] for k in kept} for row in after[table]] == [{k: row[k] for k in kept} for row in old_rows], table
     assert table_rows(backup) == before
 
 
