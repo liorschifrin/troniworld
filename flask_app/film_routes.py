@@ -1498,6 +1498,8 @@ def update_player_sheet(game_id):
             if player is not None:
                 sheet_players[player_name] = player
         if player is None:
+            if player_name in listed_names:
+                raise BadRequest('Player has no player record yet; re-upload the CSV after the player has a record')
             raise BadRequest('Player must be listed on this game player sheet')
         validated.append((point, player, player_name, in_point, sub_status))
 

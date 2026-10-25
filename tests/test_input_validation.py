@@ -378,7 +378,10 @@ def test_sheet_player_outside_all_sources_is_atomic(client_for, inputs, records,
     db.session.commit()
     good = change(inputs, records)
     bad = {**good, 'player_name': name}
-    rejected(db, lambda: call(client_for, inputs, 'sheet', {'changes': [good, bad]}))
+    response = rejected(db, lambda: call(client_for, inputs, 'sheet', {'changes': [good, bad]}))
+    expected = ('Player has no player record yet; re-upload the CSV after the player has a record'
+                if name == 'Synthetic listed ghost' else 'Player must be listed on this game player sheet')
+    assert response.json['error'] == expected
     assert Player.query.filter_by(name='Synthetic listed ghost').first() is None
 
 

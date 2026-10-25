@@ -148,7 +148,7 @@ T04 input contracts (no schema change):
 
 The user confirmed on 2026-10-25 that the removed React client was the only consumer of `/api/v1`. Its blueprint and routes were removed; `/api/v1/games` returns 404. Use the main film routes above. See [docs/visibility-policy.md](docs/visibility-policy.md).
 
-Authentication decorators generally redirect to HTML for unauthenticated/unauthorized requests, including JSON endpoints. Some article endpoints instead return JSON 401/403. Normalize this when introducing API contracts.
+Authentication decorators generally redirect to HTML for unauthenticated/unauthorized requests, including JSON endpoints. Exception (T04): film API routes using `json_api` return 401 JSON `{"error": "Login required"}` for anonymous callers and 403 JSON `{"error": "Admin access required"}` for non-admins on admin routes, instead of the former 302 redirect to login/home. Some article endpoints instead return JSON 401/403. Normalize this when introducing API contracts.
 
 ## 6. Main workflows
 
