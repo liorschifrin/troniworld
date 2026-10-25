@@ -57,13 +57,13 @@
 
 - User approval (2026-10-25): all defaults for T05 s2–s3, T07, T08 (split: T08a now, T08b waits for Q2), T09, T10. Nothing merges to `main` without approval; every PR must be ready for merge when the user returns.
 - Batch plan, one implementer at a time, each PR reviewed (fresh thread) and hosted-CI-green before ready:
-  1. T05 slice 2 — `task/t05-sanitize` from `main` `db660df`. Implementer `mcp:f3472855-13d6-4df9-b9fb-59c3b05f1e49` (claude-sonnet-5-5 medium), launched ~01:45Z.
+  1. T05 slice 2 — `task/t05-sanitize` from `main` `db660df`. PR #14 (draft) head `fd38ed8`. Implementer `mcp:f3472855-13d6-4df9-b9fb-59c3b05f1e49` (claude-sonnet-5-5 medium) completed: 856 passed / T09 xfail. Review `mcp:a4afe24d-fe72-44f3-91b1-b52484c1569c` (claude-opus-5-5 high) launched ~02:00Z.
   2. T05 slice 3 — `task/t05-uploads`, stacked on slice 2.
   3. T07 — `task/t07-bootstrap`, from main (Heavy).
   4. T08a — `task/t08a-deletion`, stacked on T07 (Heavy).
   5. T10 — `task/t10-csv-preview`, stacked on T07 (Heavy).
   6. T09 — `task/t09-engagement`, from main (Standard).
 - Providers: Codex auth-expired (401 at 01:10Z). All implementers and reviewers on Claude; Opus for reviews.
-- Next action: wait for slice 2 implementer; then fresh Opus review.
+- Next action: read slice 2 review; fix if needed; hosted CI green; PR ready (no merge); then slice 3.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds.
