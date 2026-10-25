@@ -57,7 +57,7 @@
 
 - User approval (2026-10-25): all defaults for T05 s2–s3, T07, T08 (split: T08a now, T08b waits for Q2), T09, T10. Nothing merges to `main` without approval; every PR must be ready for merge when the user returns.
 - Batch plan, one implementer at a time, each PR reviewed (fresh thread) and hosted-CI-green before ready:
-  1. T05 slice 2 — `task/t05-sanitize` from `main` `db660df`. PR #14 (draft) head `fd38ed8`. Implementer `mcp:f3472855-13d6-4df9-b9fb-59c3b05f1e49` (claude-sonnet-5-5 medium) completed: 856 passed / T09 xfail. Review `mcp:a4afe24d-fe72-44f3-91b1-b52484c1569c` (claude-opus-5-5 high): CHANGES REQUIRED (blocking B1: italic/h4 dropped; major M1: tables/media destroyed; minors/nits). Repair `mcp:7d474986-9b57-49ec-bb31-7d89072d4874` (claude-opus-5-5 high) launched ~02:05Z; then round 2 review.
+  1. T05 slice 2 — `task/t05-sanitize` from `main` `db660df`. PR #14 (draft) head `fd38ed8`. Implementer `mcp:f3472855-13d6-4df9-b9fb-59c3b05f1e49` (claude-sonnet-5-5 medium) completed: 856 passed / T09 xfail. Review `mcp:a4afe24d-fe72-44f3-91b1-b52484c1569c` (claude-opus-5-5 high): CHANGES REQUIRED (blocking B1: italic/h4 dropped; major M1: tables/media destroyed; minors/nits). Repair `mcp:7d474986-9b57-49ec-bb31-7d89072d4874` completed: head `b06067c` (921 passed / T09 xfail). Round 2 review `mcp:602ee106-ac6d-42cf-8391-c683c21978d4` (claude-opus-5-5 high) launched ~02:10Z.
   2. T05 slice 3 — `task/t05-uploads`, stacked on slice 2.
   3. T07 — `task/t07-bootstrap`, from main (Heavy).
   4. T08a — `task/t08a-deletion`, stacked on T07 (Heavy).
