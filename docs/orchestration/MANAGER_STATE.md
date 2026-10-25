@@ -41,9 +41,10 @@
 
 - **T01 — DONE.** PR #5 → `main` `2ed6e5b`.
 - **T02 — DONE.** PR #7 → `main` `ab343ec`.
-- **T03 slice 1 — MERGED, T03 ACTIVE (not done).** PR #8 squash-merged → `main` `5e1f11f` on user approval (2026-10-25 ~23:17Z), reviewed head `61a73bc` (review round 2 approved `795c594`; then three doc nits applied without re-review as the user directed). Merged tree verified identical to `61a73bc`. Remaining T03 items (user-acknowledged): matrix does not list admin-only point/roster routes; `/api/v1` not retired (owner confirmation); reply-parent validation is T04; notifications use the newest 50 stored rows only (T09-type); comment edit 403 vs 404 existence difference. Q1 option A applied.
+- **T03 — DONE.** Finish merged as PR #11 → `main` `93636b7` (2026-10-25 ~00:10Z), squash-merged at `fa5517e` (roadmap done-mark on top of reviewed head `1f2c063`). `/api/v1` retired (user-confirmed). Deferred to other tasks: reply-parent validation and 2 xfails (T04); notification pagination and string-beacon xfail (T09). Slice 1 history: PR #8 → `5e1f11f`.
+- **T03 slice 1 — (history)**. PR #8 squash-merged → `main` `5e1f11f` on user approval (2026-10-25 ~23:17Z), reviewed head `61a73bc` (review round 2 approved `795c594`; then three doc nits applied without re-review as the user directed). Merged tree verified identical to `61a73bc`. Remaining T03 items (user-acknowledged): matrix does not list admin-only point/roster routes; `/api/v1` not retired (owner confirmation); reply-parent validation is T04; notifications use the newest 50 stored rows only (T09-type); comment edit 403 vs 404 existence difference. Q1 option A applied.
 - **T03a (proposed, roadmap only):** leadership-group private comments. Decisions: membership snapshot at post time; unflagged admins excluded; members notified; author-only audience changes. User said it should be unconnected to T03; roadmap entry still lists T03 as a dependency (user accepted as is). Not started; needs user selection.
-- Worktrees: T01, T02, T03 removed (no unpushed work). Local branches kept.
+- Worktrees: T01, T02, T03 removed (no unpushed work). Local branches kept. Local `main` is NOT updated: `main` is checked out in worktree `planning-stage-f` (clean, at `96cc866`, behind origin/main). Not touched.
 - Manager branch `orchestration/sequential-manager` is merged with `main` (`7248193`). Manager-only records are not on `main`; roadmap T01/T02 done marks are on the manager branch only.
 - Standing rule: no direct pushes to `main`; all changes through PRs.
 - **Task PR process (user 2026-10-25):** each task PR contains its spec, roadmap section, and task record. After approval, the manager may add a small docs-only commit to the task branch (roadmap state → done, record updates) before the squash merge, WITHOUT another review. Anything else needed before merge is also allowed without re-review if it is docs-only.
@@ -52,8 +53,13 @@
 
 ## Current phase
 
-- Phase: READY_TO_MERGE — finish-T03 PR #11 (draft) head `1f2c063`. Review `mcp:457d2b33-f37d-4576-8dbb-dfaf90922535` APPROVE (zero blocking/major; 3 minor/nit: write-denial tests lack unchanged-row assertions; admin write probes assert status only; upload_image doc row 201 covered elsewhere). Awaiting user merge approval. Earlier: Codex 401 token_expired at 23:39Z and 23:44Z; retry succeeded.
-- Blocking questions: none for merged scope. Open for later: T03 remaining items; Q2–Q5; `/api/v1` retirement confirmation; T03a selection.
-- Next action: wait for the user to select the next task or T03 follow-up. Do not start any task automatically.
+- Phase: IDLE. No task running; no workers active. T03 done.
+- Next-task options (standing rule: suggest with options after each finished task; do not start without selection):
+  1. **T04 — typed inputs and relationship validation (recommended).** P0, ready (T01 done). Closes the reply-parent validation gap from T03 and its two xfails (cross-game parents, replies to parents the caller cannot see). No open questions.
+  2. **T07 — reproducible database bootstrap and upgrades.** P0, ready (T01 done). Migration replay; Heavy tier (schema). No open questions in the roadmap; fresh-database migration replay is currently failing per T20 notes.
+  3. **T03a — leadership-group private comments.** P1 proposal (user-requested feature). Frontend + backend + data model decision; likely Heavy tier. Its roadmap entry still lists T03 as a dependency; user accepted that as-is.
+  - Blocked: T06 (Q2 identity decision); T05, T09, T10 depend on T04 first; Stage F (T17 needs Q8; T18–T20 depend on it).
+- Blocking questions: none for the merged scope.
+- Next action: wait for the user to select a task.
 
 Phases: SELECT → IMPLEMENT → REVIEW → REPAIR → READY_TO_MERGE → MERGED; also PAUSED, BLOCKED, PAUSED_USAGE_LIMIT. Maximum three unsuccessful repair/review rounds.
