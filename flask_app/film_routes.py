@@ -1,4 +1,5 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import BadRequest, NotFound
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -24,6 +25,13 @@ from . import app, db
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .visibility import can_view_comment, get_visible_game_or_404, private_recipients, visible_games_query
+
+from .input_validation import (
+    boolean, comment_fields, json_api, json_object, optional_id, recipients,
+    text_value, timestamp, valid_timestamp,
+)
+
+app.add_template_test(valid_timestamp, 'video_timestamp')
 
 logger = logging.getLogger(__name__)
 
@@ -958,7 +966,7 @@ def edit_game(game_id):
 # =========================
 
 @app.route('/film/api/games/<int:game_id>/comments', methods=['GET'])
-@login_required
+@json_api()
 def get_comments(game_id):
     """Get all comments for a game"""
     current_user = get_current_user()
@@ -1024,46 +1032,43 @@ def get_comments(game_id):
 
 
 @app.route('/film/api/games/<int:game_id>/comments', methods=['POST'])
-@login_required
+@json_api()
 def create_comment(game_id):
     """Create a new comment for a game"""
     # Get the current user
     current_user = get_current_user()
     game = get_visible_game_or_404(game_id, current_user)
     
-    data = request.get_json()
-    content = data.get('content', '').strip()
-    # Use the logged-in user's username, or fallback to Anonymous if not logged in
-    author_name = current_user.username if current_user else 'Anonymous'
-    comment_type = data.get('comment_type', 'Comment')
-    parent_id = data.get('parent_id')
-    timestamp = data.get('timestamp')
-    point_id = data.get('point_id')
-    private_to_raw = data.get('private_to')  # list of usernames or None
+    data = json_object({'content', 'comment_type', 'parent_id', 'timestamp', 'point_id', 'private_to', 'author_name'})
+    content, comment_type = comment_fields(data)
+    # Existing clients send author_name; identity still comes only from the session.
+    if 'author_name' in data:
+        text_value(data['author_name'], 'author_name')
+    author_name = current_user.username
+    parent_id = optional_id(data.get('parent_id'), 'parent_id')
+    comment_timestamp = timestamp(data.get('timestamp'), 'timestamp')
+    point_id = optional_id(data.get('point_id'), 'point_id')
+    private_to = recipients(data.get('private_to'))
+    private_to_stored = json.dumps(private_to) if private_to is not None else None
 
-    # Normalize private_to to a JSON string or None.
-    # An empty list [] means "private to author only"; None means public.
-    if private_to_raw is not None and isinstance(private_to_raw, list):
-        private_to_stored = json.dumps([u.strip() for u in private_to_raw if isinstance(u, str) and u.strip()])
-    else:
-        private_to_stored = None
+    if parent_id is not None:
+        parent = db.session.get(Comment, parent_id)
+        if not can_view_comment(current_user, parent):
+            raise NotFound()
+        if parent.game_id != game.id:
+            raise BadRequest('Parent must belong to this game')
+        if parent.parent_id is not None:
+            raise BadRequest('Replies may only target top-level comments')
+    if point_id is not None and not Point.query.filter_by(id=point_id, game_id=game.id).first():
+        raise NotFound()
 
-    # Content is required for non-Event types
-    if not content and comment_type != 'Event':
-        return jsonify({'error': 'Content is required'}), 400
-    
-    # Validate comment_type
-    valid_types = ['Comment', 'Question', 'Highlight', 'Event']
-    if comment_type not in valid_types:
-        comment_type = 'Comment'
-    
     new_comment = Comment(
         game_id=game_id,
         point_id=point_id,
         parent_id=parent_id,
         comment_type=comment_type,
         author_name=author_name,
-        timestamp=timestamp,
+        timestamp=comment_timestamp,
         content=content,
         private_to=private_to_stored
     )
@@ -1103,7 +1108,7 @@ def create_comment(game_id):
 
 
 @app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['DELETE'])
-@login_required
+@json_api()
 def delete_comment(game_id, comment_id):
     """Delete a comment - users can delete their own comments, admins can delete any"""
     current_user = get_current_user()
@@ -1125,7 +1130,7 @@ def delete_comment(game_id, comment_id):
 
 
 @app.route('/film/api/games/<int:game_id>/comments/<int:comment_id>', methods=['PATCH'])
-@login_required
+@json_api()
 def update_comment(game_id, comment_id):
     """Update a comment - users can only edit their own comments"""
     current_user = get_current_user()
@@ -1137,30 +1142,16 @@ def update_comment(game_id, comment_id):
     if comment.author_name != current_user.username:
         return jsonify({'error': 'Unauthorized - you can only edit your own comments'}), 403
     
-    data = request.get_json()
-    new_content = data.get('content', '').strip()
-    new_comment_type = data.get('comment_type')
-    private_to_raw = data.get('private_to', '__unchanged__')  # sentinel to detect omission
+    data = json_object({'content', 'comment_type', 'private_to'})
+    new_content, new_comment_type = comment_fields(data, default_type=comment.comment_type)
+    private_to = recipients(data['private_to']) if 'private_to' in data else None
 
-    # Content is required for non-Event types
-    if not new_content and (not new_comment_type or new_comment_type != 'Event'):
-        return jsonify({'error': 'Content is required'}), 400
-    
-    # Validate comment_type if provided
-    valid_types = ['Comment', 'Question', 'Highlight', 'Event']
-    if new_comment_type and new_comment_type not in valid_types:
-        return jsonify({'error': 'Invalid comment type'}), 400
-    
     try:
         comment.content = new_content
         if new_comment_type:
             comment.comment_type = new_comment_type
-        # Update private_to only if key was present in the request
-        if private_to_raw != '__unchanged__':
-            if private_to_raw is not None and isinstance(private_to_raw, list):
-                comment.private_to = json.dumps([u.strip() for u in private_to_raw if isinstance(u, str) and u.strip()])
-            else:
-                comment.private_to = None
+        if 'private_to' in data:
+            comment.private_to = json.dumps(private_to) if private_to is not None else None
 
         # Reconcile recipients without resetting retained notification history.
         _create_notifications_for_comment(
@@ -1439,28 +1430,24 @@ def delete_player_sheet(game_id):
 
 
 @app.route('/film/api/games/<int:game_id>/points/<int:point_id>', methods=['PATCH'])
-@admin_required
+@json_api(admin=True)
 def update_point(game_id, point_id):
     """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""
-    current_user = get_current_user()
-    
+    get_visible_game_or_404(game_id, get_current_user())
     point = Point.query.filter_by(id=point_id, game_id=game_id).first_or_404()
-    
+    data = json_object({'pull_play', 'defense_type', 'offense_faced', 'timestamp_start', 'not_filmed'})
+    updates = {}
+    for field in ('pull_play', 'defense_type', 'offense_faced'):
+        if field in data:
+            updates[field] = text_value(data[field], field, nullable=True, max_length=50)
+    if 'timestamp_start' in data:
+        updates['timestamp_start'] = timestamp(data['timestamp_start'], 'timestamp_start')
+    if 'not_filmed' in data:
+        updates['not_filmed'] = boolean(data['not_filmed'], 'not_filmed')
+
     try:
-        data = request.get_json()
-        
-        # Update allowed fields
-        if 'pull_play' in data:
-            point.pull_play = data['pull_play']
-        if 'defense_type' in data:
-            point.defense_type = data['defense_type']
-        if 'offense_faced' in data:
-            point.offense_faced = data['offense_faced']
-        if 'timestamp_start' in data:
-            point.timestamp_start = data['timestamp_start']
-        if 'not_filmed' in data:
-            point.not_filmed = bool(data['not_filmed'])
-        
+        for field, value in updates.items():
+            setattr(point, field, value)
         db.session.commit()
         return jsonify({'success': True, 'message': 'Point updated successfully'})
     
@@ -1470,38 +1457,45 @@ def update_point(game_id, point_id):
 
 
 @app.route('/film/api/games/<int:game_id>/update_player_sheet', methods=['POST'])
-@admin_required
+@json_api(admin=True)
 def update_player_sheet(game_id):
     """Bulk-update player↔point assignments without re-uploading the CSV."""
-    game = Game.query.get_or_404(game_id)
-    data = request.get_json() or {}
-    changes = data.get('changes', [])
+    game = get_visible_game_or_404(game_id, get_current_user())
+    data = json_object({'changes'})
+    changes = data.get('changes')
+    if not isinstance(changes, list):
+        raise BadRequest('changes must be a list')
+    roster = {player.name: player for player in game.roster}
+    validated = []
+    # Validate the entire batch before changing associations or injury metadata.
+    for change in changes:
+        if not isinstance(change, dict):
+            raise BadRequest('Each change must be an object')
+        if change.keys() - {'point_id', 'player_name', 'in_point', 'sub_status'}:
+            raise BadRequest('Unsupported change field')
+        point_id = optional_id(change.get('point_id'), 'point_id')
+        if point_id is None:
+            raise BadRequest('point_id is required')
+        player_name = text_value(change.get('player_name'), 'player_name')
+        in_point = boolean(change.get('in_point'), 'in_point')
+        sub_status = change.get('sub_status')
+        if sub_status not in (None, 'off', 'on'):
+            raise BadRequest('sub_status must be null, off, or on')
+        if sub_status is not None and not in_point:
+            raise BadRequest('Substitutions require in_point to be true')
+        point = Point.query.filter_by(id=point_id, game_id=game_id).first()
+        if point is None:
+            raise NotFound()
+        player = roster.get(player_name)
+        if player is None:
+            raise BadRequest('Player must belong to this game roster')
+        validated.append((point, player, player_name, in_point, sub_status))
 
     try:
-        for change in changes:
-            point_id = change.get('point_id')
-            player_name = change.get('player_name', '').strip()
-            in_point = bool(change.get('in_point'))
-
-            if not point_id or not player_name:
-                continue
-
-            point = Point.query.filter_by(id=point_id, game_id=game_id).first()
-            if not point:
-                continue
-
-            player = Player.query.filter_by(name=player_name).first()
-            if not player:
-                continue
-
-            sub_status = change.get('sub_status')  # null | "off" | "on"
-
+        for point, player, player_name, in_point, sub_status in validated:
             if in_point:
                 if player not in point.players:
                     point.players.append(player)
-                # Ensure the player is also on the game roster
-                if player not in game.roster:
-                    game.roster.append(player)
             else:
                 if player in point.players:
                     point.players.remove(player)

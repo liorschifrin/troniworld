@@ -119,13 +119,13 @@ State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T04 — Typed inputs and relationship validation
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [x] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
-- **Stage/dependencies:** B; T01 before execution. P0.
-- **Scope/read:** comment/point/roster APIs, article replies, frontend inline handlers. Validate numeric bounds, booleans, JSON shapes, lengths, parent/point membership, and allowed reply depth; return JSON 400/401/403/404 consistently.
-- **Acceptance:** [ ] nonnumeric/negative timestamps rejected without writes; [ ] cross-game/post parents and point references rejected; [ ] inaccessible parents denied with T03 policy; [ ] comment data cannot become executable handler text; [ ] malformed payloads do not produce accidental 500s; [ ] normal clients remain compatible.
-- **Decision notes:** SQLite accepted a nonnumeric timestamp in the audit. Integer ORM declarations alone are insufficient. The browser execution path was source-inspected, not browser-executed.
-- **Evidence/checkpoint:** not implemented. Next: define request schemas and invalid-payload cases. Rollback: no database migration expected for request validation; assess stored invalid values separately.
+- **Stage/dependencies:** B; T01 and T03 before execution. P0.
+- **Scope/read:** comment/point/roster APIs, article replies, frontend inline handlers. Validate numeric bounds, booleans, JSON shapes, parent/point membership, and one-level reply depth; return JSON 400/401/403/404 consistently. No comment length cap.
+- **Acceptance:** [x] nonnumeric/negative timestamps rejected without writes; [x] cross-game/post parents and point references rejected; [x] inaccessible parents denied with T03 policy; [x] comment data cannot become executable handler text; [x] malformed payloads do not produce accidental 500s; [x] normal clients remain compatible.
+- **Decision notes:** Manager/user brief copied verbatim to `docs/orchestration/tasks/T04.md`. Timestamps are finite numbers 0–86400; null preserves existing absent/clear behavior. Reply-to-reply is 400 for film and articles. No schema migration, stored-data cleanup, comment length limit, or T09 beacon change. Game `is_hidden` remains a form checkbox; JSON point/roster booleans are strict. Unknown fields are rejected; legacy client `author_name` is accepted as text but identity comes from the session.
+- **Evidence/checkpoint:** Implementation awaiting independent review/manager approval, **not done**. Synthetic gates: 516 passed / 1 T09 xfailed, pip check clean. Original base: 160 passed / 3 xfailed. New/converted tests on base: 277 failed, 79 passed (valid controls/existing guards), 1 deselected; implementation: all 356 selected cases pass. Handler evidence uses rendered HTML and Node rendering functions, plus source inspection; no browser/server. See task checkpoint for exact commands, per-test counts, stored-value evidence, and limitations. Rollback: revert the task commit; no migration.
 
 ### T05 — Request, rich-text, and upload protection
 

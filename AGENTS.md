@@ -18,6 +18,13 @@ If you change of the below information, or add significantly to the page, update
 - `tests/conftest.py` must configure synthetic environment values before importing `flask_app`; it rejects prior imports, disables dotenv, asserts the in-memory engine before schema operations, and redirects filesystem writes to temporary storage.
 - `pytest.ini` makes expected failures strict; `known_failure` cases identify roadmap defects and must not hide unrelated errors. CI runs passing gates and known defects separately. Coverage boundaries are in `tests/README.md`.
 
+## Typed API inputs (T04, 2026-10-25)
+
+- `flask_app/input_validation.py` provides scoped JSON errors/authentication and input validators for film/article comments, point PATCH, and player-sheet writes. These APIs return JSON 400/401/403/404; article GET stays public. Other page/report redirects are unchanged.
+- Comment text has no length cap. Timestamps are finite numbers in 0–86400, or null for absent/cleared timestamps. Reply parents must be visible, same game/post, and top-level; reply-to-reply is 400. `private_to` requires a list of strings or null. Point references must belong to the URL game, and player-sheet edits require existing game roster members and validate the whole batch before writing.
+- Point booleans and `in_point` are actual JSON booleans. `is_hidden` is still an HTML form checkbox. Stored legacy data is preserved; invalid timestamps are suppressed on rendering and stored strings are excluded from handler source. No migration or T09 beacon change.
+- Regression gates also need Node 22 for isolated JavaScript renderer tests (no server/browser). See `tests/README.md` and `docs/orchestration/tasks/T04.md` for exact counts and baseline comparison.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
@@ -127,7 +134,7 @@ Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 line
 - Changes are tracked in `psChanges` map (`"pointId::playerName"` → bool). `savePlayerSheetChanges()` POSTs `{changes:[{point_id, player_name, in_point}]}` to `POST /film/api/games/<game_id>/update_player_sheet`, then reloads the page on success.
 - Cancel (`exitPlayerSheetEdit()`) reverts all visual changes and restores the edit button.
 - Not-filmed cells remain unresponsive in edit mode (`pointer-events: none` from existing CSS).
-- Backend: `update_player_sheet` in `film_routes.py` — iterates changes, appends/removes the player from `point.players`, and ensures added players are on `game.roster`.
+- Backend: `update_player_sheet` in `film_routes.py` — validates every change first, requires each point in the URL game and each player already on `game.roster`, then appends/removes the player from `point.players` atomically.
 
 ### Mark game as watched
 - `GameWatched` DB model (`game_watched` table). Fields: `user_id` (FK → user.id, CASCADE), `game_id` (FK → games.id, CASCADE), `watched_at` (DateTime, default utcnow). `UniqueConstraint('user_id', 'game_id', name='uq_game_watched_user_game')`. One row per user/game pair = user has explicitly marked that game watched.

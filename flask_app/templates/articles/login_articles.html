@@ -223,6 +223,10 @@
   const drop     = document.getElementById('alUdDropdown');
   let activeIdx  = -1;
 
+  function escapeUser(value) {
+    return value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function showDrop(items) {
     activeIdx = -1;
     if (!items) {
@@ -233,7 +237,7 @@
       drop.innerHTML = '<div class="al-ud-no-results">No match &mdash; message <a href="slack://open?team=T090FKX89E1" onclick="var t=setTimeout(function(){window.location=\'https://tron2025-2026.slack.com\';},600);window.addEventListener(\'blur\',function(){clearTimeout(t);},{once:true});">Trek on Slack</a> to get access</div>';
     } else {
       drop.innerHTML = items.map((u, i) =>
-        `<div class="al-ud-item" data-idx="${i}" data-user="${u}" onmousedown="event.preventDefault();alUdSelect('${u}')" ontouchend="event.preventDefault();alUdSelect('${u}')">${u}</div>`
+        `<div class="al-ud-item" data-idx="${i}" data-user="${escapeUser(u)}" onmousedown="event.preventDefault();alUdSelect(this.dataset.user)" ontouchend="event.preventDefault();alUdSelect(this.dataset.user)">${escapeUser(u)}</div>`
       ).join('');
       activeIdx = 0;
       drop.querySelector('.al-ud-item').classList.add('active');

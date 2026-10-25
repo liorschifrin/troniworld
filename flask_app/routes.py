@@ -1,4 +1,5 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.exceptions import BadRequest, NotFound
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
@@ -10,6 +11,7 @@ from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
 from .utils import get_current_user
+from .input_validation import json_api, json_object, optional_id, text_value
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +275,7 @@ def _serialize_article_comment(c):
     }
 
 @app.route('/post/<int:post_id>/comments', methods=['GET'])
+@json_api(public=True)
 def get_article_comments(post_id):
     Post.query.get_or_404(post_id)
     top_level = ArticleComment.query.filter_by(post_id=post_id, parent_id=None)\
@@ -280,14 +283,23 @@ def get_article_comments(post_id):
     return jsonify({'comments': [_serialize_article_comment(c) for c in top_level]})
 
 @app.route('/post/<int:post_id>/comments', methods=['POST'])
+@json_api()
 def create_article_comment(post_id):
     current_user = get_current_user()
     if not current_user:
         return jsonify({'error': 'Login required'}), 401
     Post.query.get_or_404(post_id)
-    data = request.get_json() or {}
-    content = data.get('content', '').strip()
-    parent_id = data.get('parent_id')
+    data = json_object({'content', 'parent_id'})
+    content = text_value(data.get('content', ''), 'content')
+    parent_id = optional_id(data.get('parent_id'), 'parent_id')
+    if parent_id is not None:
+        parent = db.session.get(ArticleComment, parent_id)
+        if parent is None:
+            raise NotFound()
+        if parent.post_id != post_id:
+            raise BadRequest('Parent must belong to this post')
+        if parent.parent_id is not None:
+            raise BadRequest('Replies may only target top-level comments')
     if not content:
         return jsonify({'error': 'Content is required'}), 400
     c = ArticleComment(
@@ -302,6 +314,7 @@ def create_article_comment(post_id):
     return jsonify({'success': True, 'comment': _serialize_article_comment(c)}), 201
 
 @app.route('/post/<int:post_id>/comments/<int:comment_id>', methods=['DELETE'])
+@json_api()
 def delete_article_comment(post_id, comment_id):
     current_user = get_current_user()
     if not current_user:
@@ -314,6 +327,7 @@ def delete_article_comment(post_id, comment_id):
     return jsonify({'success': True})
 
 @app.route('/post/<int:post_id>/comments/<int:comment_id>', methods=['PATCH'])
+@json_api()
 def edit_article_comment(post_id, comment_id):
     current_user = get_current_user()
     if not current_user:
@@ -321,8 +335,8 @@ def edit_article_comment(post_id, comment_id):
     c = ArticleComment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
     if c.author_name != current_user.username:
         return jsonify({'error': 'Unauthorized'}), 403
-    data = request.get_json() or {}
-    content = data.get('content', '').strip()
+    data = json_object({'content'})
+    content = text_value(data.get('content', ''), 'content')
     if not content:
         return jsonify({'error': 'Content is required'}), 400
     c.content = content

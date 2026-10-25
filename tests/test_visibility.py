@@ -324,8 +324,11 @@ ANONYMOUS_PATHS = [
 @pytest.mark.parametrize('method,path', ANONYMOUS_PATHS)
 def test_anonymous_redirected(anonymous, records, scenario, method, path):
     response = getattr(anonymous, method)(path.format(id=records['game'].id))
-    assert response.status_code == 302
-    assert urlsplit(response.location).path == '/login'
+    if path.endswith('/comments'):
+        assert response.status_code == 401 and response.is_json
+    else:
+        assert response.status_code == 302
+        assert urlsplit(response.location).path == '/login'
 
 
 @pytest.mark.parametrize('path', ['/film/api/user/author/comments', '/film/api/user/ordinary/leadership-tags'])
@@ -380,7 +383,7 @@ def test_admin_only_writes(client_for, records, db, method, path, payload, admin
     path = path.format(game_id=records['game'].id, point_id=records['point'].id, post_id=post.id)
     for role in ('ordinary', 'leadership'):
         denied = getattr(client_for(role), method)(path, **({'json': payload} if method == 'patch' or 'api/games' in path else {'data': payload}))
-        assert denied.status_code == (403 if path == '/upload_image' else 302)
+        assert denied.status_code == (403 if path == '/upload_image' or '/api/games/' in path else 302)
         if denied.status_code == 302:
             assert urlsplit(denied.location).path == '/'
     response = getattr(client_for('admin'), method)(path, **({'json': payload} if method == 'patch' or 'api/games' in path else {'data': payload}))
@@ -426,7 +429,9 @@ def test_admin_only_routes_deny_anonymous(anonymous, records, db, method, path, 
     db.session.commit()
     path = path.format(game_id=records['game'].id, point_id=records['point'].id, post_id=post.id)
     response = getattr(anonymous, method)(path)
-    if redirect is None:
+    if '/api/games/' in path:
+        assert response.status_code == 401 and response.is_json
+    elif redirect is None:
         assert response.status_code == 403
     else:
         assert response.status_code == 302
@@ -545,21 +550,27 @@ def test_hidden_game_ancestor_denies_cross_game_reply(client_for, records, db):
     db.session.commit()
     assert child.content in client_for('admin').get('/film/api/notifications').text
     assert child.content not in client_for('ordinary').get('/film/api/notifications').text
+    # Legacy descendants remain readable according to T03; new depth-two writes are rejected.
+    before = (Comment.query.count(), CommentNotification.query.count())
     response = client_for('admin').post(
         f'/film/api/games/{records["game"].id}/comments',
         json={'content': 'Synthetic cross-game deep reply @[ordinary]', 'parent_id': child.id})
-    assert response.status_code == 201
-    assert CommentNotification.query.filter_by(comment_id=response.json['comment']['id']).count() == 0
+    assert response.status_code == 400
+    assert (Comment.query.count(), CommentNotification.query.count()) == before
 
 
 def test_deep_reply_notification_creation_and_revoked_ancestor(client_for, records, scenario, db):
-    from flask_app.models import CommentNotification
-    response = client_for('author').post(
-        f'/film/api/games/{records["game"].id}/comments',
-        json={'content': 'Synthetic grandchild @[recipient] @[ordinary] @[leadership]',
-              'parent_id': scenario['reply_in_private'].id})
-    assert response.status_code == 201
-    comment_id = response.json['comment']['id']
+    from flask_app.models import Comment, CommentNotification
+    from flask_app.film_routes import _create_notifications_for_comment
+    # Seed a legacy deep reply directly: T04 prohibits creating it through the API.
+    comment = Comment(game_id=records['game'].id, author_name='author', comment_type='Comment',
+                      content='Synthetic grandchild @[recipient] @[ordinary] @[leadership]',
+                      parent_id=scenario['reply_in_private'].id)
+    db.session.add(comment)
+    db.session.flush()
+    _create_notifications_for_comment(comment, records['game'].id, 'author', False)
+    db.session.commit()
+    comment_id = comment.id
     rows = CommentNotification.query.filter_by(comment_id=comment_id).all()
     assert [n.recipient_username for n in rows] == ['recipient']
     assert any(n['comment_id'] == comment_id for n in _notifications(client_for('recipient'))['notifications'])

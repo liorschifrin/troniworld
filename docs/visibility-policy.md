@@ -48,14 +48,14 @@ Anonymous users are redirected (`302 → /login`) on the film surfaces below. Ar
 | `view_game` point option lists | 302 login | labels from visible games only | all games |
 | `GET /film/my-games` (games and own comments) | 302 login | hidden games and own comments on them left out | unchanged (includes hidden) |
 | `GET /film/data` (list, `game_ids`, leaderboard `games_played`, tendencies) | 302 login | hidden ids treated as missing; counts and statistics from visible games only | unchanged |
-| `GET/POST /film/api/games/<id>/comments`, `PATCH/DELETE .../<comment_id>` | 302 login | hidden → 404 = missing, no write | unchanged |
+| `GET/POST /film/api/games/<id>/comments`, `PATCH/DELETE .../<comment_id>` | JSON 401 | hidden → JSON 404 = missing, no write | visible games; typed writes follow T04 |
 | `POST .../track-watch-time`, `GET .../watch-progress`, `POST .../toggle-watched` | 302 login | hidden → 404 = missing, no write. A missing game used to return 500 on toggle; now 404 | unchanged |
 | `GET /film/api/notifications` | 302 login | rows for hidden-game comments left out; none created | unchanged |
 | Admin reports: `/film/analytics`, `/film/api/user/<u>/comments`, `/leadership-tags`, `/watched-games` | 302 login | 302 → `/` (admin-only) | all games; private bodies and comment/tag counts follow the viewing admin’s audience (rule 5) |
 
 ### Admin-only route inventory
 
-Ordinary and leadership callers go to `/`. Anonymous callers go to `/login` for registration and film administration, to `/` for article administration, and get JSON 403 for image upload. The upload endpoint also returns JSON 403 for signed-in nonadmins. Admins retain the listed behavior. Registration is admin-only once an admin exists; the initial no-admin registration path is outside this matrix.
+Ordinary and leadership callers go to `/` except the point/player-sheet APIs, which return JSON 403 (401 for anonymous callers). Anonymous callers go to `/login` for registration and film administration, to `/` for article administration, and get JSON 403 for image upload. The upload endpoint also returns JSON 403 for signed-in nonadmins. Admins retain the listed behavior. Registration is admin-only once an admin exists; the initial no-admin registration path is outside this matrix.
 
 | Surface | Nonadmin | Admin |
 |---|---|---|
@@ -63,7 +63,7 @@ Ordinary and leadership callers go to `/`. Anonymous callers go to `/login` for 
 | `GET/POST /admin/users`; `POST /admin/users/create_all_players` | 302 `/` | user management form / account operations |
 | `GET/POST /film/tournaments/new`, `/film/games/new`, `/film/games/<id>/edit`, `/film/games/<id>/upload_csv` | 302 `/` | forms / existing mutations |
 | `POST /film/games/<id>/delete_player_sheet` | 302 `/` | clear sheet, redirect to game |
-| `PATCH /film/api/games/<id>/points/<point_id>`; `POST /film/api/games/<id>/update_player_sheet` | 302 `/` | 200 JSON for valid requests |
+| `PATCH /film/api/games/<id>/points/<point_id>`; `POST /film/api/games/<id>/update_player_sheet` | JSON 403 (anonymous: 401) | 200 JSON for valid requests |
 | `GET /film/analytics`; `GET /film/api/user/<u>/comments`, `/leadership-tags`, `/watched-games` | 302 `/` | 200; comment/tag content follows rule 5 |
 | `GET/POST /new_post`, `/post/<id>/edit`; `POST /post/<id>/delete` | 302 `/` | article forms / existing mutations |
 | `POST /upload_image` | JSON 403 | 201 with valid image upload; 400 without a file |
@@ -94,6 +94,6 @@ All reply cells require **every** ancestor and the reply itself to admit the vie
 - T03a leadership-group audiences are proposed only; no group UI, storage, or notifications were added.
 - `GET /film/api/notifications` still reads only the 50 newest stored rows and then filters them. The caller can therefore get fewer than 50 items. `unread_count` counts only the rows that were returned.
 - On a visible game, a nonauthor who edits or deletes an existing comment id gets 403; a missing comment id gets 404. That difference shows whether a comment id exists, but no content. This is unchanged.
-- Parent validation is T04 scope: cross-game parents, and replies to a parent the caller cannot see. Such a reply inherits the parent's audience, so its author cannot read the thread through it.
-- Legacy stored `private_to` forms fail closed: `''` formerly counted as public on film GET; a JSON string such as `"recipient"` formerly used substring membership; a JSON object such as `{"recipient": true}` formerly used key membership. All now mean author-only. Route tests assert that the author still sees each body and a matching username does not. POST/PATCH input normalization is unchanged (T04 validation scope); these tests seed stored legacy values directly.
-- Article comments have no private or hidden concept and were not changed.
+- T04 validates parents before writes: missing/invisible parents return JSON 404; visible wrong-game/post parents and reply-to-reply attempts return JSON 400. New replies must target a top-level comment. Existing deeper/cross-game rows are not rewritten; T03 ancestor checks still apply to them.
+- Legacy stored `private_to` forms fail closed: `''` formerly counted as public on film GET; a JSON string such as `"recipient"` formerly used substring membership; a JSON object such as `{"recipient": true}` formerly used key membership. All now mean author-only. Route tests assert that the author still sees each body and a matching username does not. T04 POST/PATCH now require a list of strings or null; these legacy read tests seed stored values directly.
+- Article comments have no private or hidden concept. T04 enforces same-post, top-level parents and typed content/JSON bodies; article GET remains public.

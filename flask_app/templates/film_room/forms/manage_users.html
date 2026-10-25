@@ -510,7 +510,7 @@
             </td>
             <td style="text-align: center;">
               {% if user.id != current_user.id %}
-                <form method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete user {{ user.username }}?');">
+                <form method="post" style="display: inline;" data-username="{{ user.username }}" onsubmit="return confirm('Are you sure you want to delete user ' + this.dataset.username + '?');">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="user_id" value="{{ user.id }}">
                   <button type="submit" class="btn btn-danger">
