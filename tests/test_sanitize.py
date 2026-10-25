@@ -2,6 +2,9 @@
 
 All markup below is synthetic. Rejection cases assert that the dangerous part is
 gone; allowed-formatting cases assert that the editor's output survives.
+CKEDITOR40 transcribes the data shapes that CKEditor 5 classic 40.2.0 (the CDN
+build in articles/editor.html) returns from getData(); they were written by hand
+from that build's converters, not captured from a browser.
 """
 from pathlib import Path
 import re
@@ -40,6 +43,13 @@ HOSTILE = {
     'img-prefix-lookalike': ('<img src="/static/uploadsX/a.png">', ['uploadsX']),
     'img-traversal': ('<img src="/static/uploads/../../etc/passwd">', ['passwd']),
     'img-relative': ('<img src="static/uploads/a.png">', ['static/uploads']),
+    'img-percent-traversal': ('<img src="/static/uploads/%2e%2e/%2e%2e/logout">', ['logout', '%2e']),
+    'img-entity-traversal': ('<img src="/static/uploads/&#46;&#46;">', ['/static/uploads']),
+    'img-subdirectory': ('<img src="/static/uploads/sub/a.png">', ['sub/a.png']),
+    'img-query': ('<img src="/static/uploads/a.png?logout=1">', ['logout']),
+    'img-percent-name': ('<img src="/static/uploads/a%20b.png">', ['a%20b']),
+    'media-embed': ('<figure class="media"><oembed url="https://www.youtube.com/watch?v=x"></oembed></figure>',
+                    ['oembed', 'youtube', 'figure']),
 }
 
 ALLOWED = {
@@ -47,8 +57,10 @@ ALLOWED = {
     'h1': ('<h1>t</h1>', '<h1>t</h1>'),
     'h2': ('<h2>t</h2>', '<h2>t</h2>'),
     'h3': ('<h3>t</h3>', '<h3>t</h3>'),
+    'h4': ('<h4>t</h4>', '<h4>t</h4>'),
     'strong': ('<p><strong>b</strong></p>', '<p><strong>b</strong></p>'),
     'em': ('<p><em>i</em></p>', '<p><em>i</em></p>'),
+    'i': ('<p><i>i</i></p>', '<p><i>i</i></p>'),
     'u': ('<p><u>u</u></p>', '<p><u>u</u></p>'),
     's': ('<p><s>s</s></p>', '<p><s>s</s></p>'),
     'ul-li': ('<ul><li>a</li><li>b</li></ul>', '<ul><li>a</li><li>b</li></ul>'),
@@ -59,7 +71,54 @@ ALLOWED = {
             '<img src="/static/uploads/a1b2.png" alt="A chart">'),
 }
 
-LINKS = ['https://example.test/a?b=1&amp;c=2', 'http://example.test/', 'mailto:someone@example.test']
+LINKS = ['https://example.test/a?b=1&amp;c=2', 'http://example.test/', 'mailto:someone@example.test',
+         '/post/3', 'post/3', '#section']
+
+REL = ' rel="noopener noreferrer"'
+UPLOAD = '/static/uploads/0f1e2d3c4b5a69788796a5b4c3d2e1f0_chart-2.png'
+
+# name -> (CKEditor 40.2.0 getData() output, expected sanitized output, content removed?)
+CKEDITOR40 = {
+    'paragraph': ('<p>Plain text,&nbsp;spaced &amp; quoted "here".</p>',
+                  '<p>Plain text,&nbsp;spaced &amp; quoted "here".</p>', False),
+    'bold': ('<p>a <strong>bold</strong> word</p>', '<p>a <strong>bold</strong> word</p>', False),
+    'italic': ('<p>an <i>italic</i> word</p>', '<p>an <i>italic</i> word</p>', False),
+    'bold-italic': ('<p><strong><i>both</i></strong></p>', '<p><strong><i>both</i></strong></p>', False),
+    'heading-1': ('<h2>Heading 1</h2>', '<h2>Heading 1</h2>', False),
+    'heading-2': ('<h3>Heading 2</h3>', '<h3>Heading 2</h3>', False),
+    'heading-3': ('<h4>Heading 3</h4>', '<h4>Heading 3</h4>', False),
+    'link': ('<p><a href="https://example.test/page?a=1&amp;b=2">a link</a></p>',
+             f'<p><a href="https://example.test/page?a=1&amp;b=2"{REL}>a link</a></p>', False),
+    'bulleted-list': ('<ul><li>one</li><li>two<ul><li>nested</li></ul></li></ul>',
+                      '<ul><li>one</li><li>two<ul><li>nested</li></ul></li></ul>', False),
+    'numbered-list': ('<ol><li>first</li><li>second</li></ol>', '<ol><li>first</li><li>second</li></ol>', False),
+    'block-quote': ('<blockquote><p>quoted</p></blockquote>', '<blockquote><p>quoted</p></blockquote>', False),
+    'soft-break': ('<p>line<br>break</p>', '<p>line<br>break</p>', False),
+    'empty-paragraph': ('<p>before</p><p>&nbsp;</p><p>after</p>', '<p>before</p><p>&nbsp;</p><p>after</p>', False),
+    'block-image': (f'<figure class="image"><img style="aspect-ratio:640/480;" src="{UPLOAD}" width="640" height="480"></figure>',
+                    f'<img src="{UPLOAD}">', False),
+    'block-image-alt': (f'<figure class="image"><img src="{UPLOAD}" alt="A chart"></figure>',
+                        f'<img src="{UPLOAD}" alt="A chart">', False),
+    'inline-image': (f'<p>see <img style="aspect-ratio:32/32;" src="{UPLOAD}" alt="icon" width="32" height="32"> here</p>',
+                     f'<p>see <img src="{UPLOAD}" alt="icon"> here</p>', False),
+    'image-caption': (f'<figure class="image"><img src="{UPLOAD}"><figcaption>Caption</figcaption></figure>',
+                      f'<img src="{UPLOAD}">Caption', True),
+    'table': ('<figure class="table"><table><tbody><tr><td>a</td><td>b</td></tr></tbody></table></figure>',
+              'ab', True),
+    'media-embed': ('<figure class="media"><oembed url="https://www.youtube.com/watch?v=x"></oembed></figure>',
+                    '', True),
+}
+CKEDITOR40_KEPT = [name for name in CKEDITOR40 if not CKEDITOR40[name][2]]
+CKEDITOR40_DOCUMENT = ''.join(CKEDITOR40[name][0] for name in CKEDITOR40_KEPT)
+CKEDITOR40_EXPECTED = ''.join(CKEDITOR40[name][1] for name in CKEDITOR40_KEPT)
+ALTERED_MESSAGE = 'Some markup in the content is not allowed and was removed. Check the post.'
+DISALLOWED_MESSAGE = 'Content contained only disallowed markup.'
+
+
+def flashes(client):
+    """Return and clear the messages flashed to `client`."""
+    with client.session_transaction() as session:
+        return [message for _, message in session.pop('_flashes', [])]
 
 
 @pytest.fixture
@@ -93,6 +152,14 @@ def test_sanitizer_keeps_safe_links(href):
     from flask_app.sanitize import sanitize_html
     result = sanitize_html(f'<p><a href="{href}">go</a></p>')
     assert f'href="{href}"' in result and '>go</a>' in result
+
+
+@pytest.mark.parametrize('name', CKEDITOR40)
+def test_sanitizer_handles_ckeditor40_output(name):
+    from flask_app.sanitize import removed_content, sanitize_html
+    source, expected, removed = CKEDITOR40[name]
+    assert sanitize_html(source) == expected
+    assert removed_content(source, sanitize_html(source)) is removed
 
 
 def test_sanitizer_handles_empty_and_plain_text():
@@ -154,18 +221,105 @@ def test_save_keeps_allowed_formatting(admin, db):
     assert Post.query.one().content == ''.join(ALLOWED[name][1] for name in ALLOWED)
 
 
-def test_content_that_sanitizes_to_nothing_is_rejected(admin, db):
+def test_ckeditor40_document_renders_formatted(anonymous, saved_posts):
+    post_id = saved_posts(CKEDITOR40_DOCUMENT)
+    html = anonymous.get(f'/post/{post_id}').get_data(as_text=True)
+    assert f'<div>{CKEDITOR40_EXPECTED}</div>' in html
+
+
+def test_ckeditor40_document_is_created_formatted_without_warning(admin, db):
     response = admin.post('/new_post', data={
-        'title': 'Synthetic title', 'author': 'Synthetic author', 'content': '<script>alert(1)</script>'})
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'content': CKEDITOR40_DOCUMENT})
     assert response.status_code == 302
+    assert Post.query.one().content == CKEDITOR40_EXPECTED
+    assert flashes(admin) == ['Post created.']
+
+
+def test_ckeditor40_document_is_edited_formatted_without_warning(admin, db, saved_posts):
+    post_id = saved_posts('<p>old</p>')
+    response = admin.post(f'/post/{post_id}/edit', data={
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'created_at': '2026-01-02',
+        'content': CKEDITOR40_DOCUMENT})
+    assert response.status_code == 302
+    assert db.session.get(Post, post_id).content == CKEDITOR40_EXPECTED
+    assert flashes(admin) == ['Post updated.']
+
+
+@pytest.mark.parametrize('name', ['image-caption', 'table'])
+def test_save_warns_when_content_is_removed(admin, db, saved_posts, name):
+    source, expected, _ = CKEDITOR40[name]
+    content = '<p>kept</p>' + source
+    admin.post('/new_post', data={'title': 'Synthetic title', 'author': 'Synthetic author', 'content': content})
+    assert Post.query.one().content == '<p>kept</p>' + expected
+    assert flashes(admin) == ['Post created.', ALTERED_MESSAGE]
+    post_id = saved_posts('<p>old</p>')
+    admin.post(f'/post/{post_id}/edit', data={
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'created_at': '2026-01-02', 'content': content})
+    assert db.session.get(Post, post_id).content == '<p>kept</p>' + expected
+    assert flashes(admin) == ['Post updated.', ALTERED_MESSAGE]
+
+
+@pytest.mark.parametrize('content', [
+    '<script>alert(1)</script>',
+    '<iframe src="https://evil.test"></iframe>',
+    '<img src="https://evil.test/track.png">',
+    '<p><img src="/static/uploads/%2e%2e/logout"></p>',
+    CKEDITOR40['media-embed'][0],
+])
+def test_content_that_sanitizes_to_nothing_is_rejected(admin, db, saved_posts, content):
+    response = admin.post('/new_post', data={
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'content': content})
+    assert response.status_code == 302 and response.location.endswith('/new_post')
     assert Post.query.count() == 0
+    assert flashes(admin) == [DISALLOWED_MESSAGE]
+    post_id = saved_posts('<p>old</p>')
+    response = admin.post(f'/post/{post_id}/edit', data={
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'created_at': '2026-01-02', 'content': content})
+    assert response.location.endswith(f'/post/{post_id}/edit')
+    assert db.session.get(Post, post_id).content == '<p>old</p>'
+    assert flashes(admin) == [DISALLOWED_MESSAGE]
 
 
-def test_edit_form_shows_stored_markup_escaped(admin, saved_posts):
-    post_id = saved_posts('<p>a</p><script>alert(1)</script>')
+@pytest.mark.parametrize('content', ['', '   ', '<p></p>', '<p>&nbsp;</p>', '<p> </p><p><br></p>'])
+def test_content_without_text_or_image_is_empty(admin, db, saved_posts, content):
+    admin.post('/new_post', data={'title': 'Synthetic title', 'author': 'Synthetic author', 'content': content})
+    assert Post.query.count() == 0
+    assert flashes(admin) == ['Title, author, and content are required.']
+    post_id = saved_posts('<p>old</p>')
+    admin.post(f'/post/{post_id}/edit', data={
+        'title': 'Synthetic title', 'author': 'Synthetic author', 'created_at': '2026-01-02', 'content': content})
+    assert db.session.get(Post, post_id).content == '<p>old</p>'
+    assert flashes(admin) == ['Title, author, content, and date are required.']
+
+
+def test_image_only_content_is_accepted(admin, db):
+    source, expected, _ = CKEDITOR40['block-image']
+    admin.post('/new_post', data={'title': 'Synthetic title', 'author': 'Synthetic author', 'content': source})
+    assert Post.query.one().content == expected
+
+
+def test_edit_form_loads_sanitized_markup_escaped(admin, saved_posts):
+    post_id = saved_posts('<p>a</p><script>alert(1)</script><p onclick="x()">b &lt;i&gt;</p>'
+                          + CKEDITOR40['italic'][0])
     html = admin.get(f'/post/{post_id}/edit').get_data(as_text=True)
-    assert '<script>alert(1)</script>' not in html
-    assert '&lt;script&gt;alert(1)&lt;/script&gt;' in html
+    textarea = html[html.index('<textarea id="content-editor"'):html.index('</textarea>')]
+    assert 'alert' not in textarea and 'onclick' not in textarea and 'script' not in textarea
+    assert textarea.endswith('>&lt;p&gt;a&lt;/p&gt;&lt;p&gt;b &amp;lt;i&amp;gt;&lt;/p&gt;'
+                             '&lt;p&gt;an &lt;i&gt;italic&lt;/i&gt; word&lt;/p&gt;')
+
+
+@pytest.mark.parametrize('path', ['/new_post', 'edit'])
+def test_editor_offers_no_tables_or_media_embeds(admin, saved_posts, path):
+    if path == 'edit':
+        path = f'/post/{saved_posts("<p>x</p>")}/edit'
+    html = admin.get(path).get_data(as_text=True)
+    assert "var ARTICLE_EDITOR_REMOVED_PLUGINS = ['Table', 'TableToolbar', 'MediaEmbed'];" in html
+    assert "var ARTICLE_EDITOR_REMOVED_TOOLBAR_ITEMS = ['insertTable', 'mediaEmbed'];" in html
+    config = html[html.index('ClassicEditor.create('):]
+    config = config[:config.index('})')]
+    assert 'removePlugins: ARTICLE_EDITOR_REMOVED_PLUGINS' in config
+    assert 'toolbar: { removeItems: ARTICLE_EDITOR_REMOVED_TOOLBAR_ITEMS }' in config
+    assert html.count('ClassicEditor.create(') == 1
 
 
 def test_post_template_has_no_unfiltered_safe_output():

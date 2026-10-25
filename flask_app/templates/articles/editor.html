@@ -1,5 +1,10 @@
 <script src="https://cdn.ckeditor.com/ckeditor5/40.2.0/classic/ckeditor.js"></script>
 <script>
+  // The article sanitizer (flask_app/sanitize.py) removes tables and media
+  // embeds, so the editor must not offer them, not even through paste.
+  var ARTICLE_EDITOR_REMOVED_PLUGINS = ['Table', 'TableToolbar', 'MediaEmbed'];
+  var ARTICLE_EDITOR_REMOVED_TOOLBAR_ITEMS = ['insertTable', 'mediaEmbed'];
+
   function UploadAdapter(loader) {
     this.loader = loader;
   }

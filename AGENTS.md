@@ -34,8 +34,9 @@ If you change of the below information, or add significantly to the page, update
 
 ## Article HTML sanitization (T05 slice 2, 2026-10-25)
 
-- `flask_app/sanitize.py` (`nh3==0.3.7`, MIT) allowlists CKEditor 5 classic output: p, h1–h3, strong, em, u, s, ul, ol, li, blockquote, br, a (`href` http/https/mailto), img (`alt`; `src` must start with `/static/uploads/`). Everything else is removed.
-- Sanitized on save (`new_post`, `edit_post`) and on render (`sanitize_html` filter in `articles/post.html`; never use `|safe` on `post.content`). Stored rows are not rewritten. Article comments stay plain text, escaped by `esc()`.
+- `flask_app/sanitize.py` (`nh3==0.3.7`, MIT) allowlists: p, h1–h4, strong, em, i, u, s, ul, ol, li, blockquote, br, a (`href` with http/https/mailto or relative/fragment), img (`alt`; `src` must fully match `/static/uploads/[A-Za-z0-9._-]+`). Everything else is removed. CKEditor 40 Heading 1/2/3 are h2/h3/h4 and italic is `<i>`; fixtures are `CKEDITOR40` in the tests.
+- Sanitized on save (`new_post`, `edit_post`) and on render (`sanitize_html` filter in `articles/post.html`; never use `|safe` on `post.content`). The edit form loads `sanitize_html(post.content)` escaped. Saves flash a warning when `removed_content()` reports dropped text/markup, and reject content with no text or image ("Content contained only disallowed markup." when sanitizing emptied it). Stored rows are not rewritten. Article comments stay plain text, escaped by `esc()`.
+- `articles/editor.html` removes the Table/MediaEmbed plugins and toolbar items (`ARTICLE_EDITOR_REMOVED_*`); keep the editor config and the allowlist in step.
 - Tests: `tests/test_sanitize.py`.
 
 ## Active work: game_player.html

@@ -44,7 +44,10 @@
 
   // Track changes in CKEditor when it's ready
   ClassicEditor.create(document.querySelector('#content-editor'), {
-    extraPlugins: [UploadAdapterPlugin]
+    extraPlugins: [UploadAdapterPlugin],
+    // Tables and media embeds are not in the sanitizer allowlist (T05).
+    removePlugins: ARTICLE_EDITOR_REMOVED_PLUGINS,
+    toolbar: { removeItems: ARTICLE_EDITOR_REMOVED_TOOLBAR_ITEMS }
   }).then(function(editor) {
     editorInstance = editor;
     editor.model.document.on('change:data', function() {
