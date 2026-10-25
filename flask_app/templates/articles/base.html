@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Troniworld{% endblock %}</title>
+    <script>const CSRF_TOKEN = {{ csrf_token()|tojson }};</script>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ultiworld-header.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}">
@@ -334,6 +335,13 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+    /* Same-origin jQuery writes carry the session CSRF token */
+    jQuery.ajaxPrefilter(function(options, originalOptions, xhr) {
+        if (!options.crossDomain && !/^(GET|HEAD|OPTIONS)$/i.test(options.type)) {
+            xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN);
+        }
+    });
+
     /* Dynamic user menu logic */
     (function() {
         var isAuthenticated = {{ 'true' if current_user else 'false' }};

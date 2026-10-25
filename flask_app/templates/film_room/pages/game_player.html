@@ -2323,6 +2323,7 @@
 <!-- Hidden form for delete action -->
 {% if current_user and current_user.is_admin and player_sheet_data %}
 <form id="deletePlayerSheetForm" method="POST" action="{{ url_for('delete_player_sheet', game_id=game.id) }}" style="display: none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 </form>
 {% endif %}
 
@@ -3237,7 +3238,7 @@
     try {
       const resp = await fetch('/film/api/games/{{ game.id }}/update_player_sheet', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
         body: JSON.stringify({ changes })
       });
       const data = await resp.json();
@@ -3340,7 +3341,7 @@
     const btn = document.getElementById('watchedToggleBtn');
     btn.disabled = true;
     try {
-      const res = await fetch(`/film/api/games/${gameId}/toggle-watched`, { method: 'POST' });
+      const res = await fetch(`/film/api/games/${gameId}/toggle-watched`, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } });
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       isWatched = data.watched;
@@ -3392,6 +3393,7 @@
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN,
       },
       body: JSON.stringify(data)
     })
@@ -3452,7 +3454,8 @@
       const data = JSON.stringify({
         seconds_watched: accumulatedWatchSeconds,
         session_id: watchSessionId,
-        playback_position: currentPosition
+        playback_position: currentPosition,
+        csrf_token: CSRF_TOKEN  // sendBeacon cannot set headers
       });
       navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', data);
     }
@@ -4288,6 +4291,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': CSRF_TOKEN,
         },
         body: JSON.stringify({
           content: commentContent,
@@ -4608,7 +4612,7 @@
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/comments/${replyId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
         body: JSON.stringify({ content: text, comment_type: 'Comment' })
       });
 
@@ -4659,7 +4663,7 @@
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
         body: JSON.stringify({
           content: text,
           author_name: currentUserName || 'Anonymous',
@@ -4691,7 +4695,8 @@
     
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/comments/${commentId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': CSRF_TOKEN }
       });
       
       if (response.ok) {
@@ -4815,7 +4820,7 @@
       try {
         const response = await fetch(`/film/api/games/{{ game.id }}/comments/${commentId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
           body: JSON.stringify({ 
             content: commentContent,
             comment_type: 'Comment',
@@ -4914,7 +4919,7 @@
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
         body: JSON.stringify({ timestamp_start: currentTime })
       });
       
@@ -4956,7 +4961,7 @@
     try {
       const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
         body: JSON.stringify({ timestamp_start: null })
       });
       
@@ -4993,7 +4998,7 @@
   async function _patchNotFilmed(pointId, newValue) {
     return fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
       body: JSON.stringify({ not_filmed: newValue })
     });
   }
@@ -5170,7 +5175,7 @@
       try {
         const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
           body: JSON.stringify({ [fieldName]: newValue || null })
         });
         

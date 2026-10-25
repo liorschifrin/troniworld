@@ -324,7 +324,7 @@
     try {
       const res = await fetch(`/post/${POST_ID}/comments`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
         body: JSON.stringify({content})
       });
       if (res.ok) {
@@ -343,7 +343,7 @@
     if (!content) return;
     const res = await fetch(`/post/${POST_ID}/comments`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
       body: JSON.stringify({content, parent_id: parentId})
     });
     if (res.ok) {
@@ -361,7 +361,7 @@
     if (!content) return;
     const res = await fetch(`/post/${POST_ID}/comments/${id}`, {
       method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
       body: JSON.stringify({content})
     });
     if (res.ok) { activeEditId = null; await loadComments(); }
@@ -369,7 +369,7 @@
 
   window.acDelete = async function(id) {
     if (!confirm('Delete this comment?')) return;
-    const res = await fetch(`/post/${POST_ID}/comments/${id}`, {method:'DELETE'});
+    const res = await fetch(`/post/${POST_ID}/comments/${id}`, {method:'DELETE', headers: {'X-CSRFToken': CSRF_TOKEN}});
     if (res.ok) await loadComments();
   };
 

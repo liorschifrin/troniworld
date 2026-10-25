@@ -11,6 +11,7 @@
 
       return fetch('{{ url_for("upload_image") }}', {
         method: 'POST',
+        headers: { 'X-CSRFToken': CSRF_TOKEN },
         body: data
       }).then(function (response) {
         if (!response.ok) {
