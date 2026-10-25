@@ -265,6 +265,19 @@ def test_valid_tactical_labels(client_for, inputs, records, db, value):
     assert all(getattr(records['point'], field) == value for field in payload)
 
 
+@pytest.mark.parametrize('value,stored', [(' ' + 'x' * 50 + ' ', 'x' * 50), ('\t Synthetic \n', 'Synthetic'),
+                                          ('   ', '')])
+def test_padded_tactical_labels_trimmed_before_length(client_for, inputs, records, db, value, stored):
+    payload = dict.fromkeys(['pull_play', 'defense_type', 'offense_faced'], value)
+    assert call(client_for, inputs, 'point', payload).status_code == 200
+    db.session.refresh(records['point'])
+    assert all(getattr(records['point'], field) == stored for field in payload)
+
+
+def test_padded_tactical_label_still_too_long(client_for, inputs, db):
+    rejected(db, lambda: call(client_for, inputs, 'point', {'pull_play': ' ' + 'x' * 51 + ' '}))
+
+
 def test_foreign_point_patch(admin, inputs, records, db):
     rejected(db, lambda: admin.patch(f'/film/api/games/{records["game"].id}/points/{inputs["foreign_point"].id}',
                                      json={'timestamp_start': 25}), 404)
@@ -326,6 +339,56 @@ def test_valid_sheet_add_remove(client_for, inputs, records, db, sub):
     db.session.expire_all()
     assert records['point'].players == [] and records['point'].injury_subs is None
     assert inputs['player'] in records['game'].roster
+
+
+@pytest.mark.parametrize('source', ['listed', 'point'])
+@pytest.mark.parametrize('sub', [None, 'off'])
+def test_sheet_listed_but_unrostered_player(client_for, inputs, records, db, source, sub):
+    """Base 93636b7 behaviour: sheet rows not on the roster are editable and join the roster."""
+    from flask_app.models import Point
+    game, outsider = records['game'], inputs['outsider']
+    if source == 'listed':
+        game.player_order_data = {'players': [inputs['player'].name, outsider.name], 'separator_index': None}
+    else:
+        db.session.add(Point(game_id=game.id, point_index=2, players=[outsider]))
+    db.session.commit()
+    assert outsider not in game.roster
+    good = {**change(inputs, records, sub_status=sub), 'player_name': outsider.name}
+    response = call(client_for, inputs, 'sheet', {'changes': [good]})
+    assert response.status_code == 200 and response.json == {'success': True}
+    db.session.expire_all()
+    assert records['point'].players == [outsider] and outsider in game.roster
+    assert records['point'].injury_subs == ({'off': [outsider.name], 'on': []} if sub else None)
+    response = call(client_for, inputs, 'sheet', {'changes': [{**good, 'in_point': False, 'sub_status': None}]})
+    assert response.status_code == 200
+    db.session.expire_all()
+    assert records['point'].players == [] and records['point'].injury_subs is None
+
+
+@pytest.mark.parametrize('name', ['Synthetic outside player', 'Synthetic listed ghost', 'Missing player'])
+def test_sheet_player_outside_all_sources_is_atomic(client_for, inputs, records, db, name):
+    """Names must be listed, rostered, or on a game point, and must already be Player rows."""
+    from flask_app.models import Player, Point
+    game = records['game']
+    other_point = inputs['foreign_point']
+    other_point.players.append(inputs['outsider'])  # on another game's point only
+    # Listed on the sheet but with no Player row: rejected, never created.
+    game.player_order_data = {'players': [inputs['player'].name, 'Synthetic listed ghost']}
+    db.session.add(Point(game_id=game.id, point_index=2, players=[inputs['player']]))
+    db.session.commit()
+    good = change(inputs, records)
+    bad = {**good, 'player_name': name}
+    rejected(db, lambda: call(client_for, inputs, 'sheet', {'changes': [good, bad]}))
+    assert Player.query.filter_by(name='Synthetic listed ghost').first() is None
+
+
+@pytest.mark.parametrize('value', [None, 'not a dict', {'players': 'not a list'}, {'players': [None, 3]}])
+def test_sheet_tolerates_legacy_player_order(client_for, inputs, records, db, value):
+    records['game'].player_order_data = value
+    db.session.commit()
+    assert call(client_for, inputs, 'sheet', {'changes': [change(inputs, records)]}).status_code == 200
+    bad = {**change(inputs, records), 'player_name': inputs['outsider'].name}
+    rejected(db, lambda: call(client_for, inputs, 'sheet', {'changes': [bad]}))
 
 
 def test_empty_sheet_batch_and_point_patch(client_for, inputs, db):

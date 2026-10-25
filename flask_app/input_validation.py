@@ -52,9 +52,10 @@ def text_value(value, field, *, nullable=False, max_length=None):
         value.encode('utf-8')
     except UnicodeEncodeError:
         raise BadRequest(f'{field} must contain valid Unicode') from None
+    value = value.strip()
     if max_length is not None and len(value) > max_length:
         raise BadRequest(f'{field} must be at most {max_length} characters')
-    return value.strip()
+    return value
 
 
 def optional_id(value, field):

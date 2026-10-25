@@ -286,8 +286,6 @@ def get_article_comments(post_id):
 @json_api()
 def create_article_comment(post_id):
     current_user = get_current_user()
-    if not current_user:
-        return jsonify({'error': 'Login required'}), 401
     Post.query.get_or_404(post_id)
     data = json_object({'content', 'parent_id'})
     content = text_value(data.get('content', ''), 'content')
@@ -317,8 +315,6 @@ def create_article_comment(post_id):
 @json_api()
 def delete_article_comment(post_id, comment_id):
     current_user = get_current_user()
-    if not current_user:
-        return jsonify({'error': 'Login required'}), 401
     c = ArticleComment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
     if not current_user.is_admin and c.author_name != current_user.username:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -330,8 +326,6 @@ def delete_article_comment(post_id, comment_id):
 @json_api()
 def edit_article_comment(post_id, comment_id):
     current_user = get_current_user()
-    if not current_user:
-        return jsonify({'error': 'Login required'}), 401
     c = ArticleComment.query.filter_by(id=comment_id, post_id=post_id).first_or_404()
     if c.author_name != current_user.username:
         return jsonify({'error': 'Unauthorized'}), 403

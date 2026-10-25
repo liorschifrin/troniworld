@@ -1465,7 +1465,13 @@ def update_player_sheet(game_id):
     changes = data.get('changes')
     if not isinstance(changes, list):
         raise BadRequest('changes must be a list')
-    roster = {player.name: player for player in game.roster}
+    # Sheet rows come from player_order_data, the roster, or point players (see view_game),
+    # so any of those names is editable as long as the Player row already exists.
+    sheet_players = {player.name: player for player in game.roster}
+    sheet_players.update((player.name, player) for player in Player.query.join(Player.points)
+                         .filter(Point.game_id == game_id))
+    listed = game.player_order_data.get('players') if isinstance(game.player_order_data, dict) else None
+    listed_names = {name for name in listed if isinstance(name, str)} if isinstance(listed, list) else set()
     validated = []
     # Validate the entire batch before changing associations or injury metadata.
     for change in changes:
@@ -1486,9 +1492,13 @@ def update_player_sheet(game_id):
         point = Point.query.filter_by(id=point_id, game_id=game_id).first()
         if point is None:
             raise NotFound()
-        player = roster.get(player_name)
+        player = sheet_players.get(player_name)
+        if player is None and player_name in listed_names:
+            player = Player.query.filter_by(name=player_name).first()
+            if player is not None:
+                sheet_players[player_name] = player
         if player is None:
-            raise BadRequest('Player must belong to this game roster')
+            raise BadRequest('Player must be listed on this game player sheet')
         validated.append((point, player, player_name, in_point, sub_status))
 
     try:
@@ -1496,6 +1506,9 @@ def update_player_sheet(game_id):
             if in_point:
                 if player not in point.players:
                     point.players.append(player)
+                # Ensure the player is also on the game roster
+                if player not in game.roster:
+                    game.roster.append(player)
             else:
                 if player in point.players:
                     point.players.remove(player)
