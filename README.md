@@ -74,7 +74,11 @@ python app.py
 ```
 
 #### Updating an existing DB
-Back up the database file first (for SQLite, `sqlite3 app.db ".backup backup.db"` or copy the file while the app is stopped), then:
+Back up the database file first. With `DATABASE_URI="sqlite:///app.db"` Flask-SQLAlchemy keeps the file in the app's instance folder, `instance/app.db` under the repository root, not `./app.db`. To find the exact file, run `python -c "from flask_app import app, db; ctx = app.app_context(); ctx.push(); print(db.engine.url.database)"` with the same environment as the app (a relative `sqlite:///` path is resolved against the instance folder; `sqlite:////absolute/path.db` is used as is). Then, with the app stopped:
+```bash
+sqlite3 instance/app.db ".backup instance/backup.db"
+```
+Then:
 ```bash
 flask db upgrade
 ```

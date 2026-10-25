@@ -32,7 +32,9 @@ def bootstrap_database(directory=MIGRATIONS_DIRECTORY):
         raise BootstrapError(
             'Database is not empty (found: ' + ', '.join(existing[:5])
             + (', ...' if len(existing) > 5 else '')
-            + '). Use "flask db upgrade" for an existing database.'
+            + '). Do not bootstrap an existing database. Check its Alembic stamp (flask db current): '
+            + '"flask db upgrade" is supported only from f65e956efdb9 or later (see the README); '
+            + 'older stamps need docs/orchestration/tasks/T07.md before any upgrade.'
         )
     db.create_all()
     stamp(directory=directory, revision='head')

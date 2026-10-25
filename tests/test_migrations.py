@@ -39,6 +39,10 @@ def drift(path):
         engine.dispose()
 
 
+def default_text(default):
+    return str(getattr(default, 'arg', default)).replace('\n', ' ')
+
+
 def describe(diff):
     items = diff if isinstance(diff, list) else [diff]
     out = []
@@ -56,7 +60,11 @@ def describe(diff):
         elif kind in ('add_fk', 'remove_fk'):
             out.append(f'{kind} {obj[0].parent.name}.{obj[0].name or [c.name for c in obj[0].columns]}')
         else:
-            out.append(f'{kind} {obj[1]}.{obj[2]}')
+            if kind == 'modify_default':
+                # (schema, table, column, kwargs, migrated default, model default)
+                out.append(f'{kind} {obj[1]}.{obj[2]} migrated={default_text(obj[4])} model={default_text(obj[5])}')
+            else:
+                out.append(f'{kind} {obj[1]}.{obj[2]}')
     return ' | '.join(out)
 
 
@@ -141,13 +149,13 @@ KNOWN_MIGRATION_DRIFT = [
     'add_index video_watch_sessions.ix_video_watch_sessions_game_id',
     'add_index video_watch_sessions.ix_video_watch_sessions_user_id',
     # Migrations set server defaults the models do not declare.
-    'modify_default article_comment_notifications.created_at',
-    'modify_default article_comment_notifications.is_read',
-    'modify_default comment_notifications.created_at',
-    'modify_default comment_notifications.is_read',
-    'modify_default post.created_at',
-    'modify_default user.is_admin',
-    'modify_default user.is_leadership',
+    "modify_default article_comment_notifications.created_at migrated=(CURRENT_TIMESTAMP) model=None",
+    "modify_default article_comment_notifications.is_read migrated=0 model=None",
+    "modify_default comment_notifications.created_at migrated=(CURRENT_TIMESTAMP) model=None",
+    "modify_default comment_notifications.is_read migrated=0 model=None",
+    "modify_default post.created_at migrated=(CURRENT_TIMESTAMP) model=None",
+    "modify_default user.is_admin migrated='0' model=None",
+    "modify_default user.is_leadership migrated='0' model=None",
     # Migration e1f2a3b4c5d6 made an index the model does not declare.
     'remove_index comment_notifications.idx_notifs_comment_id',
 ]
