@@ -36,12 +36,12 @@ def bootstrap_database(directory=MIGRATIONS_DIRECTORY):
             + '"flask db upgrade" is supported only from f65e956efdb9 or later (see the README); '
             + 'older stamps need docs/orchestration/tasks/T07.md before any upgrade.'
         )
-    db.create_all()
     try:
+        db.create_all()
         stamp(directory=directory, revision='head')
     except BaseException:
         # The database was verified empty, so everything in it is ours: undo
-        # the schema so a rerun is not refused as "not empty".
+        # a partial or unstamped schema so a rerun is not refused as "not empty".
         db.drop_all()
         raise
 
