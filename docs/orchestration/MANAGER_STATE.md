@@ -6,7 +6,8 @@
 
 ## Standing rules (survive resumes)
 
-- **Model budget (user 2026-10-25): $20 plan on both providers. Do not use heavy models (Opus, gpt-6-astra) unless necessary.** Default: Sonnet 5.5 (medium) for implementation AND review. Escalate to Opus only after a Sonnet review finds a substantive security/data issue that Sonnet cannot resolve, and say so first. Stop any Opus run that is not needed.
+- **Review process (user 2026-10-25, trial):** use CodeRabbit (`@coderabbitai review` PR comment) as the reviewer instead of T3 review threads for now. CodeRabbit skips draft PRs, so mark ready first. Triage its comments: confirmed findings go to a Sonnet fix run; re-review by CodeRabbit on the new push. No `.coderabbit.yaml` yet (user: not for now). Human approval still required for merge.
+- **Model budget (user 2026-10-25):** $20 plan on both providers. Do not use heavy models (Opus, gpt-6-astra) unless necessary.** Default: Sonnet 5.5 (medium) for implementation AND review. Escalate to Opus only after a Sonnet review finds a substantive security/data issue that Sonnet cannot resolve, and say so first. Stop any Opus run that is not needed.
 0. **Ask before starting any task that depends on an open question.** Before beginning, ask the user about the whole task (all open questions, decisions, and scope) so the full task is understood up front. Do not start a slice of a dependent task while its questions are open. (User instruction 2026-10-24 ~17:05Z; T03 slice 1 was started before this rule and is pending the user's decision.)
 1. **Explicit task selection only.** Implement only tasks the user explicitly selects. Never auto-select or start another task. After the selected task completes: save checkpoint and wait. If a task the user did not select is running, pause it safely and preserve its work.
 2. **Failover/model choice never authorizes** starting an unselected task or merging without approval. One worker at a time.
@@ -59,7 +60,7 @@
 - User approval (2026-10-25): all defaults for T05 s2–s3, T07, T08 (split: T08a now, T08b waits for Q2), T09, T10. Nothing merges to `main` without approval; every PR must be ready for merge when the user returns.
 - Batch plan, one implementer at a time, each PR reviewed (fresh thread) and hosted-CI-green before ready:
   1. T05 slice 2 — `task/t05-sanitize` from `main` `db660df`. PR #14 (draft) head `b06067c`; round 2 APPROVE on Sonnet; hosted CI green. Ready for merge when user approves. Implementer `mcp:f3472855-13d6-4df9-b9fb-59c3b05f1e49` (claude-sonnet-5-5 medium) completed: 856 passed / T09 xfail. Review `mcp:a4afe24d-fe72-44f3-91b1-b52484c1569c` (claude-opus-5-5 high): CHANGES REQUIRED (blocking B1: italic/h4 dropped; major M1: tables/media destroyed; minors/nits). Repair `mcp:7d474986-9b57-49ec-bb31-7d89072d4874` completed: head `b06067c` (921 passed / T09 xfail). Round 2 review `mcp:602ee106-ac6d-42cf-8391-c683c21978d4` (Opus) interrupted 10:43Z to save budget; round 2 review re-launched on claude-sonnet-5-5 medium as `mcp:9f0746c7-28b7-4f51-823a-b013ca7f37ac` (~10:45Z).
-  2. T05 slice 3 — `task/t05-uploads`, stacked on slice 2 (PR base `task/t05-sanitize`). Implementer `mcp:9bfe83b9-ed31-432a-84f7-7bfcfef8f3a9` (Sonnet medium), launched ~11:00Z.
+  2. T05 slice 3 — `task/t05-uploads`, stacked on slice 2 (PR #15, base `task/t05-sanitize`), head `a4079f6`, ready for review. Implementer `mcp:9bfe83b9-ed31-432a-84f7-7bfcfef8f3a9` done. CodeRabbit review in progress (requested ~11:05Z).
   3. T07 — `task/t07-bootstrap`, from main (Heavy).
   4. T08a — `task/t08a-deletion`, stacked on T07 (Heavy).
   5. T10 — `task/t10-csv-preview`, stacked on T07 (Heavy).
