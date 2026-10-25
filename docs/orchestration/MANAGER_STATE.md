@@ -53,7 +53,7 @@
 
 ## Current phase
 
-- Phase: IMPLEMENT — T04 input validation (user-selected 2026-10-25). Heavy: Codex gpt-6-astra high. Brief in `tasks/T04.md`. Base origin/main (verify). Launching implementer on `task/t04-input-validation`.
+- Phase: IMPLEMENT — T04 input validation (user-selected 2026-10-25). Heavy: Codex gpt-6-astra high. Brief in `tasks/T04.md`. Base origin/main (verify). Implementer `mcp:07428246-14b9-41cb-a644-e9e44e9b2b18` (Codex gpt-6-astra high), launched ~00:30Z, branch `task/t04-input-validation` from origin/main `93636b7`.
 - Next-task options (standing rule: suggest with options after each finished task; do not start without selection):
   1. **T04 — typed inputs and relationship validation (recommended).** P0, ready (T01 done). Closes the reply-parent validation gap from T03 and its two xfails (cross-game parents, replies to parents the caller cannot see). No open questions.
   2. **T07 — reproducible database bootstrap and upgrades.** P0, ready (T01 done). Migration replay; Heavy tier (schema). No open questions in the roadmap; fresh-database migration replay is currently failing per T20 notes.
