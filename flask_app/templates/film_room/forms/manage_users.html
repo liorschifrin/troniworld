@@ -365,6 +365,7 @@
   <div class="card">
     <h2 class="card-title">Create New User</h2>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="create">
       
       <div class="form-row">
@@ -429,6 +430,7 @@
       Creates users for all players without accounts. All will use the shared FILM_USER_PASSWORD from .env.
     </p>
     <form method="post" action="{{ url_for('create_users_for_all_players') }}" onsubmit="return confirm('This will create users for all players without accounts. Continue?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-secondary">
         Create Users for All Players
       </button>
@@ -511,6 +513,7 @@
             <td style="text-align: center;">
               {% if user.id != current_user.id %}
                 <form method="post" style="display: inline;" data-username="{{ user.username }}" onsubmit="return confirm('Are you sure you want to delete user ' + this.dataset.username + '?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="user_id" value="{{ user.id }}">
                   <button type="submit" class="btn btn-danger">
@@ -554,7 +557,8 @@ document.addEventListener('DOMContentLoaded', function() {
       fetch('{{ url_for("manage_users") }}', {
         method: 'POST',
         headers: {
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': CSRF_TOKEN
         },
         body: formData
       })

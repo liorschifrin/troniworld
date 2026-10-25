@@ -278,6 +278,7 @@
     </div>
 
     <form method="POST" enctype="multipart/form-data" id="upload-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="csv_file">Select CSV File</label>
         <div class="file-input-wrapper">

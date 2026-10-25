@@ -157,6 +157,7 @@
     </div>
 
     <form id="tournament-form" method="POST" action="{{ url_for('new_tournament') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-content">
         <div class="form-group">
           <label>Name <span class="required">*</span></label>

@@ -63,6 +63,9 @@ def set_sqlite_pragma(dbapi_conn, connection_record):
 
 from .models import *
 
+from . import csrf
+csrf.init_app(app)
+
 # with app.app_context():
 #     db.create_all()
 

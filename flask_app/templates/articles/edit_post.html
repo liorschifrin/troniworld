@@ -6,6 +6,7 @@
 <h2>Edit Post</h2>
 
 <form id="post-form" method="post" action="{{ url_for('edit_post', post_id=post.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Title
     <input type="text" name="title" value="{{ post.title }}" required>
@@ -33,6 +34,7 @@
   <a href="{{ url_for('post', post_id=post.id) }}" id="back-link">Back</a>
   
   <form id="delete-form" method="post" action="{{ url_for('delete_post', post_id=post.id) }}" style="display: inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="button" onclick="confirmDelete()" style="background-color: #dc3545; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
       <i class="fa fa-trash"></i> Delete Post
     </button>

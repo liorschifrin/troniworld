@@ -25,6 +25,13 @@ If you change of the below information, or add significantly to the page, update
 - Point booleans and `in_point` are actual JSON booleans. `is_hidden` is still an HTML form checkbox. Stored legacy data is preserved; invalid timestamps are suppressed on rendering and stored strings are excluded from handler source. No migration or T09 beacon change.
 - Regression gates also need Node 22 for isolated JavaScript renderer tests (no server/browser). See `tests/README.md` and `docs/orchestration/tasks/T04.md` for exact counts and baseline comparison.
 
+## CSRF tokens (T05 slice 1, 2026-10-25)
+
+- `flask_app/csrf.py` checks a per-session token on every routed POST/PUT/PATCH/DELETE before the view runs. JSON routes return 403 `{"error": "CSRF token missing or invalid"}`. HTML form routes (`FORM_ENDPOINTS`) return 403 with a flashed message.
+- Every new write client must send the token. POST forms need `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`. `fetch` writes need `headers: { 'X-CSRFToken': CSRF_TOKEN }`; both base templates define `CSRF_TOKEN`. jQuery writes in `articles/base.html` get the header from `jQuery.ajaxPrefilter`. The watch-time `sendBeacon` payload includes `csrf_token: CSRF_TOKEN`.
+- Login and register call `clear_token()` before setting `user_id`, so the token rotates at sign-in; logout keeps it.
+- `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 14 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes. Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)

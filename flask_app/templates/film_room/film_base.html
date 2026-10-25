@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Troniworld Film Room{% endblock %}</title>
+<script>const CSRF_TOKEN = {{ csrf_token()|tojson }};</script>
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -1001,7 +1002,7 @@
 
     // Mark as read in backend (fire-and-forget in parallel)
     toMarkRead.forEach(n => {
-      fetch(`/film/api/notifications/${n.id}/read`, { method: 'POST' }).catch(() => {});
+      fetch(`/film/api/notifications/${n.id}/read`, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } }).catch(() => {});
       n.is_read = true;
     });
 
@@ -1020,7 +1021,7 @@
 
   async function markAllNotificationsRead() {
     try {
-      await fetch('/film/api/notifications/read-all', { method: 'POST' });
+      await fetch('/film/api/notifications/read-all', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } });
     } catch(e) { /* silent */ }
     _notifData.forEach(n => n.is_read = true);
     const badge = document.getElementById('notifBellBadge');

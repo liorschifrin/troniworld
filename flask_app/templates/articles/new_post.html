@@ -6,6 +6,7 @@
 <h2>Create Post</h2>
 
 <form id="post-form" method="POST" action="{{ url_for('new_post') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Title
     <input type="text" name="title" required>

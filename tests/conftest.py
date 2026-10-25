@@ -101,11 +101,16 @@ def records(db):
 
 @pytest.fixture
 def client_for(app, records):
+    # Shared clients act like a page from this site: their session holds a CSRF
+    # token and every request sends it. tests/test_csrf.py covers denial paths.
     def make(role=None):
         client = app.test_client()
-        if role is not None:
-            with client.session_transaction() as session:
+        token = f'synthetic-csrf-{role or "anonymous"}'
+        with client.session_transaction() as session:
+            session['csrf_token'] = token
+            if role is not None:
                 session['user_id'] = records['users'][role].id
+        client.environ_base['HTTP_X_CSRFTOKEN'] = token
         return client
     return make
 
