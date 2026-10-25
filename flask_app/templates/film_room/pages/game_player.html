@@ -2351,9 +2351,9 @@
           <tr>
             <th>O/D</th>
             {% for point in player_sheet_data['points'] %}
-            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+            <th class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is video_timestamp %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
                 data-point-index="{{ point.point_index }}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+                {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {{ point.point_index }}
             </th>
             {% endfor %}
@@ -2364,8 +2364,8 @@
           <tr>
             <td class="row-label">O/D</td>
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is video_timestamp %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_o %}O{% else %}D{% endif %}
             </td>
             {% endfor %}
@@ -2376,8 +2376,8 @@
             <td class="row-label">TRON</td>
             {% set ns = namespace(tron_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is video_timestamp %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if point.tron_point %}
               {% set ns.tron_score = ns.tron_score + 1 %}
               <span class="tron-point">{{ ns.tron_score }}</span>
@@ -2391,8 +2391,8 @@
             <td class="row-label">Enemy</td>
             {% set ns = namespace(enemy_score=0) %}
             {% for point in player_sheet_data['points'] %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is video_timestamp %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+                {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>
               {% if not point.tron_point %}
               {% set ns.enemy_score = ns.enemy_score + 1 %}
               <span class="opponent-point">{{ ns.enemy_score }}</span>
@@ -2415,13 +2415,13 @@
             {% set pt_subs = player_sheet_data.get('point_injury_subs', {}).get(point.point_index, {}) %}
             {% set is_sub_off = player_name in pt_subs.get('off', []) %}
             {% set is_sub_on = player_name in pt_subs.get('on', []) %}
-            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is not none %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
+            <td class="{% if point.tron_o %}offense{% else %}defense{% endif %}{% if not point.not_filmed and point.timestamp_start is video_timestamp %} clickable{% endif %}{% if point.not_filmed %} not-filmed{% endif %}"
                 data-point-id="{{ point.id }}"
                 data-player="{{ player_name }}"
                 data-in-point="{% if player_name in player_sheet_data['point_players'][point.point_index] %}1{% else %}0{% endif %}"
                 data-sub-status="{% if is_sub_off %}off{% elif is_sub_on %}on{% endif %}"
-                {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}
-                onclick="handlePsCellClick(this, event, {% if not point.not_filmed and point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %})">
+                {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" title="Click to jump to {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}
+                onclick="handlePsCellClick(this, event, {% if not point.not_filmed and point.timestamp_start is video_timestamp %}{{ point.timestamp_start }}{% else %}null{% endif %})">
               {% if player_name in player_sheet_data['point_players'][point.point_index] %}
               {% set ns.player_count = ns.player_count + 1 %}
               {% if is_sub_off %}
@@ -2557,12 +2557,12 @@
     <div class="point-info-section">
       <div class="point-info-scroll">
         {% for point in player_sheet_data['points'] %}
-        <div class="point-item {% if point.not_filmed %}not-filmed{% elif point.timestamp_start is not none %}has-timestamp{% endif %}{% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %} my-point{% endif %}" 
+        <div class="point-item {% if point.not_filmed %}not-filmed{% elif point.timestamp_start is video_timestamp %}has-timestamp{% endif %}{% if current_user and current_user.player and current_user.player.name in player_sheet_data['point_players'].get(point.point_index, []) %} my-point{% endif %}"
              data-point-id="{{ point.id }}" 
              data-point-index="{{ point.point_index }}"
-             {% if not point.not_filmed and point.timestamp_start is not none %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
+             {% if not point.not_filmed and point.timestamp_start is video_timestamp %}data-timestamp="{{ point.timestamp_start }}" onclick="seekToPointTimestamp({{ point.timestamp_start }})"{% endif %}>
           {% if not point.not_filmed %}
-          {% if point.timestamp_start is not none %}
+          {% if point.timestamp_start is video_timestamp %}
           <div class="point-timestamp" title="Click to seek to this point">
             {% if current_user and current_user.is_admin %}
             <span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp({{ point.id }}, this)" title="Delete timestamp">✕</span>
@@ -2640,7 +2640,7 @@
         {
           id: {{ point.id }},
           tron_point: {{ 'true' if point.tron_point else 'false' }},
-          timestamp_start: {% if point.timestamp_start is not none %}{{ point.timestamp_start }}{% else %}null{% endif %},
+          timestamp_start: {% if point.timestamp_start is video_timestamp %}{{ point.timestamp_start }}{% else %}null{% endif %},
           not_filmed: {{ 'true' if point.not_filmed else 'false' }}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
@@ -2651,8 +2651,8 @@
   let playerReady = false;
   let pendingResumePosition = null;
   let comments = [];
-  let currentVideoId = {% if game.youtube_id %}'{{ game.youtube_id }}'{% else %}null{% endif %};
-  const currentUserName = {% if current_user %}'{{ current_user.username }}'{% else %}null{% endif %};
+  let currentVideoId = {{ game.youtube_id | tojson }};
+  const currentUserName = {{ (current_user.username if current_user else none) | tojson }};
   const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
   const isCurrentUserLeadership = {% if current_user and current_user.is_leadership %}true{% else %}false{% endif %};
   let currentActivePointId = null;
@@ -2890,7 +2890,7 @@
         const label  = isEnemy    ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` :
                        isEveryone ? `Everyone <span style="font-size:0.65rem;opacity:0.7;">notify all members</span>` :
                        escHtml(u);
-        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention('${escHtml(u)}');}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
+        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention(this.dataset.user)" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention(this.dataset.user);}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
       }).join('');
     }
     let anchorRect = null;
@@ -4195,7 +4195,7 @@
     }
     privateUserDropdownEl.innerHTML = users.map((u, i) => {
       const cls = 'mention-dropdown-item' + (i === privateUserDropState.selectedIndex ? ' selected' : '');
-      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser('${escHtml(u)}')" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser('${escHtml(u)}');}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
+      return `<div class="${cls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault();selectPrivateUser(this.dataset.user)" ontouchend="if(!_dropTouchScrolled){event.preventDefault();selectPrivateUser(this.dataset.user);}"><div class="mention-dropdown-avatar">${escHtml(u[0].toUpperCase())}</div>${escHtml(u)}</div>`;
     }).join('');
     privateUserDropdownEl.style.display = 'block';
     // Reparent into .private-to-wrap so position:absolute places it below the input.
@@ -4432,8 +4432,10 @@
     const isExpanded  = expandedThreads.has(c.id);
     const isReplying  = activeReplyInputId === c.id;
 
-    const timestampFormatted = formatTimestamp(c.timestamp);
-    const clickable    = c.timestamp !== null && c.timestamp !== undefined;
+    // Stored legacy timestamps are untrusted too; never interpolate strings as code.
+    const clickable = typeof c.timestamp === 'number' && Number.isFinite(c.timestamp)
+      && c.timestamp >= 0 && c.timestamp <= 86400;
+    const timestampFormatted = clickable ? formatTimestamp(c.timestamp) : null;
     const cursorStyle  = clickable ? 'cursor:pointer;' : '';
     const onclickAttr  = clickable ? `onclick="seekToTime(${c.timestamp})"` : '';
     const dataAttrs    = `data-comment-id="${c.id}"` + (clickable ? ` data-timestamp="${c.timestamp}"` : '');

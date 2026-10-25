@@ -523,13 +523,13 @@
                 <span class="metric-number">{{ data.total_watch_minutes }} min</span>
               </td>
               <td class="centered">
-                <button class="comment-list-btn" data-detail-target="comments-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','comments',{{ data.comment_count }})">
+                <button class="comment-list-btn" data-detail-target="comments-detail-{{ data.user.id }}" data-username="{{ data.user.username }}" onclick="toggleInlineDetail(this,this.dataset.username,'comments',{{ data.comment_count }})">
                   <span class="metric-number">{{ data.comment_count }}</span>
                 </button>
               </td>
               <td class="centered">
                 {% if data.leadership_notif_total > 0 %}
-                  <button class="ldr-notif" data-detail-target="tags-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','tags',{{ data.leadership_notif_total }})">
+                  <button class="ldr-notif" data-detail-target="tags-detail-{{ data.user.id }}" data-username="{{ data.user.username }}" onclick="toggleInlineDetail(this,this.dataset.username,'tags',{{ data.leadership_notif_total }})">
                     <div class="ldr-notif-counts">
                       <span class="read">{{ data.leadership_notif_read }}</span>
                       <span class="sep">/</span>
@@ -553,7 +553,7 @@
               </td>
               <td class="centered">
                 {% if data.watched_count > 0 %}
-                  <button class="comment-list-btn" data-detail-target="watched-detail-{{ data.user.id }}" onclick="toggleInlineDetail(this,'{{ data.user.username }}','watched',{{ data.watched_count }})">
+                  <button class="comment-list-btn" data-detail-target="watched-detail-{{ data.user.id }}" data-username="{{ data.user.username }}" onclick="toggleInlineDetail(this,this.dataset.username,'watched',{{ data.watched_count }})">
                     <span class="metric-number">{{ data.watched_count }}</span>
                   </button>
                 {% else %}

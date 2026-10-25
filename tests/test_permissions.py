@@ -6,8 +6,11 @@ import pytest
 @pytest.mark.parametrize('path', ['/film/games', '/film/api/games/1/comments'])
 def test_anonymous_requires_login(anonymous, path):
     response = anonymous.get(path)
-    assert response.status_code == 302
-    assert urlsplit(response.location).path == '/login'
+    if '/api/' in path:
+        assert response.status_code == 401 and response.is_json
+    else:
+        assert response.status_code == 302
+        assert urlsplit(response.location).path == '/login'
 
 
 @pytest.mark.parametrize('role', ['ordinary', 'leadership'])
@@ -17,8 +20,7 @@ def test_nonadmin_cannot_change_point(client_for, records, db, role):
         f'/film/api/games/{records["game"].id}/points/{point.id}',
         json={'timestamp_start': 999},
     )
-    assert response.status_code == 302
-    assert urlsplit(response.location).path == '/'
+    assert response.status_code == 403 and response.is_json
     db.session.refresh(point)
     assert point.timestamp_start == 10
 

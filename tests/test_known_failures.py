@@ -3,8 +3,6 @@ import json
 
 import pytest
 
-pytestmark = pytest.mark.known_failure
-
 
 class AuditRegression(AssertionError):
     """Distinguishes the audited invariant from setup or unrelated failures."""
@@ -16,7 +14,6 @@ def require(condition, message):
 
 
 @pytest.mark.parametrize('invalid', ['timestamp', 'parent_id'])
-@pytest.mark.xfail(strict=True, raises=AuditRegression, reason='T04: invalid timestamp/cross-game parent accepted')
 def test_invalid_comment_rejected_without_write(ordinary, records, db, invalid):
     from flask_app.models import Comment
     payload = {'content': 'Synthetic invalid comment'}
@@ -35,6 +32,7 @@ def test_invalid_comment_rejected_without_write(ordinary, records, db, invalid):
             'Invalid comment accepted or persisted')
 
 
+@pytest.mark.known_failure
 @pytest.mark.xfail(strict=True, raises=AuditRegression, reason='T09: string beacon content type returns 500')
 def test_string_beacon_does_not_return_server_error(ordinary, records):
     response = ordinary.post(f'/film/api/games/{records["game"].id}/track-watch-time',
