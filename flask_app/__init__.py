@@ -68,6 +68,9 @@ csrf.init_app(app)
 from . import uploads
 uploads.init_app(app)
 
+from . import bootstrap
+bootstrap.init_app(app)
+
 # with app.app_context():
 #     db.create_all()
 

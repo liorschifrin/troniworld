@@ -1,4 +1,5 @@
 import logging
+import sys
 from logging.config import fileConfig
 
 from flask import current_app
@@ -72,6 +73,17 @@ def run_migrations_offline():
         context.run_migrations()
 
 
+def sqlite_pragma(connection, statement):
+    # Use the raw DBAPI cursor: PRAGMA foreign_keys is ignored inside a
+    # transaction and must not open a SQLAlchemy transaction of its own.
+    cursor = connection.connection.cursor()
+    try:
+        cursor.execute(statement)
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+
+
 def run_migrations_online():
     """Run migrations in 'online' mode.
 
@@ -97,14 +109,56 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=get_metadata(),
-            **conf_args
-        )
+        # SQLite batch migrations rebuild a table by dropping it. The app turns
+        # foreign keys ON for every connection, so dropping a parent table
+        # (user, games, ...) would cascade-delete its child rows. The SQLite
+        # recommendation is to disable enforcement while rebuilding, then check
+        # that no violation remains. The whole upgrade runs in one explicit
+        # SQLite transaction (SQLite DDL is transactional) and the check runs
+        # before the commit, so a violation rolls everything back, including
+        # the version stamp. (T07; see docs/orchestration/tasks/T07.md)
+        sqlite = connection.dialect.name == 'sqlite'
+        configure_args = dict(conf_args)
+        if sqlite:
+            restore_foreign_keys = sqlite_pragma(connection, 'PRAGMA foreign_keys')[0][0]
+            # The pragma is ignored inside a transaction, so change it first.
+            sqlite_pragma(connection, 'PRAGMA foreign_keys=OFF')
+            sqlite_pragma(connection, 'BEGIN')
+            configure_args['transactional_ddl'] = True
+            # Keep every revision and the foreign-key check in one transaction.
+            configure_args['transaction_per_migration'] = False
+        try:
+            context.configure(
+                connection=connection,
+                target_metadata=get_metadata(),
+                **configure_args
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+                if sqlite:
+                    violations = sqlite_pragma(connection, 'PRAGMA foreign_key_check')
+                    if violations:
+                        raise RuntimeError(
+                            'Foreign key violations (table, rowid, parent, fk): %r. '
+                            'The upgrade was rolled back; the database is at its prior revision.'
+                            % (violations[:10],))
+        finally:
+            if sqlite:
+                failing = sys.exc_info()[0] is not None
+                try:
+                    # PRAGMA foreign_keys is ignored inside a transaction, so
+                    # end any that is still open before restoring it.
+                    if connection.in_transaction():
+                        connection.rollback()
+                    if connection.connection.in_transaction:
+                        connection.connection.rollback()
+                    sqlite_pragma(connection, 'PRAGMA foreign_keys=%d' % (1 if restore_foreign_keys else 0))
+                except Exception:
+                    # Do not replace an exception already in flight.
+                    if not failing:
+                        raise
+                    logger.exception('Could not roll back or restore PRAGMA foreign_keys')
 
 
 if context.is_offline_mode():

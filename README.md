@@ -61,14 +61,32 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+#### Create the database
+For a new, empty database (the file named in `DATABASE_URI`, which must not already have tables):
+```bash
+flask --app app bootstrap-db
+```
+This creates every table from the current models and stamps the Alembic head, so later `flask db upgrade` runs start from the right place. It refuses to run against a database that already has any table. (The Alembic history cannot build a database from nothing: its first revision alters a `user` table that was created before Alembic was introduced. See `docs/orchestration/tasks/T07.md`.)
+
 ### Run
 ```bash
 python app.py
 ```
 
-#### Updating the DB
+#### Updating an existing DB
+Back up the database file first. With `DATABASE_URI="sqlite:///app.db"` Flask-SQLAlchemy keeps the file in the app's instance folder, `instance/app.db` under the repository root, not `./app.db`. To find the exact file, run `python -c "from flask_app import app, db; ctx = app.app_context(); ctx.push(); print(db.engine.url.database)"` with the same environment as the app (a relative `sqlite:///` path is resolved against the instance folder; `sqlite:////absolute/path.db` is used as is). Then, with the app stopped:
+```bash
+sqlite3 instance/app.db ".backup instance/backup.db"
+```
+Then:
+```bash
+flask db upgrade
+```
+Databases stamped at `f65e956efdb9` or later upgrade to the head with their data preserved. Older stamps (`3cf0153b0d39` through `c9c8714eb81b`) cannot be upgraded by the shipped history; see the T07 task record before touching one. If an upgrade fails, restore the backup and stop; do not re-run it by hand. On SQLite the upgrade runs in one transaction and is rolled back if any foreign-key violation remains, leaving the database at its prior revision. Do not apply the offline `flask db upgrade --sql` output to SQLite with foreign keys on: it contains the table drops and would cascade-delete child rows (run it with `PRAGMA foreign_keys=OFF`, or prefer the online command).
+
 After changing models.py, create a migration
 ```bash
 flask db migrate -m "message"
 flask db upgrade
 ```
+Review the generated file before applying it. `python -m pytest tests/test_migrations.py` checks upgrades on temporary SQLite files and fails when the models and the migrated schema drift from the recorded list.
