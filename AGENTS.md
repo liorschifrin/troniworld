@@ -41,7 +41,7 @@ If you change of the below information, or add significantly to the page, update
 
 ## Image uploads (T05 slice 3, 2026-10-25)
 
-- `flask_app/uploads.py` (`pillow==13.0.0`, MIT-CMU) validates `POST /upload_image`: extension png/jpg/jpeg/gif/webp, at most 20 MB (`MAX_IMAGE_BYTES`), and Pillow must open and `verify()` the file as PNG, JPEG, GIF, or WebP matching the extension. SVG is rejected. Bytes go to a temp file in the upload folder and are renamed to `<uuid>_<secure_filename>` only after validation; images are never re-encoded.
+- `flask_app/uploads.py` (`pillow==13.0.0`, MIT-CMU) validates `POST /upload_image`: extension png/jpg/jpeg/gif/webp, at most 20 MB (`MAX_IMAGE_BYTES`), and Pillow must open and `verify()` the file as PNG, JPEG, GIF, or WebP matching the extension. SVG is rejected. Bytes go to a temp file in the upload folder and are renamed to `<uuid>_<secure_filename>` only after validation (the original is truncated so the stored name is at most 255 bytes, keeping the extension); images are never re-encoded.
 - `MAX_CONTENT_LENGTH` is 25 MB app-wide. A larger request gets 413 (JSON on JSON routes, standard page on HTML form routes). Denied uploads store nothing.
 - `/static/uploads/` is public; responses carry `X-Content-Type-Options: nosniff`. Old uploads are not rescanned. New tests that upload images must use `synthetic_image()` from `tests/conftest.py`, not fake bytes. Tests: `tests/test_uploads.py`.
 

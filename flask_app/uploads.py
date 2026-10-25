@@ -24,6 +24,7 @@ IMAGE_FORMATS = {
 }
 UPLOAD_URL_PREFIX = '/static/uploads/'
 COPY_CHUNK = 1024 * 1024
+MAX_STORED_NAME_BYTES = 255  # common filesystem file-name limit
 
 
 class UploadError(Exception):
@@ -46,6 +47,14 @@ def _image_format(path):
         return None
 
 
+def _bounded_name(original, extension, prefix):
+    """Shorten original so prefix + name fits MAX_STORED_NAME_BYTES, keeping its extension."""
+    budget = MAX_STORED_NAME_BYTES - len(prefix.encode()) - len(extension.encode()) - 1
+    stem = original[:-(len(extension) + 1)]
+    stem = stem.encode()[:max(budget, 0)].decode(errors='ignore')
+    return f'{stem}.{extension}'
+
+
 def save_image(file_storage, folder):
     """Validate an uploaded image and store it in folder. Return the stored file name."""
     original = secure_filename(file_storage.filename or '')
@@ -65,7 +74,8 @@ def save_image(file_storage, folder):
         image_format = _image_format(temp_path)
         if image_format not in IMAGE_FORMATS or extension not in IMAGE_FORMATS[image_format]:
             raise UploadError('File is not a valid PNG, JPEG, GIF, or WebP image', 400)
-        name = f'{uuid.uuid4().hex}_{original}'
+        prefix = f'{uuid.uuid4().hex}_'
+        name = prefix + _bounded_name(original, extension, prefix)
         os.chmod(temp_path, 0o644)  # mkstemp creates 0600
         os.replace(temp_path, os.path.join(folder, name))
         return name

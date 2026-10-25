@@ -132,6 +132,27 @@ def test_stored_names_are_unguessable_and_unique(admin, app):
     assert all(len(n.split('_')[0]) == 32 for n in (first, second))
 
 
+@pytest.mark.parametrize('name,extension', [('a' * 400 + '.png', 'png'),
+                                            ('x' * 400 + '.tar.JPEG', 'jpeg'),
+                                            ('é' * 300 + '.png', 'png'),
+                                            ('.' + 'b' * 400 + '.webp', 'webp')])
+def test_long_filenames_fit_the_filesystem_limit(admin, app, name, extension):
+    fmt = {'png': 'PNG', 'jpeg': 'JPEG', 'webp': 'WEBP'}[extension]
+    response = post_image(admin, synthetic_image(fmt), name)
+    assert response.status_code == 201
+    (stored_name,) = stored(app)
+    assert len(stored_name.encode()) <= 255
+    assert stored_name.lower().endswith('.' + extension)
+    assert response.get_json()['url'] == f'/static/uploads/{stored_name}'
+
+
+def test_double_extension_keeps_only_a_valid_final_extension(admin, app):
+    assert post_image(admin, synthetic_image('PNG'), 'shell.php.png').status_code == 201
+    assert post_image(admin, synthetic_image('PNG'), 'a.png.php').status_code == 400
+    (name,) = stored(app)
+    assert name.endswith('_shell.php.png')
+
+
 def test_nosniff_on_served_uploads(app, monkeypatch, tmp_path):
     from flask_app import app as application
     static = tmp_path / 'static'
