@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 
+from .sanitize import has_visible_content, removed_content, sanitize_html
 from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
@@ -160,6 +161,22 @@ def post(post_id):
     return render_template('articles/post.html', post=post, current_user=current_user)
 
 
+CONTENT_DISALLOWED = 'Content contained only disallowed markup.'
+CONTENT_ALTERED = 'Some markup in the content is not allowed and was removed. Check the post.'
+
+
+def _submitted_post_content():
+    """Sanitize the submitted article HTML; return (content, altered).
+
+    content is '' when nothing visible (text or image) survives; altered is
+    True when sanitizing removed text or markup.
+    """
+    raw = request.form.get('content', '')
+    content = sanitize_html(raw).strip()
+    altered = removed_content(raw, content)
+    return (content if has_visible_content(content) else ''), altered
+
+
 @app.route('/post/<int:post_id>/edit', methods=['GET', 'POST'])
 def edit_post(post_id):
     current_user = get_current_user()
@@ -170,9 +187,12 @@ def edit_post(post_id):
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
-        content = request.form.get('content', '').strip()
+        content, altered = _submitted_post_content()
         created_at_str = request.form.get('created_at', '').strip()
 
+        if not content and altered:
+            flash(CONTENT_DISALLOWED)
+            return redirect(url_for('edit_post', post_id=post_id))
         if not title or not author or not content or not created_at_str:
             flash('Title, author, content, and date are required.')
             return redirect(url_for('edit_post', post_id=post_id))
@@ -191,9 +211,12 @@ def edit_post(post_id):
         post.created_at = created_at
         db.session.commit()
         flash('Post updated.')
+        if altered:
+            flash(CONTENT_ALTERED)
         return redirect(url_for('post', post_id=post_id))
 
-    return render_template('articles/edit_post.html', post=post)
+    # The editor loads what a save would store, escaped inside the textarea.
+    return render_template('articles/edit_post.html', post=post, editor_content=sanitize_html(post.content))
 
 @app.route('/post/<int:post_id>/delete', methods=['POST'])
 def delete_post(post_id):
@@ -350,8 +373,11 @@ def new_post():
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
-        content = request.form.get('content', '').strip()
+        content, altered = _submitted_post_content()
 
+        if not content and altered:
+            flash(CONTENT_DISALLOWED)
+            return redirect(url_for('new_post'))
         if not title or not author or not content:
             flash('Title, author, and content are required.')
             return redirect(url_for('new_post'))
@@ -360,6 +386,8 @@ def new_post():
         db.session.add(post)
         db.session.commit()
         flash('Post created.')
+        if altered:
+            flash(CONTENT_ALTERED)
         return redirect(url_for('index'))
 
     return render_template('articles/new_post.html', current_user=current_user)
