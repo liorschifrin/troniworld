@@ -9,7 +9,7 @@ import os
 import tempfile
 import uuid
 
-from flask import jsonify, request
+from flask import abort, jsonify, request
 from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
@@ -77,10 +77,17 @@ def save_image(file_storage, folder):
 def init_app(app):
     app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BYTES
 
+    @app.before_request
+    def reject_oversized_declared_length():
+        # MAX_CONTENT_LENGTH is only enforced when a view reads the body; body-ignoring
+        # routes (the static view) would otherwise accept any declared length.
+        if (request.content_length or 0) > MAX_REQUEST_BYTES:
+            abort(413)
+
     @app.errorhandler(413)
     def too_large(error):
         from .csrf import FORM_ENDPOINTS
-        if request.endpoint in FORM_ENDPOINTS and request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        if request.endpoint in FORM_ENDPOINTS | {'static', None} and request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return error
         return jsonify(error='Request is larger than the 25 MB limit'), 413
 

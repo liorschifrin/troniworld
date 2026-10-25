@@ -132,20 +132,25 @@ def test_stored_names_are_unguessable_and_unique(admin, app):
     assert all(len(n.split('_')[0]) == 32 for n in (first, second))
 
 
-def test_nosniff_on_served_uploads(app):
+def test_nosniff_on_served_uploads(app, monkeypatch, tmp_path):
     from flask_app import app as application
-    folder = Path(application.config['UPLOAD_FOLDER'])
-    # The static route serves from the real static folder; place a file there via the route's own folder.
-    static_uploads = Path(application.static_folder) / 'uploads'
-    static_uploads.mkdir(exist_ok=True)
-    probe = static_uploads / 'synthetic-nosniff-probe.png'
-    probe.write_bytes(synthetic_image('PNG'))
-    try:
-        response = application.test_client().get('/static/uploads/synthetic-nosniff-probe.png')
-        assert response.status_code == 200
-        assert response.headers['X-Content-Type-Options'] == 'nosniff'
-        other = application.test_client().get('/')
-        assert 'X-Content-Type-Options' not in other.headers
-    finally:
-        probe.unlink()
-    assert folder.is_dir()
+    static = tmp_path / 'static'
+    (static / 'uploads').mkdir(parents=True)
+    monkeypatch.setattr(application, 'static_folder', str(static))
+    (static / 'uploads' / 'synthetic-nosniff-probe.png').write_bytes(synthetic_image('PNG'))
+    response = application.test_client().get('/static/uploads/synthetic-nosniff-probe.png')
+    assert response.status_code == 200
+    assert response.headers['X-Content-Type-Options'] == 'nosniff'
+    other = application.test_client().get('/')
+    assert 'X-Content-Type-Options' not in other.headers
+
+
+def test_oversized_declared_length_rejected_on_body_ignoring_route(app, monkeypatch, tmp_path):
+    from flask_app import app as application
+    monkeypatch.setattr(application, 'static_folder', str(tmp_path))
+    (tmp_path / 'ok.txt').write_text('ok')
+    client = application.test_client()
+    big = client.get('/static/ok.txt', data=b'x' * (uploads.MAX_REQUEST_BYTES + 1))
+    assert big.status_code == 413
+    assert client.get('/static/ok.txt', data=b'x' * 1024).status_code == 200
+    assert client.get('/static/ok.txt').status_code == 200
