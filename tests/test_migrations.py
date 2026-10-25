@@ -1,6 +1,10 @@
 """T07: bootstrap, upgrade-with-data, and model/schema drift on temporary SQLite files."""
+import json
+import os
 import shutil
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 import sqlalchemy as sa
@@ -9,7 +13,7 @@ from alembic.migration import MigrationContext
 
 from flask_app import db as database
 from migration_support import (
-    HEAD, REVISIONS, build_snapshot, flask_command, seed, snapshot_metadata, table_rows,
+    HEAD, ROOT, REVISIONS, build_snapshot, flask_command, seed, snapshot_metadata, table_rows,
 )
 
 # Revisions from which the shipped history reaches the head. Older revisions
@@ -190,3 +194,72 @@ def test_backup_restore_rehearsal(tmp_path):
     assert stamped_revision(live) == [('e1f2a3b4c5d6',)]
     assert flask_command(live, 'db', 'upgrade').returncode == 0
     assert stamped_revision(live) == [(HEAD,)]
+
+
+def test_orphan_row_rolls_the_whole_upgrade_back(tmp_path):
+    path = tmp_path / 'orphan.db'
+    build_snapshot(path, 'j5k6l7m8n9o0')
+    seed(path, 'j5k6l7m8n9o0')
+    conn = sqlite3.connect(path)  # foreign keys are off on a raw connection
+    conn.execute('INSERT INTO login_events (id, user_id, login_time) VALUES (99, 12345, "2026-01-01 00:00:00")')
+    conn.commit()
+    conn.close()
+    before = table_rows(path)
+    result = flask_command(path, 'db', 'upgrade')
+    assert result.returncode != 0
+    assert 'rolled back' in result.stderr and 'login_events' in result.stderr
+    assert stamped_revision(path) == [('j5k6l7m8n9o0',)]
+    assert table_rows(path) == before
+    assert 'game_watched' not in {r[0] for r in sqlite3.connect(path).execute("SELECT name FROM sqlite_master")}
+
+
+# A tiny migrations tree (the real env.py plus two throwaway revisions) for pragma-restore checks.
+REVISION_ONE = """
+revision = 'aaaa00000001'
+down_revision = None
+branch_labels = None
+depends_on = None
+from alembic import op
+import sqlalchemy as sa
+
+def upgrade():
+    op.create_table('scratch', sa.Column('id', sa.Integer(), primary_key=True))
+
+def downgrade():
+    op.drop_table('scratch')
+"""
+REVISION_TWO = REVISION_ONE.replace("'aaaa00000001'", "'aaaa00000002'").replace(
+    "down_revision = None", "down_revision = 'aaaa00000001'").replace(
+    "op.create_table('scratch', sa.Column('id', sa.Integer(), primary_key=True))", "raise RuntimeError('boom')")
+
+
+def run_driver(tmp_path, initial, failing):
+    directory = tmp_path / 'migrations'
+    (directory / 'versions').mkdir(parents=True)
+    for name in ('env.py', 'alembic.ini', 'script.py.mako'):
+        shutil.copyfile(ROOT / 'migrations' / name, directory / name)
+    (directory / 'versions' / 'one.py').write_text(REVISION_ONE)
+    if failing:
+        (directory / 'versions' / 'two.py').write_text(REVISION_TWO)
+    env = {k: v for k, v in os.environ.items() if k not in ('DATABASE_URI', 'SECRET_KEY')}
+    result = subprocess.run([sys.executable, str(ROOT / 'tests' / 'migration_driver.py'), str(tmp_path / 'p.db'),
+                             str(directory), str(initial)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    report['stderr'] = result.stderr
+    return report
+
+
+@pytest.mark.parametrize('initial', [1, 0])
+def test_failing_migration_restores_the_original_foreign_key_setting(tmp_path, initial):
+    report = run_driver(tmp_path, initial, failing=True)
+    assert report['error'] and 'boom' in report['stderr']
+    assert report['foreign_keys_after'] == initial
+    assert 'scratch' not in report['tables'], 'the first revision was rolled back with the failing one'
+
+
+@pytest.mark.parametrize('initial', [1, 0])
+def test_successful_migration_restores_the_original_foreign_key_setting(tmp_path, initial):
+    report = run_driver(tmp_path, initial, failing=False)
+    assert report['error'] is None and 'scratch' in report['tables']
+    assert report['foreign_keys_after'] == initial

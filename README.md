@@ -78,7 +78,7 @@ Back up the database file first (for SQLite, `sqlite3 app.db ".backup backup.db"
 ```bash
 flask db upgrade
 ```
-Databases stamped at `f65e956efdb9` or later upgrade to the head with their data preserved. Older stamps (`3cf0153b0d39` through `c9c8714eb81b`) cannot be upgraded by the shipped history; see the T07 task record before touching one. If an upgrade fails, restore the backup and stop; do not re-run it by hand.
+Databases stamped at `f65e956efdb9` or later upgrade to the head with their data preserved. Older stamps (`3cf0153b0d39` through `c9c8714eb81b`) cannot be upgraded by the shipped history; see the T07 task record before touching one. If an upgrade fails, restore the backup and stop; do not re-run it by hand. On SQLite the upgrade runs in one transaction and is rolled back if any foreign-key violation remains, leaving the database at its prior revision. Do not apply the offline `flask db upgrade --sql` output to SQLite with foreign keys on: it contains the table drops and would cascade-delete child rows (run it with `PRAGMA foreign_keys=OFF`, or prefer the online command).
 
 After changing models.py, create a migration
 ```bash

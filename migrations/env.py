@@ -1,4 +1,5 @@
 import logging
+import sys
 from logging.config import fileConfig
 
 from flask import current_app
@@ -112,29 +113,44 @@ def run_migrations_online():
         # foreign keys ON for every connection, so dropping a parent table
         # (user, games, ...) would cascade-delete its child rows. The SQLite
         # recommendation is to disable enforcement while rebuilding, then check
-        # that no violation remains. (T07; see docs/orchestration/tasks/T07.md)
+        # that no violation remains. The whole upgrade runs in one explicit
+        # SQLite transaction (SQLite DDL is transactional) and the check runs
+        # before the commit, so a violation rolls everything back, including
+        # the version stamp. (T07; see docs/orchestration/tasks/T07.md)
         sqlite = connection.dialect.name == 'sqlite'
+        configure_args = dict(conf_args)
         if sqlite:
             restore_foreign_keys = sqlite_pragma(connection, 'PRAGMA foreign_keys')[0][0]
+            # The pragma is ignored inside a transaction, so change it first.
             sqlite_pragma(connection, 'PRAGMA foreign_keys=OFF')
+            sqlite_pragma(connection, 'BEGIN')
+            configure_args['transactional_ddl'] = True
         try:
             context.configure(
                 connection=connection,
                 target_metadata=get_metadata(),
-                **conf_args
+                **configure_args
             )
 
             with context.begin_transaction():
                 context.run_migrations()
-
-            if sqlite and not context.is_offline_mode():
-                violations = sqlite_pragma(connection, 'PRAGMA foreign_key_check')
-                if violations:
-                    raise RuntimeError(
-                        'Foreign key violations after migration (table, rowid, parent, fk): %r' % (violations[:10],))
+                if sqlite:
+                    violations = sqlite_pragma(connection, 'PRAGMA foreign_key_check')
+                    if violations:
+                        raise RuntimeError(
+                            'Foreign key violations (table, rowid, parent, fk): %r. '
+                            'The upgrade was rolled back; the database is at its prior revision.'
+                            % (violations[:10],))
         finally:
             if sqlite:
-                sqlite_pragma(connection, 'PRAGMA foreign_keys=%d' % (1 if restore_foreign_keys else 0))
+                failing = sys.exc_info()[0] is not None
+                try:
+                    sqlite_pragma(connection, 'PRAGMA foreign_keys=%d' % (1 if restore_foreign_keys else 0))
+                except Exception:
+                    # Do not replace an exception already in flight.
+                    if not failing:
+                        raise
+                    logger.exception('Could not restore PRAGMA foreign_keys')
 
 
 if context.is_offline_mode():
