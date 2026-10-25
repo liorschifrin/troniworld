@@ -1,12 +1,11 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import BadRequest, NotFound
-from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy import func
 import logging
 import os
-import uuid
 
+from .uploads import UPLOAD_URL_PREFIX, UploadError, save_image
 from .sanitize import has_visible_content, removed_content, sanitize_html
 from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
@@ -16,12 +15,6 @@ from .utils import get_current_user
 from .input_validation import json_api, json_object, optional_id, text_value
 
 logger = logging.getLogger(__name__)
-
-def is_allowed_image(filename: str) -> bool:
-    if not filename or '.' not in filename:
-        return False
-    ext = filename.rsplit('.', 1)[1].lower()
-    return ext in app.config['ALLOWED_IMAGE_EXTENSIONS']
 
 @app.route('/')
 def index():
@@ -402,16 +395,12 @@ def upload_image():
     if 'upload' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
 
-    image = request.files['upload']
-    if image.filename == '' or not is_allowed_image(image.filename):
-        return jsonify({'error': 'Invalid image type'}), 400
+    try:
+        unique_name = save_image(request.files['upload'], app.config['UPLOAD_FOLDER'])
+    except UploadError as error:
+        return jsonify({'error': error.message}), error.status
 
-    original_name = secure_filename(image.filename)
-    unique_name = f"{uuid.uuid4().hex}_{original_name}"
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
-    image.save(save_path)
-
-    public_url = f"/static/uploads/{unique_name}"
+    public_url = f"{UPLOAD_URL_PREFIX}{unique_name}"
     return jsonify({'url': public_url}), 201
 
 

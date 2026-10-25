@@ -1,0 +1,91 @@
+"""Validated image uploads (T05 slice 3).
+
+An upload is accepted only when Pillow can open and verify it as PNG, JPEG,
+GIF, or WebP, and it is at most MAX_IMAGE_BYTES. The bytes are written to a
+temporary file in the upload folder and renamed into place only after
+validation. The image is never re-encoded.
+"""
+import os
+import tempfile
+import uuid
+
+from flask import jsonify, request
+from PIL import Image, UnidentifiedImageError
+from werkzeug.utils import secure_filename
+
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
+MAX_REQUEST_BYTES = 25 * 1024 * 1024
+# Pillow format name -> extensions that format may carry.
+IMAGE_FORMATS = {
+    'PNG': {'png'},
+    'JPEG': {'jpg', 'jpeg'},
+    'GIF': {'gif'},
+    'WEBP': {'webp'},
+}
+UPLOAD_URL_PREFIX = '/static/uploads/'
+COPY_CHUNK = 1024 * 1024
+
+
+class UploadError(Exception):
+    def __init__(self, message, status):
+        super().__init__(message)
+        self.message = message
+        self.status = status
+
+
+def _image_format(path):
+    """Return the Pillow format of the file at path, or None if it is not a valid image."""
+    # Image.open + verify() checks structure without decoding; reopen to read the format
+    # because verify() leaves the image unusable.
+    try:
+        with Image.open(path) as probe:
+            probe.verify()
+        with Image.open(path) as image:
+            return image.format
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def save_image(file_storage, folder):
+    """Validate an uploaded image and store it in folder. Return the stored file name."""
+    original = secure_filename(file_storage.filename or '')
+    extension = original.rsplit('.', 1)[1].lower() if '.' in original else ''
+    if extension not in set().union(*IMAGE_FORMATS.values()):
+        raise UploadError('Invalid image type', 400)
+
+    handle, temp_path = tempfile.mkstemp(dir=folder, prefix='.upload-', suffix='.tmp')
+    try:
+        size = 0
+        with os.fdopen(handle, 'wb') as out:
+            while chunk := file_storage.stream.read(COPY_CHUNK):
+                size += len(chunk)
+                if size > MAX_IMAGE_BYTES:
+                    raise UploadError('Image is larger than the 20 MB limit', 413)
+                out.write(chunk)
+        image_format = _image_format(temp_path)
+        if image_format not in IMAGE_FORMATS or extension not in IMAGE_FORMATS[image_format]:
+            raise UploadError('File is not a valid PNG, JPEG, GIF, or WebP image', 400)
+        name = f'{uuid.uuid4().hex}_{original}'
+        os.chmod(temp_path, 0o644)  # mkstemp creates 0600
+        os.replace(temp_path, os.path.join(folder, name))
+        return name
+    finally:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
+def init_app(app):
+    app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BYTES
+
+    @app.errorhandler(413)
+    def too_large(error):
+        from .csrf import FORM_ENDPOINTS
+        if request.endpoint in FORM_ENDPOINTS and request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+            return error
+        return jsonify(error='Request is larger than the 25 MB limit'), 413
+
+    @app.after_request
+    def nosniff_uploads(response):
+        if request.path.startswith(UPLOAD_URL_PREFIX):
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response

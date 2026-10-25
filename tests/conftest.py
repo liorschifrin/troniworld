@@ -140,3 +140,12 @@ def pytest_sessionfinish(session, exitstatus):
         database.session.remove()
         database.engine.dispose()
     _runtime.cleanup()
+
+
+def synthetic_image(fmt='PNG', size=(4, 4)):
+    """Bytes of a tiny generated image; no real images are used in tests."""
+    from io import BytesIO
+    from PIL import Image
+    buffer = BytesIO()
+    Image.new('RGB', size, (10, 120, 200)).save(buffer, fmt)
+    return buffer.getvalue()

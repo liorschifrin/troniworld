@@ -32,7 +32,6 @@ from datetime import timedelta
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
-app.config['ALLOWED_IMAGE_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -65,6 +64,9 @@ from .models import *
 
 from . import csrf
 csrf.init_app(app)
+
+from . import uploads
+uploads.init_app(app)
 
 # with app.app_context():
 #     db.create_all()

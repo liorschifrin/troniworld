@@ -69,8 +69,9 @@ def test_schema_is_fresh_and_foreign_keys_enabled(db):
 def test_upload_stays_in_temporary_directory(admin, app):
     from io import BytesIO
     from pathlib import Path
-    response = admin.post('/upload_image', data={'upload': (BytesIO(b'synthetic image'), 'test.png')})
+    from conftest import synthetic_image
+    response = admin.post('/upload_image', data={'upload': (BytesIO(synthetic_image()), 'test.png')})
     assert response.status_code == 201
     files = list(Path(app.config['UPLOAD_FOLDER']).iterdir())
     assert len(files) == 1
-    assert files[0].read_bytes() == b'synthetic image'
+    assert files[0].read_bytes() == synthetic_image()
