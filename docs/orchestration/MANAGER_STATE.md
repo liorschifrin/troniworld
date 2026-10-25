@@ -6,6 +6,7 @@
 
 ## Standing rules (survive resumes)
 
+- **Working style (user 2026-10-25): one PR at a time.** No new implementer or review runs for T07–T10 until the user says so. Current queue: PR #14 (T05 s2, approved, CI green, awaiting merge decision); PR #15 (T05 s3, CodeRabbit review in progress). Pause batch: T07, T08a, T10, T09 not started.
 - **Review process (user 2026-10-25, trial):** use CodeRabbit (`@coderabbitai review` PR comment) as the reviewer instead of T3 review threads for now. CodeRabbit skips draft PRs, so mark ready first. Triage its comments: confirmed findings go to a Sonnet fix run; re-review by CodeRabbit on the new push. No `.coderabbit.yaml` yet (user: not for now). Human approval still required for merge.
 - **Model budget (user 2026-10-25):** $20 plan on both providers. Do not use heavy models (Opus, gpt-6-astra) unless necessary.** Default: Sonnet 5.5 (medium) for implementation AND review. Escalate to Opus only after a Sonnet review finds a substantive security/data issue that Sonnet cannot resolve, and say so first. Stop any Opus run that is not needed.
 0. **Ask before starting any task that depends on an open question.** Before beginning, ask the user about the whole task (all open questions, decisions, and scope) so the full task is understood up front. Do not start a slice of a dependent task while its questions are open. (User instruction 2026-10-24 ~17:05Z; T03 slice 1 was started before this rule and is pending the user's decision.)
