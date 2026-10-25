@@ -32,6 +32,12 @@ If you change of the below information, or add significantly to the page, update
 - Login and register call `clear_token()` before setting `user_id`, so the token rotates at sign-in; logout keeps it.
 - `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 14 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes. Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
 
+## Article HTML sanitization (T05 slice 2, 2026-10-25)
+
+- `flask_app/sanitize.py` (`nh3==0.3.7`, MIT) allowlists CKEditor 5 classic output: p, h1–h3, strong, em, u, s, ul, ol, li, blockquote, br, a (`href` http/https/mailto), img (`alt`; `src` must start with `/static/uploads/`). Everything else is removed.
+- Sanitized on save (`new_post`, `edit_post`) and on render (`sanitize_html` filter in `articles/post.html`; never use `|safe` on `post.content`). Stored rows are not rewritten. Article comments stay plain text, escaped by `esc()`.
+- Tests: `tests/test_sanitize.py`.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)

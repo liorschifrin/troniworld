@@ -76,6 +76,9 @@ from . import film_routes
 import re
 from html import unescape
 
+from .sanitize import sanitize_html_markup
+app.add_template_filter(sanitize_html_markup, 'sanitize_html')
+
 @app.template_filter('strip_html')
 def strip_html_filter(text):
     """Remove HTML tags and decode entities from text"""

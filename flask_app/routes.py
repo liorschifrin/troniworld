@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 
+from .sanitize import sanitize_html
 from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
@@ -170,7 +171,7 @@ def edit_post(post_id):
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
-        content = request.form.get('content', '').strip()
+        content = sanitize_html(request.form.get('content', '')).strip()
         created_at_str = request.form.get('created_at', '').strip()
 
         if not title or not author or not content or not created_at_str:
@@ -350,7 +351,7 @@ def new_post():
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         author = request.form.get('author', '').strip()
-        content = request.form.get('content', '').strip()
+        content = sanitize_html(request.form.get('content', '')).strip()
 
         if not title or not author or not content:
             flash('Title, author, and content are required.')
