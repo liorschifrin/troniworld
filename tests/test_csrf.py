@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 
 import pytest
+from conftest import synthetic_image
 from sqlalchemy import select
 
 ERROR = {'error': 'CSRF token missing or invalid'}
@@ -41,7 +42,7 @@ def writes(records, db):
     article_notif = ArticleCommentNotification.query.one().id
     film_notif = CommentNotification.query.one().id
     film = f'/film/api/games/{game.id}'
-    image = lambda: {'upload': (BytesIO(b'synthetic image'), 'synthetic.png')}
+    image = lambda: {'upload': (BytesIO(synthetic_image()), 'synthetic.png')}
     # (role, method, path, client kind, body factory, legitimate status)
     return {
         'login': ('anonymous', 'post', '/login', 'form',
