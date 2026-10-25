@@ -61,14 +61,28 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+#### Create the database
+For a new, empty database (the file named in `DATABASE_URI`, which must not already have tables):
+```bash
+flask --app app bootstrap-db
+```
+This creates every table from the current models and stamps the Alembic head, so later `flask db upgrade` runs start from the right place. It refuses to run against a database that already has any table. (The Alembic history cannot build a database from nothing: its first revision alters a `user` table that was created before Alembic was introduced. See `docs/orchestration/tasks/T07.md`.)
+
 ### Run
 ```bash
 python app.py
 ```
 
-#### Updating the DB
+#### Updating an existing DB
+Back up the database file first (for SQLite, `sqlite3 app.db ".backup backup.db"` or copy the file while the app is stopped), then:
+```bash
+flask db upgrade
+```
+Databases stamped at `f65e956efdb9` or later upgrade to the head with their data preserved. Older stamps (`3cf0153b0d39` through `c9c8714eb81b`) cannot be upgraded by the shipped history; see the T07 task record before touching one. If an upgrade fails, restore the backup and stop; do not re-run it by hand.
+
 After changing models.py, create a migration
 ```bash
 flask db migrate -m "message"
 flask db upgrade
 ```
+Review the generated file before applying it. `python -m pytest tests/test_migrations.py` checks upgrades on temporary SQLite files and fails when the models and the migrated schema drift from the recorded list.

@@ -72,6 +72,17 @@ def run_migrations_offline():
         context.run_migrations()
 
 
+def sqlite_pragma(connection, statement):
+    # Use the raw DBAPI cursor: PRAGMA foreign_keys is ignored inside a
+    # transaction and must not open a SQLAlchemy transaction of its own.
+    cursor = connection.connection.cursor()
+    try:
+        cursor.execute(statement)
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+
+
 def run_migrations_online():
     """Run migrations in 'online' mode.
 
@@ -97,14 +108,33 @@ def run_migrations_online():
     connectable = get_engine()
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=get_metadata(),
-            **conf_args
-        )
+        # SQLite batch migrations rebuild a table by dropping it. The app turns
+        # foreign keys ON for every connection, so dropping a parent table
+        # (user, games, ...) would cascade-delete its child rows. The SQLite
+        # recommendation is to disable enforcement while rebuilding, then check
+        # that no violation remains. (T07; see docs/orchestration/tasks/T07.md)
+        sqlite = connection.dialect.name == 'sqlite'
+        if sqlite:
+            restore_foreign_keys = sqlite_pragma(connection, 'PRAGMA foreign_keys')[0][0]
+            sqlite_pragma(connection, 'PRAGMA foreign_keys=OFF')
+        try:
+            context.configure(
+                connection=connection,
+                target_metadata=get_metadata(),
+                **conf_args
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+
+            if sqlite and not context.is_offline_mode():
+                violations = sqlite_pragma(connection, 'PRAGMA foreign_key_check')
+                if violations:
+                    raise RuntimeError(
+                        'Foreign key violations after migration (table, rowid, parent, fk): %r' % (violations[:10],))
+        finally:
+            if sqlite:
+                sqlite_pragma(connection, 'PRAGMA foreign_keys=%d' % (1 if restore_foreign_keys else 0))
 
 
 if context.is_offline_mode():

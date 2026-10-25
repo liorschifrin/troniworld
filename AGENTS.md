@@ -45,6 +45,12 @@ If you change of the below information, or add significantly to the page, update
 - `MAX_CONTENT_LENGTH` is 25 MB app-wide. A request that declares a `Content-Length` above 25 MB gets 413 (JSON on JSON routes, standard page on HTML form routes), checked before any view runs. Requests without a declared length (for example chunked) are not rejected by this check; the length is only enforced when a view reads the body. Denied uploads store nothing.
 - `/static/uploads/` is public; responses carry `X-Content-Type-Options: nosniff`. Old uploads are not rescanned. New tests that upload images must use `synthetic_image()` from `tests/conftest.py`, not fake bytes. Tests: `tests/test_uploads.py`.
 
+## Database bootstrap and upgrades (T07, 2026-10-25)
+
+- A new empty database: `flask --app app bootstrap-db` (`flask_app/bootstrap.py`). It runs `create_all` and stamps the head, and refuses a database with any table. The Alembic history cannot replay from empty (first revision alters a pre-existing `user` table) and cannot be edited because deployed databases are stamped on those revision IDs.
+- Existing databases: back up, then `flask db upgrade`. Works from `f65e956efdb9` onward; older stamps hit a double drop of legacy tables. `migrations/env.py` disables SQLite foreign keys during migration (batch table rebuilds otherwise cascade-delete child rows) and runs `PRAGMA foreign_key_check` afterwards.
+- `tests/test_migrations.py` pins the known model/migration drift (`KNOWN_MIGRATION_DRIFT`); update it when you add a migration that changes the schema, and prefer to add the new revision's snapshot changes in `tests/migration_support.py` (`REVISIONS`, `snapshot_metadata`). Never edit an existing revision file.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)

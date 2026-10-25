@@ -41,7 +41,7 @@ Core modules:
 - `flask_app/uploads.py`: image content validation, size limits, the 413 handler, and the `nosniff` header for served uploads (T05 slice 3).
 - `flask_app/routes.py`: public articles, authentication, editor uploads, article comment APIs and notifications.
 - `flask_app/film_routes.py`: film pages, admin operations, imports, statistics, comments, notifications, watch tracking.
-- `migrations/`: Alembic history. Current documented head is `k6l7m8n9o0p1`.
+- `migrations/`: Alembic history. Current documented head is `k6l7m8n9o0p1`. `env.py` turns SQLite foreign keys off while migrating and checks `PRAGMA foreign_key_check` afterwards (T07). `flask_app/bootstrap.py` provides `flask bootstrap-db` for empty databases.
 
 Frontend:
 
@@ -194,7 +194,7 @@ SQLite is the demonstrated setup. SQLAlchemy supports other engines, but drivers
 
 External browser services: YouTube embeds, CKEditor CDN, and Google Fonts. Playback depends on video availability/embedding permissions and browser policies. No YouTube Data API key is required by the current player integration.
 
-Fresh migration replay fails because the first revision assumes `user` already exists. README documents a guarded disposable-demo bootstrap; production requires the roadmap's migration work. Development settings disable normal static caching and enable template reload. Production hosting, WSGI server, monitoring, secure cookie policy, backup schedule, and restoration objectives remain to be specified.
+Fresh migration replay still fails because the first revision assumes `user` already exists, and databases stamped before `f65e956efdb9` cannot reach the head (two revisions drop the same legacy tables). A new database is created with `flask bootstrap-db` (models plus a head stamp; refuses a non-empty database). Databases at `f65e956efdb9` or later upgrade with `flask db upgrade`; before T07 that command deleted child rows on SQLite (see `docs/orchestration/tasks/T07.md`). Models and the migrated schema differ in duplicate-index names and server defaults, pinned in `tests/test_migrations.py`. Development settings disable normal static caching and enable template reload. Production hosting, WSGI server, monitoring, secure cookie policy, backup schedule, and restoration objectives remain to be specified.
 
 ## 8. Verified gaps and evidence boundaries
 
@@ -207,7 +207,8 @@ The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's te
 - Cross-game parent references and nonnumeric timestamps were accepted (fixed for new writes by T04; existing data is not cleaned up).
 - JSON text sent with a string-beacon media type failed with HTTP 500.
 - User deletion with login history raised a non-null foreign-key integrity error.
-- Migration replay on an empty database failed with `no such table: user`.
+- Migration replay on an empty database failed with `no such table: user` (still true; `flask bootstrap-db` is the supported path for new databases, T07).
+- `flask db upgrade` on SQLite with foreign keys enabled deleted rows from child tables when a migration rebuilt `user` or `games` (fixed in `migrations/env.py` by T07).
 - Thirteen major page reads returned 200; twenty HTML templates compiled.
 
 Source inspection also found login-form/password logging, private comment logging, unsafe timestamp interpolation into inline JavaScript, no application-level CSRF protection (T05 slice 1 adds a per-session token check), unsanitized article HTML rendered with `safe`, inconsistent visibility rules, unbounded client watch increments, query-per-user/comment patterns, and no tracked CI/tests on the original audit baseline. Browser execution of the injection path, real YouTube controls, deployment security, dependency vulnerability scanning, accessibility, and load behavior were not tested. Temporary diagnostic scripts were not committed. T01 now supplies a tracked pytest harness and secret-free CI using Python 3.12, synthetic users, fresh in-memory schemas, pre-import environment overrides, and temporary filesystem storage. The global application architecture is unchanged. Passing permission/isolation/visibility/input/handler checks and the single strict T09 beacon expected failure are separated in CI; T04 converts its two original defects to ordinary passing regressions. Node 22 runs isolated JavaScript rendering functions for handler tests; no browser/server is started; see [tests/README.md](tests/README.md) for the precise coverage boundary. Migration replay, deletion integrity, and browser behavior remain outside this initial suite.
