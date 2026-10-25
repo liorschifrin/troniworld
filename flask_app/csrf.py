@@ -32,6 +32,11 @@ def csrf_token():
     return session[SESSION_KEY]
 
 
+def clear_token():
+    """Drop the session's token so the next page mints a new one (call at sign-in)."""
+    session.pop(SESSION_KEY, None)
+
+
 def _submitted_token():
     token = request.headers.get(HEADER) or request.form.get(FORM_FIELD)
     if not token and request.endpoint in BEACON_ENDPOINTS:

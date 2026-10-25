@@ -10,6 +10,7 @@ import uuid
 from . import app, db
 from .models import Post, User, LoginEvent, ArticleComment, ArticleCommentNotification
 
+from .csrf import clear_token as clear_csrf_token
 from .utils import get_current_user
 from .input_validation import json_api, json_object, optional_id, text_value
 
@@ -70,6 +71,7 @@ def register():
         db.session.add(user)
         db.session.commit()
         session.permanent = True
+        clear_csrf_token()
         session['user_id'] = user.id
         flash('Registration successful.')
         return redirect(url_for('index'))
@@ -127,6 +129,7 @@ def login():
             return redirect(url_for('login', next=raw_next) if raw_next else url_for('login'))
 
         session.permanent = True
+        clear_csrf_token()
         session['user_id'] = user.id
         
         # Track login event

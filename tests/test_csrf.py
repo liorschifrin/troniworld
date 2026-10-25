@@ -259,16 +259,50 @@ def test_malformed_tokens_are_denied(session_client, writes, db, app, token):
     assert snapshot(db, app) == before
 
 
-def test_token_survives_login_and_logout(session_client, records):
-    client, token = session_client('anonymous')
-    response = client.post('/login', data={'username': 'ordinary', 'password': 'synthetic-member-password',
-                                           'csrf_token': token})
-    assert response.status_code == 302 and logged_in(client)
+def test_query_and_cookie_tokens_are_denied(session_client, writes, db, app):
+    client, token = session_client('ordinary')
+    path = writes['comment-create'][2]
+    before = snapshot(db, app)
+    assert_denied(client.post(f'{path}?csrf_token={token}', json={'content': 'Synthetic'}), 'json')
+    client.set_cookie('csrf_token', token)
+    assert_denied(client.post(path, json={'content': 'Synthetic'}), 'json')
+    assert snapshot(db, app) == before
+
+
+def page_token(client):
+    assert client.get('/login').status_code == 200
+    with client.session_transaction() as session:
+        return session['csrf_token']
+
+
+def test_token_rotates_at_login_and_register(session_client, records, writes, db, app):
     game = records['game'].id
-    assert client.post(f'/film/api/games/{game}/comments', json={'content': 'Synthetic'},
-                       headers={'X-CSRFToken': token}).status_code == 201
-    assert client.post('/logout', data={'csrf_token': token}).status_code == 302
+    comment = {'json': {'content': 'Synthetic'}}
+    client, old = session_client('anonymous')
+    response = client.post('/login', data={'username': 'ordinary', 'password': 'synthetic-member-password',
+                                           'csrf_token': old})
+    assert response.status_code == 302 and logged_in(client)
+    new = page_token(client)
+    assert new != old
+    before = snapshot(db, app)
+    assert_denied(client.post(f'/film/api/games/{game}/comments', headers={'X-CSRFToken': old}, **comment),
+                  'json')
+    assert snapshot(db, app) == before
+    assert client.post(f'/film/api/games/{game}/comments', headers={'X-CSRFToken': new},
+                       **comment).status_code == 201
+    # Logout keeps the token; the next sign-in rotates it.
+    assert client.post('/logout', data={'csrf_token': new}).status_code == 302
     assert not logged_in(client)
+    assert page_token(client) == new
+
+    client, old = session_client('admin')
+    assert client.post('/register', data={'username': 'Synthetic new', 'csrf_token': old}).status_code == 302
+    new = page_token(client)
+    assert new != old
+    before = snapshot(db, app)
+    assert_denied(client.post(f'/film/api/games/{game}/comments', headers={'X-CSRFToken': old}, **comment),
+                  'json')
+    assert snapshot(db, app) == before
 
 
 @pytest.mark.parametrize('role,path', [
