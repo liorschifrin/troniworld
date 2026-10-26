@@ -72,7 +72,7 @@ def apply(client, game, text, token, confirm=True):
     data = {'csv_text': text, 'state_token': token}
     if confirm:
         data['confirm_hidden'] = '1'
-    return client.post(url(game, 'upload_csv/apply'), data=data)
+    return client.post(url(game, 'upload_csv/apply'), data=data, content_type='multipart/form-data')
 
 
 def do_import(client, game, text, confirm=True):
@@ -594,5 +594,38 @@ def test_a_maximum_size_csv_survives_the_preview_to_apply_round_trip(admin, db, 
     text = ' ' * half + ',O\n' + ' ' * half + ',1\n,\n\nAlice,1\n'
     assert len(text.encode()) <= csv_import.MAX_CSV_BYTES
     html, token, csv_text = preview(admin, game, text)
+    # Multipart, not url-encoded: url-encoding triples commas and could push a valid file past the limit.
+    assert re.search(r'<form method="POST" enctype="multipart/form-data" action="[^"]*upload_csv/apply"', html)
     response = apply(admin, game, csv_text.replace('\n', '\r\n'), token)  # CRLF, as a browser submits it
     assert response.status_code == 302
+
+
+def test_comma_heavy_csv_applies_through_the_real_multipart_form(app, admin, db, game, records):
+    from urllib.parse import quote_plus
+    # ~170 000 commas in a file under the size cap: url-encoded, each comma becomes %2C and the
+    # body passes Werkzeug's 500 000-byte form limit (413). The real form is multipart.
+    blank = ',' * 499 + '\n'
+    text = ',O\n,1\n,\n\n' + blank * 345 + 'Alice,1\n'
+    assert len(text.encode()) <= csv_import.MAX_CSV_BYTES
+    assert len(quote_plus(text)) > 500_000
+    _, token, csv_text = preview(admin, game, text)
+    # The page's form is multipart and carries the CSRF token as a field.
+    html = admin.get(url(game)).get_data(as_text=True)
+    assert 'csrf_token' in html
+    # A browser-like client: session token, token sent only as a multipart field (no header).
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session['user_id'] = records['users']['admin'].id
+        session['csrf_token'] = 'field-only-token'
+    response = client.post(url(game, 'upload_csv/apply'), content_type='multipart/form-data',
+                           data={'csrf_token': 'field-only-token', 'csv_text': csv_text, 'state_token': token})
+    assert response.status_code == 302
+    assert sorted(points_of(game.id)) == [1]
+    # The old form (no enctype) sent this: a browser percent-encodes every comma (Werkzeug's test client
+    # does not, so encode the body the way a browser does).
+    from urllib.parse import urlencode
+    body = urlencode({'csrf_token': 'field-only-token', 'csv_text': csv_text, 'state_token': token})
+    assert len(body) > 500_000
+    old = client.post(url(game, 'upload_csv/apply'), data=body,
+                      content_type='application/x-www-form-urlencoded')
+    assert old.status_code == 413

@@ -122,7 +122,7 @@
     </div>
     {% endif %}
 
-    <form method="POST" action="{{ url_for('apply_game_csv', game_id=game.id) }}" id="apply-form">
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('apply_game_csv', game_id=game.id) }}" id="apply-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="state_token" value="{{ state_token }}">
       <input type="hidden" name="csv_text" value="{{ csv_text }}">
