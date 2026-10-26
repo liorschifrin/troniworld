@@ -80,7 +80,7 @@ Back up while the service is running or stopped; use SQLite's online backup, not
 ```bash
 set -euo pipefail; umask 077
 DB_PATH=/srv/troniworld/data/app.db      # the file named in DATABASE_URI
-STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$DEST"
+STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$(dirname "$DEST")"; mkdir "$DEST"   # fails if the stamp exists
 [ -s "$DB_PATH" ]                                       # a missing source must fail, not become an empty database
 sqlite3 -readonly "$DB_PATH" ".backup $DEST/app.db"
 cp -a /srv/troniworld/data/uploads "$DEST/uploads"
@@ -122,7 +122,7 @@ Then start the service and run the smoke checks (section 9). If the restored sta
 Upgrade (with the service stopped or in maintenance, after a section 6 backup, using the new release's code):
 
 1. Back up (section 6) and note `flask --app app db current` (the "before" stamp).
-2. **First production deploy of this configuration only:** existing installations keep article images in `flask_app/static/uploads` inside the old tree, and production serves `/static/uploads/<name>` only from `UPLOAD_DIR`. With the service stopped, copy them across and verify before switching releases: `cp -a <old-release>/flask_app/static/uploads/. "$UPLOAD_DIR"/` then compare file counts and checksums (`find ... | wc -l`, `sha256sum`). Until this is done every stored image URL returns 404. Move the SQLite file out of `instance/` into `data/` the same way (back it up first).
+2. **First production deploy of this configuration only:** existing installations keep article images in `flask_app/static/uploads` inside the old tree, and production serves `/static/uploads/<name>` only from `UPLOAD_DIR`. With the service stopped, copy them across and verify before switching releases: (set `OLD_RELEASE=/absolute/path/to/old-release` and `UPLOAD_DIR=/absolute/path/to/data/uploads` in your shell first; the service environment is not inherited) `mkdir -p "$UPLOAD_DIR" && cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$UPLOAD_DIR"/`, then compare file counts and checksums (`find ... | wc -l`, `sha256sum`). Until this is done every stored image URL returns 404. Move the SQLite file out of `instance/` into `data/` the same way (back it up first).
 3. Unpack the new release beside the old one; install its pinned requirements in its own venv; run `pip check`.
 4. `flask --app app db upgrade` with the production environment. Supported from `f65e956efdb9` or later; it is transactional on SQLite and rolls back on a foreign-key violation (T07). Do not apply `--sql` output to SQLite. A brand-new empty database uses `flask --app app bootstrap-db` instead.
 5. Switch `current` to the new release and restart the service.
