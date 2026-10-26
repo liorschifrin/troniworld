@@ -10,7 +10,7 @@ import os
 import re
 
 from . import app, db
-from . import csv_import, game_stats, watch_time
+from . import csv_import, game_stats, player_sheet, watch_time
 from .serializers import fmt_dt_est, iso_utc, stored_private_to, thread_comment, thread_reply, written_comment
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
@@ -711,87 +711,9 @@ def view_game(game_id):
     current_user = get_current_user()
     game = get_visible_game_or_404(game_id, current_user)
     
-    # Get all unique point detail field values across ALL games
-    all_pull_plays = set()
-    all_defense_types = set()
-    all_offense_faced = set()
-    
-    # Option lists must not reveal labels used only in hidden games.
-    all_points = Point.query.filter(
-        Point.game_id.in_(visible_games_query(current_user).with_entities(Game.id)),
-        Point.hidden_by_import.is_(False),
-    ).all()
-    for point in all_points:
-        if point.pull_play:
-            all_pull_plays.add(point.pull_play)
-        if point.defense_type:
-            all_defense_types.add(point.defense_type)
-        if point.offense_faced:
-            all_offense_faced.add(point.offense_faced)
-    
-    point_field_options = {
-        'pull_play': sorted(list(all_pull_plays)),
-        'defense_type': sorted(list(all_defense_types)),
-        'offense_faced': sorted(list(all_offense_faced))
-    }
-    
-    # Prepare player sheet data if points exist
-    player_sheet_data = None
-    points = game.visible_points.order_by(Point.point_index).all()
-    
-    if points:
-        # Get all players in order from player_order_data if available
-        all_players = []
-        separator_index = None
-        
-        if game.player_order_data and 'players' in game.player_order_data:
-            # Use the stored player order
-            all_players = game.player_order_data['players']
-            separator_index = game.player_order_data.get('separator_index')
-        elif game.roster:
-            # Fallback to roster order
-            all_players = [p.name for p in game.roster]
-        else:
-            # Fallback: collect players from points
-            player_set = set()
-            for point in points:
-                for player in point.players:
-                    if player.name not in player_set:
-                        all_players.append(player.name)
-                        player_set.add(player.name)
-        
-        # Only build the player sheet if there are actual players
-        # (after a "clear" deletion, all_players will be empty and we fall back to Upload CSV)
-        if all_players:
-            player_sheet_data = {
-                'points': points,
-                'players': all_players,
-                'separator_index': separator_index,
-                'point_players': {}  # Map of point_index -> [player_names]
-            }
+    point_field_options = player_sheet.point_field_options(current_user)
+    player_sheet_data = player_sheet.build_player_sheet(game, player_sheet.game_points(game))
 
-            for point in points:
-                player_sheet_data['point_players'][point.point_index] = sorted(
-                    [p.name for p in point.players],
-                    key=lambda n: all_players.index(n) if n in all_players else len(all_players)
-                )
-
-            # Build injury sub lookups for the template and JS
-            player_sheet_data['point_injury_subs'] = {}
-            player_sheet_data['point_players_js'] = {}
-            for point in points:
-                subs = point.injury_subs or {}
-                sub_off_set = set(subs.get('off', []))
-                sub_on_set = set(subs.get('on', []))
-                player_sheet_data['point_injury_subs'][point.point_index] = subs
-                player_sheet_data['point_players_js'][point.point_index] = [
-                    {
-                        'name': n,
-                        'sub': 'off' if n in sub_off_set else ('on' if n in sub_on_set else None)
-                    }
-                    for n in player_sheet_data['point_players'][point.point_index]
-                ]
-    
     users = [u.username for u in User.query.filter(User.archived_at.is_(None)).order_by(User.username).all()]
     is_watched = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first() is not None
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users, is_watched=is_watched)

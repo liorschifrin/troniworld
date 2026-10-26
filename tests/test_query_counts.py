@@ -25,6 +25,7 @@ BEFORE = {
 CEILING = {name: dict(sizes) for name, sizes in BEFORE.items()}
 CEILING['comments_api'] = {'small': 5, 'large': 5}  # serializers + batched replies/authors
 CEILING['team_data'] = {'small': 7, 'large': 7}  # game_stats: points, players and roster loaded once
+CEILING['game_page'] = {'small': 7, 'large': 7}  # player_sheet: players loaded once, labels in one query
 CEILING['my_games'] = {'small': 5, 'large': 5}
 
 PATHS = {
