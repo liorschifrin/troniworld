@@ -70,6 +70,8 @@
 - T10 PR #19 draft (stacked on T09) at `ff9a885`. Five CLI runs, last clean. Codex review found one MAJOR: preview token lacked game.id (cross-game replay). Fix requested from implementer `mcp:a5d54ce9-7573-4a55-aa1e-613a4b0ca6e5`.
 - T10 PR #19 at `5ff100f`: Codex round 2 APPROVED (major fixed; 1153 passed). PR marked ready. CLI clean (0 findings).
 - T11 implementer `mcp:436c8959-7b25-49d6-9413-f994acc7f8b2` launched on `task/t11-modules`, stacked on `origin/task/t10-csv-preview`.
+- T11 PR #20 at `f6acdff`: Codex review APPROVED (no findings). PR marked ready.
+- T12 implementer `mcp:d5a6af10-81ac-4e78-af3a-851566957048` launched on `task/t12-browser`, stacked on `origin/task/t11-modules`.
 - Failover (user 2026-10-26, overrides the earlier 401 rule): if one provider runs out (usage, quota, rate limit) or stops working (including 401/token expired), switch to the other provider at the same tier and continue from the last checkpoint on the same branch. Record the switch, the reason and the time here. Do not start unselected tasks because of a switch.
 - Limits: record the checkpoint before switching; resume on the next scheduled wakeup.
 - T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
