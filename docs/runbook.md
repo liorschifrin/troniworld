@@ -86,7 +86,7 @@ sqlite3 -readonly "$DB_PATH" ".backup $DEST/app.db"
 cp -a /srv/troniworld/data/uploads "$DEST/uploads"     # uploads write a temp file and rename it: copy off-peak, or from a filesystem snapshot
 chmod -R go-rwx "$DEST"                                 # backups hold private comments
 (cd "$DEST/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # empty file if there are no uploads
-sqlite3 "$DEST/app.db" "PRAGMA integrity_check;"        # must print ok
+[ "$(sqlite3 "$DEST/app.db" "PRAGMA integrity_check;")" = ok ]   # any other output fails the backup
 sqlite3 "$DEST/app.db" "SELECT version_num FROM alembic_version;"   # must print the stamp of the live database
 sqlite3 "$DEST/app.db" "SELECT count(*) FROM games; SELECT count(*) FROM user;"   # compare with the live counts
 ```
@@ -115,7 +115,8 @@ if [ -s "$BACKUP/uploads.sha256" ]; then (cd /srv/troniworld/data/uploads && sha
 chown -R "$SERVICE_USER" /srv/troniworld/data           # the service must own data/ (SQLite creates journal files beside app.db)
 chmod 700 /srv/troniworld/data; chmod 600 /srv/troniworld/data/app.db
 sudo -u "$SERVICE_USER" test -w /srv/troniworld/data/app.db -a -w /srv/troniworld/data/uploads   # access check as the service user
-sqlite3 -readonly /srv/troniworld/data/app.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"   # ok, then nothing
+[ "$(sqlite3 -readonly /srv/troniworld/data/app.db "PRAGMA integrity_check;")" = ok ]
+[ -z "$(sqlite3 -readonly /srv/troniworld/data/app.db "PRAGMA foreign_key_check;")" ]   # both must pass
 flask --app app db current        # with the production environment; shows the stamp the backup was taken at
 ```
 
