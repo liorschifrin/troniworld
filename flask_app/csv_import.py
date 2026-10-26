@@ -18,7 +18,9 @@ import io
 import json
 from dataclasses import dataclass, field
 
-MAX_CSV_BYTES = 1_000_000
+# Kept well under Werkzeug's 500 000-byte form-field limit (even with LF to CRLF growth): the preview
+# carries the CSV back to the apply step in a form field.
+MAX_CSV_BYTES = 200_000
 MAX_ROWS = 1000
 MAX_COLUMNS = 500
 MAX_PLAYER_NAME = 100

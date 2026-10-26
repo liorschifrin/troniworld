@@ -584,3 +584,15 @@ def test_restore_adds_the_points_players_to_the_sheet_order(admin, db, game):
     assert sorted(p.name for p in game.roster) == ['Alice', 'Bob', 'Cara']
     page = admin.get(f'/film/games/{game.id}').get_data(as_text=True)
     assert 'data-player="Cara"' in page and f'data-point-id="{victim_id}"' in page
+
+
+def test_a_maximum_size_csv_survives_the_preview_to_apply_round_trip(admin, db, game):
+    # The CSV travels back in a form field; browsers turn LF into CRLF. Both must fit Werkzeug's limit.
+    assert csv_import.MAX_CSV_BYTES * 2 < 500_000
+    # Padding is whitespace-only label cells (each under the csv module's field limit), so the sheet stays valid.
+    half = (csv_import.MAX_CSV_BYTES - 40) // 2
+    text = ' ' * half + ',O\n' + ' ' * half + ',1\n,\n\nAlice,1\n'
+    assert len(text.encode()) <= csv_import.MAX_CSV_BYTES
+    html, token, csv_text = preview(admin, game, text)
+    response = apply(admin, game, csv_text.replace('\n', '\r\n'), token)  # CRLF, as a browser submits it
+    assert response.status_code == 302

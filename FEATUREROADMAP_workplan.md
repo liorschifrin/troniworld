@@ -190,7 +190,7 @@ State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dro
 - **Scope/read:** importer, upload form, roster/point relationships. Parse into a proposed change set, report row/column errors, preview destructive differences, then apply atomically against a known version.
 - **Acceptance:** [ ] invalid CSV leaves data unchanged; [ ] preview lists additions/changes/deletions; [ ] valid reimport preserves annotations on retained points; [ ] injury notation and section order covered; [ ] stale preview cannot overwrite intervening edits unnoticed; [ ] deleted-point consequences explicit.
 - **Decision notes:** current importer silently skips invalid columns and deletes stale points. An admin UI action is insufficient justification for silent data loss.
-- **Evidence/checkpoint:** active (2026-10-26, PR stacked on T09). Pure parser, change-set preview, version-token stale check, hide-not-delete (`points.hidden_by_import`, migration `n9o0p1q2r3s4`), and 62 new CSV cases; see `docs/orchestration/tasks/T10.md`. Rollback: restore the backup; hidden points can be restored from the upload page, and the migration downgrade refuses while any point is hidden.
+- **Evidence/checkpoint:** active (2026-10-26, PR stacked on T09). Pure parser, change-set preview, version-token stale check, hide-not-delete (`points.hidden_by_import`, migration `n9o0p1q2r3s4`), and 63 new CSV cases; see `docs/orchestration/tasks/T10.md`. Rollback: restore the backup; hidden points can be restored from the upload page, and the migration downgrade refuses while any point is hidden.
 
 ### T11 — Focused modules and efficient reads
 
