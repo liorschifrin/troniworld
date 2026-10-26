@@ -62,7 +62,8 @@
 - Defaults accepted: archive with reserved username (T08a); tabs count watch time only in the visible focused tab, once per tab per session (T09); reimport hides deleted points rather than deleting them, and stale previews are refused by version marker (T10); one module extraction plus query counts, no pagination (T11); desktop Chromium plus one mobile viewport with Playwright as a dev-only dependency (T12); generic WSGI+SQLite runbook, Q5 items listed, no host or license choice and no deploy (T13).
 - Models: Claude Sonnet 5.5 medium for implementation. Codex is back on: cross-provider review uses gpt-5.6-terra medium. Opus only if a review finds a serious unresolved security/data issue.
 - Every PR: local `coderabbit review --agent --base origin/main` run to completion before push (not killed early), then gates, then fresh-thread review; hosted CodeRabbit is the second pass.
-- Limits: on usage or rate limit, record the checkpoint and resume on the next scheduled wakeup from the same branch and thread. 401 means ask the user to re-authenticate, no silent failover.
+- Failover (user 2026-10-26, overrides the earlier 401 rule): if one provider runs out (usage, quota, rate limit) or stops working (including 401/token expired), switch to the other provider at the same tier and continue from the last checkpoint on the same branch. Record the switch, the reason and the time here. Do not start unselected tasks because of a switch.
+- Limits: record the checkpoint before switching; resume on the next scheduled wakeup.
 - T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
 
 ## Current phase
