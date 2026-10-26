@@ -342,9 +342,9 @@ def test_archived_at_migration_is_additive_and_keeps_users_active(tmp_path):
     seed(path, 'k6l7m8n9o0p1', rows_per_table=3)
     before = table_rows(path)
 
-    result = flask_command(path, 'db', 'upgrade')
+    result = flask_command(path, 'db', 'upgrade', 'l7m8n9o0p1q2')
     assert result.returncode == 0, result.stderr
-    assert stamped_revision(path) == [(HEAD,)] and HEAD == 'l7m8n9o0p1q2'
+    assert stamped_revision(path) == [('l7m8n9o0p1q2',)]
 
     after = table_rows(path)
     assert set(after) == set(before)
@@ -361,7 +361,7 @@ def test_archived_at_migration_is_additive_and_keeps_users_active(tmp_path):
 
 def test_archived_at_downgrade_refuses_while_users_are_archived(tmp_path):
     path = tmp_path / 'live.db'
-    build_snapshot(path, HEAD)
+    build_snapshot(path, 'l7m8n9o0p1q2')
     seed(path, 'k6l7m8n9o0p1', rows_per_table=1)
     conn = sqlite3.connect(path)
     conn.execute("UPDATE \"user\" SET archived_at = '2026-10-26 00:00:00'")
@@ -369,4 +369,51 @@ def test_archived_at_downgrade_refuses_while_users_are_archived(tmp_path):
     conn.close()
     result = flask_command(path, 'db', 'downgrade')
     assert result.returncode != 0 and 'archived users would become active' in result.stderr + result.stdout
+    assert stamped_revision(path) == [('l7m8n9o0p1q2',)]
+
+
+# ---- T09: idempotent watch events -------------------------------------------
+
+def test_watch_events_migration_is_additive_and_leaves_old_sessions_alone(tmp_path):
+    path = tmp_path / 'old.db'
+    build_snapshot(path, 'l7m8n9o0p1q2')
+    seed(path, 'l7m8n9o0p1q2', rows_per_table=3)
+    before = table_rows(path)
+
+    result = flask_command(path, 'db', 'upgrade')
+    assert result.returncode == 0, result.stderr
+    assert stamped_revision(path) == [(HEAD,)] and HEAD == 'm8n9o0p1q2r3'
+
+    after = table_rows(path)
+    assert after.pop('video_watch_events') == []
+    assert set(after) == set(before)
+    for table, rows in before.items():
+        if table == 'video_watch_sessions':
+            assert len(after[table]) == 3
+            for old, new in zip(rows, after[table]):
+                assert new.pop('client_session_id') is None  # old rows are never extended
+                assert new == old
+        else:
+            assert after[table] == rows, f'{table} changed'
+    assert not [d for d in drift(path) if 'watch_events' in d or 'client_session_id' in d]
+
+
+def test_watch_events_downgrade_refuses_while_events_exist(tmp_path):
+    path = tmp_path / 'live.db'
+    build_snapshot(path, HEAD)
+    seed(path, HEAD, rows_per_table=1)
+    result = flask_command(path, 'db', 'downgrade')
+    assert result.returncode != 0 and 'watch events record which chunks were counted' in result.stderr + result.stdout
     assert stamped_revision(path) == [(HEAD,)]
+
+
+def test_watch_events_downgrade_works_when_no_events_exist(tmp_path):
+    path = tmp_path / 'live.db'
+    build_snapshot(path, HEAD)
+    seed(path, 'l7m8n9o0p1q2', rows_per_table=2)
+    result = flask_command(path, 'db', 'downgrade')
+    assert result.returncode == 0, result.stderr
+    assert stamped_revision(path) == [('l7m8n9o0p1q2',)]
+    rows = table_rows(path)
+    assert 'video_watch_events' not in rows and len(rows['video_watch_sessions']) == 2
+    assert 'client_session_id' not in rows['video_watch_sessions'][0]

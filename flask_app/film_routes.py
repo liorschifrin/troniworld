@@ -22,6 +22,7 @@ def fmt_dt_est(dt):
     return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
+from . import watch_time
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .visibility import can_view_comment, get_visible_game_or_404, private_recipients, visible_games_query
@@ -562,7 +563,7 @@ def tron_data():
         player_stats.append({
             'player': player,
             'total_pts': len(all_pts),
-            'games_played': len([g for g in player.games if g.id in visible_ids]),
+            'games_played': len([g for g in player.games if g.id in selected_id_set]),
             'o_count': o_count, 'o_scored': o_scored,
             'hold_pct': (o_scored / o_count * 100) if o_count > 0 else None,
             'd_count': d_count, 'd_scored': d_scored,
@@ -1563,67 +1564,32 @@ def update_player_sheet(game_id):
 @app.route('/film/api/games/<int:game_id>/track-watch-time', methods=['POST'])
 @login_required
 def track_watch_time(game_id):
-    """Track how much time a user has spent watching a game video"""
-    current_user = get_current_user()
-    
-    # Verify game exists and is visible to this user
-    game = get_visible_game_or_404(game_id, current_user)
-    
-    # sendBeacon bodies from older pages arrive as text/plain; parse them as JSON too.
-    data = request.get_json(force=True, silent=True)
-    if not isinstance(data, dict):
-        return jsonify({'success': False, 'error': 'A JSON object is required'}), 400
+    """Record one watch-time chunk (contract v2, see flask_app/watch_time.py).
 
+    Retried or replayed chunks are acknowledged but not counted twice. The body is
+    parsed as JSON whatever its content type, because sendBeacon bodies from older
+    pages arrive as text/plain.
+    """
+    current_user = get_current_user()
+    get_visible_game_or_404(game_id, current_user)
+
+    data = request.get_json(force=True, silent=True)
     try:
-        seconds_watched = data.get('seconds_watched', 0)
-        playback_position = data.get('playback_position')  # Current video position in seconds
-        
-        if seconds_watched <= 0 and playback_position is None:
-            return jsonify({'success': False, 'error': 'Invalid watch duration'}), 400
-        
-        # Find or create a watch session for this user and game
-        # We'll create a new session for each page load/visit
-        session_id = data.get('session_id')
-        
-        if session_id:
-            # Try to find existing session
-            watch_session = VideoWatchSession.query.filter_by(
-                id=session_id,
-                user_id=current_user.id,
-                game_id=game_id
-            ).first()
-        else:
-            watch_session = None
-        
-        if not watch_session:
-            # Create new watch session
-            watch_session = VideoWatchSession(
-                user_id=current_user.id,
-                game_id=game_id,
-                watch_duration_seconds=max(0, seconds_watched)
-            )
-            db.session.add(watch_session)
-        else:
-            # Update existing session
-            if seconds_watched > 0:
-                watch_session.watch_duration_seconds += seconds_watched
-            watch_session.last_updated = datetime.utcnow()
-        
-        # Always update last known playback position
-        if playback_position is not None:
-            watch_session.last_position_seconds = playback_position
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'session_id': watch_session.id,
-            'total_watched': watch_session.watch_duration_seconds
-        })
-    
-    except Exception as e:
+        session, credited, duplicate = watch_time.record(current_user.id, game_id, data)
+    except BadRequest as error:
+        return jsonify({'success': False, 'error': error.description}), 400
+    except Exception:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        logger.exception('track_watch_time_failed game_id=%s', game_id)
+        return jsonify({'success': False, 'error': 'Could not record watch time'}), 500
+
+    return jsonify({
+        'success': True,
+        'session_id': session.id,
+        'total_watched': session.watch_duration_seconds,
+        'credited': round(credited, 3),
+        'duplicate': duplicate,
+    })
 
 
 @app.route('/film/api/games/<int:game_id>/watch-progress', methods=['GET'])
@@ -1793,7 +1759,12 @@ def get_notifications():
             'comment_parent_id': n.comment.parent_id if n.comment else None,
         })
 
-    unread_count = sum(1 for r in result if not r['is_read'])
+    # The list is a page of the newest 50; the badge counts every unread row the
+    # caller may still see, however old, under the same visibility rule.
+    unread_rows = (CommentNotification.query
+                   .options(joinedload(CommentNotification.comment))
+                   .filter_by(recipient_username=current_user.username, is_read=False).all())
+    unread_count = sum(1 for n in unread_rows if can_view_comment(current_user, n.comment))
     return jsonify({'notifications': result, 'unread_count': unread_count})
 
 

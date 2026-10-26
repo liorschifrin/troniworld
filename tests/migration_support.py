@@ -22,7 +22,7 @@ REVISIONS = [
     '3cf0153b0d39', '88ebf2c498ab', '3ccbad256d39', 'c9c8714eb81b', 'f65e956efdb9',
     '0d6f3348d878', 'a1b2c3d4e5f6', 'b7d8e9f0a1b2', 'd1e2f3a4b5c6', '8bb6161a7240',
     'e1f2a3b4c5d6', 'f1a2b3c4d5e6', 'g2h3i4j5k6l7', 'h3i4j5k6l7m8', 'i4j5k6l7m8n9',
-    'j5k6l7m8n9o0', 'k6l7m8n9o0p1', 'l7m8n9o0p1q2',
+    'j5k6l7m8n9o0', 'k6l7m8n9o0p1', 'l7m8n9o0p1q2', 'm8n9o0p1q2r3',
 ]
 HEAD = REVISIONS[-1]
 
@@ -108,6 +108,8 @@ def snapshot_metadata(revision):
                  C('last_updated', DT, nullable=False)]
         if has('8bb6161a7240'):
             watch.append(C('last_position_seconds', sa.Float))
+        if has('m8n9o0p1q2r3'):
+            watch.append(C('client_session_id', S(64)))
         T('video_watch_sessions', md, *watch)
     if has('e1f2a3b4c5d6'):
         T('comment_notifications', md, C('id', I, primary_key=True), C('recipient_username', S(100), nullable=False),
@@ -125,6 +127,12 @@ def snapshot_metadata(revision):
         T('game_watched', md, C('id', I, primary_key=True), C('user_id', I, sa.ForeignKey('user.id', ondelete='CASCADE'), nullable=False),
           C('game_id', I, sa.ForeignKey('games.id', ondelete='CASCADE'), nullable=False), C('watched_at', DT, nullable=False),
           sa.UniqueConstraint('user_id', 'game_id', name='uq_game_watched_user_game'))
+    if has('m8n9o0p1q2r3'):
+        T('video_watch_events', md, C('id', I, primary_key=True),
+          C('session_id', I, sa.ForeignKey('video_watch_sessions.id', ondelete='CASCADE'), nullable=False),
+          C('event_id', S(80), nullable=False), C('seconds_credited', sa.Float, nullable=False),
+          C('received_at', DT, nullable=False),
+          sa.UniqueConstraint('session_id', 'event_id', name='uq_watch_events_session_event'))
     # Indexes that the table-creating migrations made.
     explicit = [('a1b2c3d4e5f6', 'login_events', 'idx_login_events_user_id', ['user_id']),
                 ('a1b2c3d4e5f6', 'login_events', 'idx_login_events_login_time', ['login_time']),
@@ -141,6 +149,10 @@ def snapshot_metadata(revision):
     for rev, table, name, columns in explicit:
         if has(rev):
             sa.Index(name, *[md.tables[table].c[c] for c in columns])
+    if has('m8n9o0p1q2r3'):
+        sa.Index('uq_watch_sessions_client', *[md.tables['video_watch_sessions'].c[c] for c in
+                                               ('user_id', 'game_id', 'client_session_id')], unique=True)
+        sa.Index('idx_watch_events_session_id', md.tables['video_watch_events'].c.session_id)
     # What db.create_all() gave these tables before the history began.
     for table, columns in (('comments', ('game_id', 'parent_id')), ('events', ('game_id',)),
                            ('article_comments', ('post_id', 'parent_id')), ('game_roster', ('player_id',))):

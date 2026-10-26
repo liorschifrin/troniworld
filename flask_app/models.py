@@ -220,6 +220,24 @@ class ArticleComment(db.Model):
         return f"<ArticleComment by {self.author_name} on Post {self.post_id}>"
 
 
+class VideoWatchEvent(db.Model):
+    """One accepted watch-time chunk. The unique (session, event) pair rejects replays."""
+    __tablename__ = 'video_watch_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('video_watch_sessions.id', ondelete='CASCADE'), nullable=False)
+    event_id = db.Column(db.String(80), nullable=False)
+    seconds_credited = db.Column(db.Float, nullable=False, default=0.0)
+    received_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    session = db.relationship('VideoWatchSession', backref=db.backref('events', passive_deletes=True))
+
+    __table_args__ = (
+        db.UniqueConstraint('session_id', 'event_id', name='uq_watch_events_session_event'),
+        db.Index('idx_watch_events_session_id', 'session_id'),
+    )
+
+
 class LoginEvent(db.Model):
     __tablename__ = 'login_events'
     
@@ -247,6 +265,9 @@ class VideoWatchSession(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey('games.id', ondelete='CASCADE'), nullable=False, index=True)
     watch_duration_seconds = db.Column(db.Integer, nullable=False, default=0)  # Total seconds watched
     last_position_seconds = db.Column(db.Float, nullable=True)  # Last known playback position
+    # Random id a page load makes for itself (T09). NULL on rows written before the
+    # idempotent contract; those rows are never extended.
+    client_session_id = db.Column(db.String(64), nullable=True)
     session_start = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
@@ -258,6 +279,7 @@ class VideoWatchSession(db.Model):
         db.Index('idx_watch_sessions_user_id', 'user_id'),
         db.Index('idx_watch_sessions_game_id', 'game_id'),
         db.Index('idx_watch_sessions_user_game', 'user_id', 'game_id'),
+        db.Index('uq_watch_sessions_client', 'user_id', 'game_id', 'client_session_id', unique=True),
     )
 
     def __repr__(self) -> str:

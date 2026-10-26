@@ -94,9 +94,11 @@ def writes(records, db):
                          lambda: {'changes': [{'point_id': point.id, 'player_name': player.name,
                                                'in_point': True}]}, 200),
         'watch-time': ('ordinary', 'post', film + '/track-watch-time', 'fetch',
-                       lambda: {'seconds_watched': 5, 'playback_position': 20}, 200),
+                       lambda: {'seconds_watched': 5, 'playback_position': 20,
+                                'client_session_id': 'tab-1', 'event_id': 'tab-1:1'}, 200),
         'watch-time-beacon': ('ordinary', 'post', film + '/track-watch-time', 'beacon',
-                              lambda: {'seconds_watched': 5, 'playback_position': 20}, 200),
+                              lambda: {'seconds_watched': 5, 'playback_position': 20,
+                                     'client_session_id': 'tab-1', 'event_id': 'tab-1:1'}, 200),
         'notif-read': ('ordinary', 'post', f'/film/api/notifications/{film_notif}/read', 'fetch', None, 200),
         'notif-read-all': ('ordinary', 'post', '/film/api/notifications/read-all', 'fetch', None, 200),
         'toggle-watched': ('ordinary', 'post', film + '/toggle-watched', 'fetch', None, 200),
@@ -240,10 +242,11 @@ def test_form_token_field_is_accepted_for_json_fetch_routes(session_client, writ
 
 
 def test_string_beacon_with_token_passes_csrf(session_client, writes):
-    # The text/plain body still hits the T09 defect (see test_known_failures); CSRF accepts it.
+    # A text/plain body from an older page still reaches the handler; CSRF accepts it.
     client, token = session_client('ordinary')
     response = client.post(writes['watch-time'][2], content_type='text/plain;charset=UTF-8',
-                           data=json.dumps({'seconds_watched': 5, 'csrf_token': token}))
+                           data=json.dumps({'seconds_watched': 5, 'client_session_id': 't', 'event_id': 't:1',
+                                       'csrf_token': token}))
     assert response.status_code != 403
     response = client.post(writes['watch-time'][2], content_type='text/plain;charset=UTF-8',
                            data=json.dumps({'seconds_watched': 5}))

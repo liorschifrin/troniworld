@@ -85,7 +85,8 @@ Dates on games/tournaments are ISO-format strings, not database date types. Null
 - `CommentNotification`: recipient username, comment/game foreign keys, notification type, created/read timestamps.
 - `ArticleCommentNotification`: equivalent article notification links; reply/thread types.
 - `LoginEvent`: user and login time.
-- `VideoWatchSession`: user/game, accumulated duration, last position, session start/update times; multiple visits may create multiple rows.
+- `VideoWatchSession`: user/game, accumulated duration, last position, session start/update times, and `client_session_id` (T09; the random id one page load makes for itself, unique per user/game; NULL on older rows, which are never extended). Multiple visits or tabs create multiple rows.
+- `VideoWatchEvent` (T09): one accepted watch-time chunk, `(session_id, event_id)` unique, with `seconds_credited` and `received_at`. These rows are what make a retried chunk harmless.
 - `GameWatched`: explicit user/game completion mark with a unique pair constraint.
 
 Film privacy representation: SQL null means public; JSON `[]` (or any malformed value) means author-only; a populated JSON list names recipients. Replies inherit their parent chain's audience. `flask_app/visibility.py` holds the shared game/comment policy; see [docs/visibility-policy.md](docs/visibility-policy.md) for the role × surface matrix. Q1 option A (2026-10-25) applies on every comment-reading surface and admin report: leadership and admin status grant no private access; only authors and explicit recipients may read, with every ancestor's audience and game checked. Admin report lists and dashboard comment/tag counts use the viewing admin's entitlement. Leadership-group audiences are proposed separately as T03a, not implemented.
@@ -128,7 +129,7 @@ All require login; point and roster edits require admin. Every game-scoped route
 - `GET/POST /film/api/games/<id>/comments`; `PATCH/DELETE .../comments/<comment_id>`.
 - `PATCH /film/api/games/<id>/points/<point_id>`: tactical labels, timestamp, not-filmed flag.
 - `POST /film/api/games/<id>/update_player_sheet`: `{changes: [{point_id, player_name, in_point, sub_status}]}`; sub status is null, `off`, or `on`.
-- `POST /film/api/games/<id>/track-watch-time`: `{seconds_watched, session_id, playback_position}`; returns session ID and cumulative duration.
+- `POST /film/api/games/<id>/track-watch-time` (T09 contract v2): `{client_session_id, event_id, seconds_watched, playback_position}`; the body is parsed as JSON whatever its media type. `seconds_watched` is a finite number of 0 or more, capped at 60 per event; `event_id` is required when it is above 0; ids are 1-64 printable characters; `playback_position` is 0-86400 or omitted. Bad input returns JSON 400 with nothing written. A replayed `event_id` returns 200 with `duplicate: true` and `credited: 0`. Returns `{success, session_id, total_watched, credited, duplicate}`. A legacy body without `event_id` and `client_session_id` is refused; the integer `session_id` field is ignored.
 - `GET /film/api/games/<id>/watch-progress`: returns `{last_position}`; positions at/below 30 seconds are not offered as resume points.
 - `POST /film/api/games/<id>/toggle-watched`: returns `{watched, game_id}`.
 - `GET /film/api/notifications`; `POST /film/api/notifications/<id>/read` and `/read-all`.
@@ -174,7 +175,7 @@ CSV parsing reads all UTF-8 rows, interprets O/X and scoring columns, collects p
 
 Flask supplies game/point/roster data through Jinja, including JSON initialization. YouTube's IFrame API supplies playback. A shared 100 ms controls interval updates UI and related playback state. Point timestamps drive seeking, scoring, active players, and active comments. Missing-film points suppress video seeking. Injury substitutions display distinct on/off styles.
 
-Watch tracking accumulates playback time and posts increments around ten seconds, also trying to flush on pause/unload. Resume position is separate from the explicit watched toggle. Current async request races and beacon media type issues mean measured engagement is approximate and can be wrong.
+Watch tracking (T09) counts time only while the video is playing in the visible, focused tab; each page load owns one client session, so a tab counts once per session. The client posts chunks of about ten seconds, each with its own event id, and resends an unacknowledged chunk unchanged on the next tick; pause, blur, hide, `pagehide`, and `beforeunload` flush, the last two with `navigator.sendBeacon` and a JSON-typed Blob. The server stores each accepted event, so retries, late arrivals, and replays are counted once. A single event is capped at 60 seconds, and a session can hold no more than its age plus one chunk. A chunk that overlaps time already credited to another session of the same user and game is trimmed, so overlapping tabs do not add extra time. Sessions are looked up by user, game, and client session id, so one user cannot write into another's session. Resume position is separate from the explicit watched toggle. Totals remain approximate engagement reported by the client, never proof of attention or learning: a client that lies within the bounds can still add up to the session age.
 
 ### Comments and notifications
 
@@ -182,11 +183,11 @@ Account archiving (T08a): the admin "Archive" action sets `User.archived_at` ins
 
 Comment bodies use mention tokens such as `@[Alice]`; Everyone is `@[Everyone]`. The main create endpoint flushes the comment, creates notification rows, then commits. Notification priority is private > everyone > mention > reply > thread. Film comment edits preserve notification identity and read timestamps for recipients who remain entitled, add newly targeted recipients as unread, and delete rows for recipients who lost access; descendant rows are filtered on read if an ancestor changes. See the visibility policy for details. Navigation polls approximately every 60 seconds and links to `?comment=<id>`; the player expands the target reply thread and scrolls it into view.
 
-Editing a film comment deletes and recreates notification rows, resetting read history. Article comment creation commits the comment before separately creating notifications, so those operations are not atomic. Thread depth and cross-parent association checks need improvement.
+The film notification badge (`unread_count`) is a separate query over every unread row the caller may still view, not a count of the newest-50 list. Article comment creation commits the comment before separately creating notifications, so those operations are not atomic. Thread depth and cross-parent association checks need improvement.
 
 ### Statistics
 
-Hold percentage = Tron scores on offense / offense points. Break percentage = Tron scores on defense / defense points. Personal statistics use player membership; team data supports selected games. Final-score win/loss counts are based on game metadata, which can diverge from point totals. Engagement metrics measure logins, client-reported watch time, comments, notification reads, and explicit watched marks; they are not proof of attention or comprehension.
+Hold percentage = Tron scores on offense / offense points. Break percentage = Tron scores on defense / defense points. Personal statistics use player membership; team data supports selected games, and the game count, team point totals, and per-player points and games played all use the same visible, selected games (T09). Final-score win/loss counts are based on game metadata, which can diverge from point totals. Engagement metrics measure logins, client-reported watch time, comments, notification reads, and explicit watched marks; they are not proof of attention or comprehension.
 
 ## 7. Environment, storage, and operations
 
@@ -207,7 +208,7 @@ The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's te
 - Private reply content appeared in a nonrecipient parent's notifications (fixed by T03 slice 1).
 - Leadership nonrecipients and admin reports had separate private-content exceptions (removed by T03 round 1 under Q1 option A); admin comment/tag counts now match the viewing admin’s detail lists.
 - Cross-game parent references and nonnumeric timestamps were accepted (fixed for new writes by T04; existing data is not cleaned up).
-- JSON text sent with a string-beacon media type failed with HTTP 500.
+- JSON text sent with a string-beacon media type failed with HTTP 500 (fixed by T09: the unload beacon is a JSON-typed Blob and the endpoint parses any body as JSON).
 - User deletion with login history raised a non-null foreign-key integrity error (fixed by T08a: the admin action now archives; a row delete of such a user still fails and is pinned as a characterization test).
 - Migration replay on an empty database failed with `no such table: user` (still true; `flask bootstrap-db` is the supported path for new databases, T07).
 - `flask db upgrade` on SQLite with foreign keys enabled deleted rows from child tables when a migration rebuilt `user` or `games` (fixed in `migrations/env.py` by T07).
