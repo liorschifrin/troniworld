@@ -421,15 +421,17 @@ def test_watch_events_downgrade_works_when_no_events_exist(tmp_path):
 
 # ---- T10: points.hidden_by_import ------------------------------------------
 
+T10 = 'n9o0p1q2r3s4'  # pinned so a later revision cannot change what these tests exercise
+
 def test_hidden_by_import_migration_is_additive_and_keeps_points_visible(tmp_path):
     path = tmp_path / 'old.db'
     build_snapshot(path, 'm8n9o0p1q2r3')
     seed(path, 'm8n9o0p1q2r3', rows_per_table=3)
     before = table_rows(path)
 
-    result = flask_command(path, 'db', 'upgrade')
+    result = flask_command(path, 'db', 'upgrade', T10)
     assert result.returncode == 0, result.stderr
-    assert stamped_revision(path) == [(HEAD,)] and HEAD == 'n9o0p1q2r3s4'
+    assert stamped_revision(path) == [(T10,)]
 
     after = table_rows(path)
     assert set(after) == set(before)
@@ -446,18 +448,18 @@ def test_hidden_by_import_migration_is_additive_and_keeps_points_visible(tmp_pat
 
 def test_hidden_by_import_downgrade_refuses_while_points_are_hidden(tmp_path):
     path = tmp_path / 'live.db'
-    build_snapshot(path, HEAD)
-    seed(path, HEAD, rows_per_table=2)  # seeds hidden_by_import as 0 and 1 (booleans alternate)
+    build_snapshot(path, T10)
+    seed(path, T10, rows_per_table=2)  # seeds hidden_by_import as 0 and 1 (booleans alternate)
     result = flask_command(path, 'db', 'downgrade')
     assert result.returncode != 0 and 'points hidden by a CSV import would reappear' in result.stderr + result.stdout
-    assert stamped_revision(path) == [(HEAD,)]
+    assert stamped_revision(path) == [(T10,)]
     assert len(table_rows(path)['points']) == 2
 
 
 def test_hidden_by_import_downgrade_works_when_no_point_is_hidden(tmp_path):
     path = tmp_path / 'live.db'
-    build_snapshot(path, HEAD)
-    seed(path, HEAD, rows_per_table=2)
+    build_snapshot(path, T10)
+    seed(path, T10, rows_per_table=2)
     conn = sqlite3.connect(path)
     conn.execute('UPDATE points SET hidden_by_import = 0')
     conn.commit()
