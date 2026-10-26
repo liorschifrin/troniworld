@@ -3457,7 +3457,9 @@
         playback_position: currentPosition,
         csrf_token: CSRF_TOKEN  // sendBeacon cannot set headers
       });
-      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', data);
+      // A typed Blob sends Content-Type: application/json; a bare string would be text/plain.
+      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time',
+                           new Blob([data], { type: 'application/json' }));
     }
   });
 

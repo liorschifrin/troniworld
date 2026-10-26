@@ -1569,8 +1569,12 @@ def track_watch_time(game_id):
     # Verify game exists and is visible to this user
     game = get_visible_game_or_404(game_id, current_user)
     
+    # sendBeacon bodies from older pages arrive as text/plain; parse them as JSON too.
+    data = request.get_json(force=True, silent=True)
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'error': 'A JSON object is required'}), 400
+
     try:
-        data = request.get_json()
         seconds_watched = data.get('seconds_watched', 0)
         playback_position = data.get('playback_position')  # Current video position in seconds
         
