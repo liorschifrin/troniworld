@@ -5,13 +5,15 @@ GIF, or WebP, and it is at most MAX_IMAGE_BYTES. The bytes are written to a
 temporary file in the upload folder and renamed into place only after
 validation. The image is never re-encoded.
 """
+import mimetypes
 import os
+import stat
 import tempfile
 import uuid
 
-from flask import abort, jsonify, request
+from flask import abort, current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename, send_file
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
@@ -84,6 +86,63 @@ def save_image(file_storage, folder):
             os.unlink(temp_path)
 
 
+def _open_at(name, flags, dir_fd):
+    return os.open(name, flags, dir_fd=dir_fd)
+
+
+def _nofollow_supported():
+    """True where descriptor-relative, no-follow opens exist (POSIX)."""
+    return (os.open in os.supports_dir_fd
+            and hasattr(os, 'O_NOFOLLOW') and hasattr(os, 'O_DIRECTORY'))
+
+
+def open_plain_file(root, filename):
+    """Open ``filename`` under ``root`` without ever following a symlink.
+
+    Each component is opened relative to the directory descriptor of its parent
+    with O_NOFOLLOW, so a component swapped for a symlink after any earlier look
+    is refused by the kernel rather than raced. Every descriptor opened here is
+    closed in a ``finally`` unless it is handed back as the file object.
+    Returns (file object, fstat) for a regular file, or None for anything else
+    (missing, symlink, directory, traversal, absolute path, or a platform
+    without no-follow opens, which is refused rather than served unsafely).
+    """
+    if not _nofollow_supported():
+        return None
+    parts = filename.split('/')
+    if any(part in ('', '.', '..') or '\0' in part or '\\' in part for part in parts):
+        return None
+    cloexec = getattr(os, 'O_CLOEXEC', 0)
+    flags = os.O_RDONLY | os.O_NOFOLLOW | cloexec
+    opened = []  # directory descriptors still open
+    descriptor = None
+    try:
+        try:
+            opened.append(os.open(root, os.O_RDONLY | os.O_DIRECTORY | cloexec))
+            for part in parts[:-1]:
+                opened.append(_open_at(part, flags | os.O_DIRECTORY, opened[-1]))
+            descriptor = _open_at(parts[-1], flags | getattr(os, 'O_NONBLOCK', 0), opened[-1])
+        except OSError:
+            return None
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            return None
+        handle = os.fdopen(descriptor, 'rb')
+        descriptor = None  # now owned by the file object
+        return handle, info
+    finally:
+        for fd in opened:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+
 def init_app(app):
     app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BYTES
 
@@ -100,6 +159,26 @@ def init_app(app):
         if request.endpoint in FORM_ENDPOINTS | {'static', None} and request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return error
         return jsonify(error='Request is larger than the 25 MB limit'), 413
+
+    @app.route(UPLOAD_URL_PREFIX + '<path:filename>')
+    def uploaded_file(filename):
+        # Serves UPLOAD_FOLDER at the public upload URL, so the folder may live
+        # outside flask_app/static (T13). When it is the default folder this is
+        # the same file the static view would send.
+        root = os.path.realpath(current_app.config['UPLOAD_FOLDER'])
+        opened = open_plain_file(root, filename)
+        if opened is None:
+            abort(404)
+        handle, info = opened
+        name = filename.rsplit('/', 1)[-1]
+        # Served from the descriptor that was checked, so nothing can be swapped in between.
+        response = send_file(handle, request.environ, mimetype=mimetypes.guess_type(name)[0] or 'application/octet-stream',
+                         download_name=name, conditional=True, last_modified=info.st_mtime,
+                         etag=f'{info.st_mtime_ns:x}-{info.st_size:x}',
+                         max_age=current_app.get_send_file_max_age(name))
+        if response.status_code == 200:
+            response.content_length = info.st_size
+        return response
 
     @app.after_request
     def nosniff_uploads(response):

@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.getcwd())
 database, directory, initial = sys.argv[1], sys.argv[2], sys.argv[3]
 os.environ.update(DATABASE_URI=f'sqlite:///{database}', SECRET_KEY='synthetic-migration-key',
-                  PYTHON_DOTENV_DISABLED='1')
+                  PYTHON_DOTENV_DISABLED='1', APP_ENV='development')
 
 from flask_migrate import upgrade  # noqa: E402
 from flask_app import app, db  # noqa: E402

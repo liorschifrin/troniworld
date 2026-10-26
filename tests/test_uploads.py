@@ -154,12 +154,10 @@ def test_double_extension_keeps_only_a_valid_final_extension(admin, app):
     assert name.endswith('_shell.php.png')
 
 
-def test_nosniff_on_served_uploads(app, monkeypatch, tmp_path):
+def test_nosniff_on_served_uploads(app):
+    # T13: /static/uploads/ is served from UPLOAD_FOLDER (which may be outside static).
     from flask_app import app as application
-    static = tmp_path / 'static'
-    (static / 'uploads').mkdir(parents=True)
-    monkeypatch.setattr(application, 'static_folder', str(static))
-    (static / 'uploads' / 'synthetic-nosniff-probe.png').write_bytes(synthetic_image('PNG'))
+    (Path(application.config['UPLOAD_FOLDER']) / 'synthetic-nosniff-probe.png').write_bytes(synthetic_image('PNG'))
     response = application.test_client().get('/static/uploads/synthetic-nosniff-probe.png')
     assert response.status_code == 200
     assert response.headers['X-Content-Type-Options'] == 'nosniff'

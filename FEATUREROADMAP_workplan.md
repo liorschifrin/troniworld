@@ -214,13 +214,13 @@ State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T13 — Production release and recovery runbook
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** D; T02–T10, T12; Q5. P1.
 - **Scope:** choose host/WSGI/storage, production config, secret handling, dependency checks, backups, health/error reporting, upload persistence, license/publication review.
 - **Acceptance:** [ ] debug disabled and HTTPS/session settings verified; [ ] database/uploads survive deploy; [ ] restore tested; [ ] staging smoke and permission checks pass; [ ] rollback procedure rehearsed; [ ] ownership/license/media publication decisions recorded; [ ] deployment occurs only within authorized scope.
 - **Decision notes:** GitHub repository publication is separate from running the Flask service. No production host configuration was audited. Do not claim production readiness based solely on documentation.
-- **Evidence/checkpoint:** not implemented. Next: resolve Q5 and define recovery expectations. Rollback: previous app artifact plus compatible schema or restored snapshot.
+- **Evidence/checkpoint:** active, draft PR. `docs/runbook.md` (options, not decisions), `flask_app/config.py` production profile, `tests/test_release.py` (config, upload location, restore, smoke, rollback rehearsals on temp data); record `docs/orchestration/tasks/T13.md`. **Q5 is still OPEN** (host, size, license, repo visibility, recovery objectives, ownership, media publication); nothing was deployed or chosen, and the manual smoke steps are unperformed. Acceptance boxes stay unchecked until Q5 is answered and a real deploy is authorised. Next: resolve Q5 and define recovery expectations. Rollback: previous app artifact plus compatible schema or restored snapshot.
 
 ### T14 — Saved film collections (candidate)
 

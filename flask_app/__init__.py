@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 import os
 import json
 
-# Load environment variables
+# Load environment variables, then validate APP_ENV before anything is configured.
 load_dotenv()
+from .config import app_mode
+app_mode()  # raises ConfigError unless APP_ENV is exactly "production" or "development"
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Initialize Flask application
@@ -31,7 +33,10 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 from datetime import timedelta
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=365)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+
+# Environment configuration (APP_ENV=production, UPLOAD_DIR); development is unchanged. See docs/runbook.md.
+from .config import apply_config
+apply_config(app)
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
