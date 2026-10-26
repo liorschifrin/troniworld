@@ -8,9 +8,17 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_leadership = db.Column(db.Boolean, nullable=False, default=False)
     player_id = db.Column(db.Integer, db.ForeignKey('players.id', ondelete='SET NULL'), nullable=True)
-    
+    # Set when an admin "deletes" the user. The row, its login/watch records and every
+    # comment attributed to the username stay; the account cannot sign in or act and
+    # the username stays reserved (T08a).
+    archived_at = db.Column(db.DateTime, nullable=True)
+
     # Relationship
     player = db.relationship('Player', backref=db.backref('user', uselist=False), foreign_keys=[player_id])
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
 
     def __repr__(self) -> str:
         return f"<User {self.username}>"

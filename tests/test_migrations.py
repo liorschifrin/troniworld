@@ -332,3 +332,41 @@ def test_bootstrap_create_all_failure_leaves_an_empty_database(tmp_path):
     conn.close()
     assert flask_command(path, 'bootstrap-db').returncode == 0
     assert stamped_revision(path) == [(HEAD,)]
+
+
+# ---- T08a: user.archived_at -------------------------------------------------
+
+def test_archived_at_migration_is_additive_and_keeps_users_active(tmp_path):
+    path = tmp_path / 'old.db'
+    build_snapshot(path, 'k6l7m8n9o0p1')
+    seed(path, 'k6l7m8n9o0p1', rows_per_table=3)
+    before = table_rows(path)
+
+    result = flask_command(path, 'db', 'upgrade')
+    assert result.returncode == 0, result.stderr
+    assert stamped_revision(path) == [(HEAD,)] and HEAD == 'l7m8n9o0p1q2'
+
+    after = table_rows(path)
+    assert set(after) == set(before)
+    for table, rows in before.items():
+        if table == 'user':
+            continue
+        assert after[table] == rows, f'{table} changed'
+    assert len(after['user']) == len(before['user']) == 3
+    for old, new in zip(before['user'], after['user']):
+        assert new.pop('archived_at') is None  # every existing account stays active
+        assert new == old
+    assert not [d for d in drift(path) if 'archived_at' in d]
+
+
+def test_archived_at_downgrade_refuses_while_users_are_archived(tmp_path):
+    path = tmp_path / 'live.db'
+    build_snapshot(path, HEAD)
+    seed(path, 'k6l7m8n9o0p1', rows_per_table=1)
+    conn = sqlite3.connect(path)
+    conn.execute("UPDATE \"user\" SET archived_at = '2026-10-26 00:00:00'")
+    conn.commit()
+    conn.close()
+    result = flask_command(path, 'db', 'downgrade')
+    assert result.returncode != 0 and 'archived users would become active' in result.stderr + result.stdout
+    assert stamped_revision(path) == [(HEAD,)]

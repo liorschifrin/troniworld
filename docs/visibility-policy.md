@@ -97,3 +97,7 @@ All reply cells require **every** ancestor and the reply itself to admit the vie
 - T04 validates parents before writes: missing/invisible parents return JSON 404; visible wrong-game/post parents and reply-to-reply attempts return JSON 400. New replies must target a top-level comment. Existing deeper/cross-game rows are not rewritten; T03 ancestor checks still apply to them.
 - Legacy stored `private_to` forms fail closed: `''` formerly counted as public on film GET; a JSON string such as `"recipient"` formerly used substring membership; a JSON object such as `{"recipient": true}` formerly used key membership. All now mean author-only. Route tests assert that the author still sees each body and a matching username does not. T04 POST/PATCH now require a list of strings or null; these legacy read tests seed stored values directly.
 - Article comments have no private or hidden concept. T04 enforces same-post, top-level parents and typed content/JSON bodies; article GET remains public.
+
+## Archived accounts (T08a)
+
+Archiving a user does not change what anyone else may see: comments, replies, and notifications stay attributed to the username and follow the rules above. An archived user cannot authenticate, so it sees nothing; `can_view_comment` is unchanged. Archived users are not added as recipients of new `@Everyone` notifications.

@@ -277,6 +277,22 @@
     color: var(--lime);
   }
 
+  .user-archived-tag {
+    color: var(--warm);
+    border: 1px solid var(--warm);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    margin-left: 8px;
+  }
+
+  .users-table tr.user-archived .user-name {
+    color: var(--muted);
+  }
+
   .user-tag {
     color: var(--sky);
     font-size: 0.75rem;
@@ -462,9 +478,12 @@
       </thead>
       <tbody>
         {% for user in all_users %}
-          <tr>
+          <tr{% if user.is_archived %} class="user-archived"{% endif %}>
             <td>
               <span class="user-name">{{ user.username }}</span>
+              {% if user.is_archived %}
+                <span class="user-archived-tag" title="Archived {{ user.archived_at.strftime('%Y-%m-%d') }}. Records are kept; the username is reserved.">Archived</span>
+              {% endif %}
               {% if user.id == current_user.id %}
                 <span class="user-tag">(You)</span>
               {% endif %}
@@ -480,7 +499,9 @@
               {% endif %}
             </td>
             <td style="text-align: center;">
-              {% if user.id == current_user.id %}
+              {% if user.is_archived %}
+                <span style="color: var(--muted);">{% if user.is_admin %}Admin{% else %}&mdash;{% endif %}</span>
+              {% elif user.id == current_user.id %}
                 <!-- Can't change your own admin status -->
                 {% if user.is_admin %}
                   <span style="color: var(--lime); font-weight: bold;">✓ Admin</span>
@@ -500,6 +521,9 @@
               {% endif %}
             </td>
             <td style="text-align: center;">
+              {% if user.is_archived %}
+                <span style="color: var(--muted);">{% if user.is_leadership %}Leader{% else %}&mdash;{% endif %}</span>
+              {% else %}
               <button 
                 class="btn-toggle {% if user.is_leadership %}active-leadership{% else %}inactive{% endif %}"
                 data-user-id="{{ user.id }}"
@@ -509,15 +533,18 @@
               >
                 {% if user.is_leadership %}✓ Leader{% else %}Make Leader{% endif %}
               </button>
+              {% endif %}
             </td>
             <td style="text-align: center;">
-              {% if user.id != current_user.id %}
-                <form method="post" style="display: inline;" data-username="{{ user.username }}" onsubmit="return confirm('Are you sure you want to delete user ' + this.dataset.username + '?');">
+              {% if user.is_archived %}
+                <span class="player-info">Archived {{ user.archived_at.strftime('%Y-%m-%d') }}</span>
+              {% elif user.id != current_user.id %}
+                <form method="post" style="display: inline;" data-username="{{ user.username }}" onsubmit="return confirm('Archive user ' + this.dataset.username + '? They will no longer be able to sign in. Their comments, records and username are kept.');">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="action" value="archive">
                   <input type="hidden" name="user_id" value="{{ user.id }}">
                   <button type="submit" class="btn btn-danger">
-                    Delete
+                    Archive
                   </button>
                 </form>
               {% endif %}
