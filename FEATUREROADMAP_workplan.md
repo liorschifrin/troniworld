@@ -174,13 +174,13 @@ State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T09 — Trustworthy engagement and notification state
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** C; T01, T03, T04; T05 integration for beacon requests. P1.
 - **Scope/read:** watch sender/endpoint, notification edits/counts, filtered statistics. Split independently testable subissues before execution.
 - **Acceptance:** [ ] unload update uses accepted media type; [ ] delayed/retried requests do not duplicate or lose time; [ ] durations bounded and sessions user-scoped; [ ] notification read state survives harmless edits; [ ] unread count includes older rows; [ ] filtered game counts use the same population as point stats.
 - **Decision notes:** beacon error reproduced; request races and count inconsistencies source-inspected. Watch time is approximate engagement, never proof of learning. Define handling of background tabs and multiple tabs explicitly.
-- **Evidence/checkpoint:** not implemented. Next: isolate beacon fix and design idempotent increments. Rollback: preserve prior rows; version client/server contract if needed.
+- **Evidence/checkpoint (2026-10-26):** T09 active on branch `task/t09-engagement` (record `docs/orchestration/tasks/T09.md`), draft PR stacked on `task/t08a-deletion`. Beacon now a JSON Blob (xfail removed, test kept); contract v2 adds client session and event ids with stored events (additive migration `m8n9o0p1q2r3`), a 60 s cap, a session-age bound, user-scoped sessions, and cross-tab overlap trimming; the film unread count queries all viewable unread rows; `/film/data` per-player games use the filtered games. Gates: `not known_failure` 1072 passed; `known_failure` selects none; `pip check` clean. All six acceptance items have tests; no browser ran. Rollback: preserve prior rows; downgrade refuses while event rows exist.
 
 ### T10 — CSV validation and import preview
 

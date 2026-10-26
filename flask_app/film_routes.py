@@ -1762,7 +1762,7 @@ def get_notifications():
     # The list is a page of the newest 50; the badge counts every unread row the
     # caller may still see, however old, under the same visibility rule.
     unread_rows = (CommentNotification.query
-                   .options(joinedload(CommentNotification.comment))
+                   .options(joinedload(CommentNotification.comment).joinedload(Comment.game))
                    .filter_by(recipient_username=current_user.username, is_read=False).all())
     unread_count = sum(1 for n in unread_rows if can_view_comment(current_user, n.comment))
     return jsonify({'notifications': result, 'unread_count': unread_count})

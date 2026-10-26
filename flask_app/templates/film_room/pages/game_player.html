@@ -3389,6 +3389,22 @@
   let pendingWatchChunks = [];            // [{event_id, seconds_watched}] not yet acknowledged
   const inFlightWatchChunks = new Set();  // event ids with a request outstanding
   const TRACK_INTERVAL_SECONDS = 10; // Send tracking data every 10 seconds
+  // The controls interval ticks every 100 ms; back off so a failing request is not
+  // resent on every tick.
+  const WATCH_RETRY_INITIAL_DELAY_MS = 1000;
+  const WATCH_RETRY_MAX_DELAY_MS = 60000;
+  let nextWatchRetryAt = 0;
+  let watchRetryDelayMs = WATCH_RETRY_INITIAL_DELAY_MS;
+
+  function scheduleWatchRetry() {
+    nextWatchRetryAt = Date.now() + watchRetryDelayMs;
+    watchRetryDelayMs = Math.min(watchRetryDelayMs * 2, WATCH_RETRY_MAX_DELAY_MS);
+  }
+
+  function resetWatchRetry() {
+    nextWatchRetryAt = 0;
+    watchRetryDelayMs = WATCH_RETRY_INITIAL_DELAY_MS;
+  }
 
   function watchTabActive() {
     return document.visibilityState === 'visible' && document.hasFocus();
@@ -3407,6 +3423,7 @@
 
   function sendWatchTimeTracking() {
     queueWatchChunk();
+    if (Date.now() < nextWatchRetryAt) return;
     pendingWatchChunks.forEach(chunk => {
       if (inFlightWatchChunks.has(chunk.event_id)) return;
       inFlightWatchChunks.add(chunk.event_id);
@@ -3429,10 +3446,14 @@
         // refused: stop resending. Network errors and 5xx keep the chunk for next time.
         if (response.ok || (response.status >= 400 && response.status < 500)) {
           pendingWatchChunks = pendingWatchChunks.filter(c => c.event_id !== chunk.event_id);
+          resetWatchRetry();
+        } else {
+          scheduleWatchRetry();
         }
       })
       .catch(error => {
         console.error('Error tracking watch time:', error);
+        scheduleWatchRetry();
       })
       .finally(() => inFlightWatchChunks.delete(chunk.event_id));
     });

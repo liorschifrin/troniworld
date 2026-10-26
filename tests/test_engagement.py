@@ -58,6 +58,7 @@ def test_template_sends_a_json_blob_and_gates_on_visible_focused_playback():
     assert "new Blob([data], { type: 'application/json' })" in source
     assert "state === YT.PlayerState.PLAYING && watchTabActive()" in source
     assert "document.visibilityState === 'visible' && document.hasFocus()" in source
+    assert "if (Date.now() < nextWatchRetryAt) return;" in source and "scheduleWatchRetry();" in source
     assert "addEventListener('pagehide'" in source and "addEventListener('beforeunload'" in source
 
 

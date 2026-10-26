@@ -53,7 +53,9 @@ def parse_payload(data):
 def _session_for(user_id, game_id, client_session_id, now):
     query = VideoWatchSession.query.filter_by(
         user_id=user_id, game_id=game_id, client_session_id=client_session_id)
-    session = query.first()
+    # Lock the row so parallel chunks of one session read the previous chunk's total.
+    # SQLite ignores FOR UPDATE and already serializes writers.
+    session = query.with_for_update().first()
     if session is not None:
         return session
     try:
@@ -63,7 +65,7 @@ def _session_for(user_id, game_id, client_session_id, now):
                 watch_duration_seconds=0, session_start=now, last_updated=now)
             db.session.add(session)
     except IntegrityError:  # a concurrent first chunk made it; use that row
-        session = query.one()
+        session = query.with_for_update().one()
     return session
 
 
