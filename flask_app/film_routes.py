@@ -10,7 +10,7 @@ import os
 import re
 
 from . import app, db
-from . import csv_import, watch_time
+from . import csv_import, game_stats, watch_time
 from .serializers import fmt_dt_est, iso_utc, stored_private_to, thread_comment, thread_reply, written_comment
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
@@ -389,42 +389,33 @@ def my_games():
         # Sort by date descending (game_date is a string in ISO format YYYY-MM-DD, or None)
         my_games_list = sorted(my_games_list, key=lambda g: (g.game_date or '', g.id), reverse=True)
         
-        # Calculate stats for each game
+        # Points this player was in, for all of their games in one query
+        points_by_game = game_stats.points_of_player(current_user.player.id, [g.id for g in my_games_list])
+
         for game in my_games_list:
-            # Get points where this player participated
-            player_points = [p for p in game.visible_points if current_user.player in p.players]
-            
-            # Calculate O and D stats
-            o_points = [p for p in player_points if p.tron_o]
-            d_points = [p for p in player_points if not p.tron_o]
-            
-            o_count = len(o_points)
-            o_scored = len([p for p in o_points if p.tron_point])
-            hold_pct = (o_scored / o_count * 100) if o_count > 0 else 0
-            
-            d_count = len(d_points)
-            d_scored = len([p for p in d_points if p.tron_point])
-            break_pct = (d_scored / d_count * 100) if d_count > 0 else 0
-            
+            counts = game_stats.tally(points_by_game.get(game.id, []))
+            o_count, o_scored = counts['o_count'], counts['o_scored']
+            d_count, d_scored = counts['d_count'], counts['d_scored']
+
             games_with_stats.append({
                 'game': game,
                 'o_count': o_count,
                 'o_scored': o_scored,
-                'hold_pct': hold_pct,
+                'hold_pct': game_stats.rate(o_scored, o_count, 0),
                 'd_count': d_count,
                 'd_scored': d_scored,
-                'break_pct': break_pct
+                'break_pct': game_stats.rate(d_scored, d_count, 0),
             })
-            
+
             # Add to totals
             total_o_points += o_count
             total_o_scored += o_scored
             total_d_points += d_count
             total_d_scored += d_scored
-    
+
     # Calculate total percentages
-    total_hold_pct = (total_o_scored / total_o_points * 100) if total_o_points > 0 else 0
-    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else 0
+    total_hold_pct = game_stats.rate(total_o_scored, total_o_points, 0)
+    total_break_pct = game_stats.rate(total_d_scored, total_d_points, 0)
 
     # Fetch all comments by this user for the "My Comments" section
     my_comments_rows = (
@@ -503,18 +494,16 @@ def tron_data():
     total_d_points = total_d_scored = 0
     wins = losses = ties = 0
 
+    # Every visible point of the selected games, with players, in two queries
+    selected_points = game_stats.visible_points(selected_id_set, with_players=True)
+    points_by_game = game_stats.group_by_game(selected_points)
+
     for game in games:
-        pts = list(game.visible_points)
-
-        o_pts   = [p for p in pts if p.tron_o]
-        d_pts   = [p for p in pts if not p.tron_o]
-
-        o_count   = len(o_pts)
-        o_scored  = len([p for p in o_pts if p.tron_point])
-        d_count   = len(d_pts)
-        d_scored  = len([p for p in d_pts if p.tron_point])
-        hold_pct  = (o_scored / o_count * 100) if o_count > 0 else None
-        break_pct = (d_scored / d_count * 100) if d_count > 0 else None
+        counts = game_stats.tally(points_by_game.get(game.id, []))
+        o_count, o_scored = counts['o_count'], counts['o_scored']
+        d_count, d_scored = counts['d_count'], counts['d_scored']
+        hold_pct  = game_stats.rate(o_scored, o_count)
+        break_pct = game_stats.rate(d_scored, d_count)
 
         total_o_points += o_count;  total_o_scored += o_scored
         total_d_points += d_count;  total_d_scored += d_scored
@@ -533,36 +522,36 @@ def tron_data():
             'd_count': d_count, 'd_scored': d_scored, 'break_pct': break_pct,
         })
 
-    total_hold_pct  = (total_o_scored / total_o_points * 100) if total_o_points > 0 else None
-    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else None
+    total_hold_pct  = game_stats.rate(total_o_scored, total_o_points)
+    total_break_pct = game_stats.rate(total_d_scored, total_d_points)
 
     # ── Player leaderboard ──────────────────────────────────────────
     players = Player.query.filter_by(active=True).order_by(Player.name).all()
+    points_by_player = {}
+    for point in selected_points:
+        for member in point.players:
+            points_by_player.setdefault(member.id, []).append(point)
+    games_played = game_stats.games_played(selected_id_set)
     player_stats = []
     for player in players:
-        all_pts   = [p for p in player.points if p.game_id in selected_id_set and not p.hidden_by_import]
+        all_pts = points_by_player.get(player.id, [])
         if not all_pts:
             continue
-        o_pts     = [p for p in all_pts if p.tron_o]
-        d_pts     = [p for p in all_pts if not p.tron_o]
-        o_count   = len(o_pts)
-        o_scored  = len([p for p in o_pts if p.tron_point])
-        d_count   = len(d_pts)
-        d_scored  = len([p for p in d_pts if p.tron_point])
+        counts = game_stats.tally(all_pts)
         player_stats.append({
             'player': player,
             'total_pts': len(all_pts),
-            'games_played': len([g for g in player.games if g.id in selected_id_set]),
-            'o_count': o_count, 'o_scored': o_scored,
-            'hold_pct': (o_scored / o_count * 100) if o_count > 0 else None,
-            'd_count': d_count, 'd_scored': d_scored,
-            'break_pct': (d_scored / d_count * 100) if d_count > 0 else None,
+            'games_played': games_played.get(player.id, 0),
+            'o_count': counts['o_count'], 'o_scored': counts['o_scored'],
+            'hold_pct': game_stats.rate(counts['o_scored'], counts['o_count']),
+            'd_count': counts['d_count'], 'd_scored': counts['d_scored'],
+            'break_pct': game_stats.rate(counts['d_scored'], counts['d_count']),
         })
     # Sort by total points played descending
     player_stats.sort(key=lambda x: x['total_pts'], reverse=True)
 
     # ── Tendency breakdowns (all games combined) ────────────────────
-    all_pts = [p for p in Point.query.filter_by(hidden_by_import=False).all() if p.game_id in selected_id_set]
+    all_pts = selected_points
 
     pull_play_counts = {}
     for p in all_pts:

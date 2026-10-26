@@ -24,6 +24,8 @@ BEFORE = {
 }
 CEILING = {name: dict(sizes) for name, sizes in BEFORE.items()}
 CEILING['comments_api'] = {'small': 5, 'large': 5}  # serializers + batched replies/authors
+CEILING['team_data'] = {'small': 7, 'large': 7}  # game_stats: points, players and roster loaded once
+CEILING['my_games'] = {'small': 5, 'large': 5}
 
 PATHS = {
     'game_page': '/film/games/{first}',
