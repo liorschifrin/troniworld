@@ -74,6 +74,8 @@
 - T12 implementer `mcp:d5a6af10-81ac-4e78-af3a-851566957048` launched on `task/t12-browser`, stacked on `origin/task/t11-modules`.
 - T11 PR #20 `f6acdff` approved by Codex; ready. T12 PR #21 `d43666` (1213 pass, 39 browser pass in Chromium); Codex APPROVE (nit fixed); ready.
 - T13 implementer `mcp:81a2e809-ca1b-428c-b52f-e623c1fac784` launched on `task/t13-runbook`, stacked on `origin/task/t12-browser`. Q5 stays OPEN.
+- Provider event 2026-10-26 07:50Z: Codex 401 token_expired during T13 review round 3 (thread `mcp:9e01896e-c7fd-4378-a8de-117a9335a0a6`). Failover per user rule: review re-run on claude-sonnet-5-5 medium, thread `mcp:9e4f8dbc-0e12-498f-8bf1-c0948226a053`.
+- T13 PR #22 at `285288d`: round 2 fixes pushed, CLI clean (run 18). Round 3 review running on Claude.
 - Failover (user 2026-10-26, overrides the earlier 401 rule): if one provider runs out (usage, quota, rate limit) or stops working (including 401/token expired), switch to the other provider at the same tier and continue from the last checkpoint on the same branch. Record the switch, the reason and the time here. Do not start unselected tasks because of a switch.
 - Limits: record the checkpoint before switching; resume on the next scheduled wakeup.
 - T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
