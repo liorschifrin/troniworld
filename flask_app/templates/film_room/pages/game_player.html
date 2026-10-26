@@ -11,6 +11,8 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/game_player/format.js') }}"></script>
+<script src="{{ url_for('static', filename='js/game_player/scoreboard.js') }}"></script>
 <script>
 {% include 'film_room/partials/game_player/_js_state.html' %}
 {% include 'film_room/partials/game_player/_js_mentions.html' %}

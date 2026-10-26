@@ -12,7 +12,7 @@ import subprocess
 
 import pytest
 
-from template_source import TEMPLATES, expanded_source
+from template_source import PLAYER_MODULES, TEMPLATES, expanded_source
 
 PAGE = 'film_room/pages/game_player.html'
 PARTIALS = TEMPLATES / 'film_room/partials/game_player'
@@ -49,6 +49,8 @@ def test_top_level_script_names_are_declared_once():
         names.update(re.findall(r'^  (?:const|let) (\w+)\b', text, re.M))
     # pointPlayersData is declared in both branches of one {% if player_sheet_data %}.
     assert [n for n, count in names.items() if count > 1] == ['pointPlayersData']
+    for module in PLAYER_MODULES.glob('*.js'):
+        names.update(re.findall(r'^(?:async )?function (\w+)\(', module.read_text(), re.M))
     assert len(names) > 100  # guards a vacuous pass
 
 
@@ -95,6 +97,18 @@ def test_source_ordering_matches_the_template_the_browser_receives():
     text = expanded_source(PAGE)
     positions = [text.index(f'function {fn}(') for fn in
                  ('parseMentions', 'enterPlayerSheetEdit', 'sendWatchTimeTracking', 'loadVideo',
-                  'renderComments', 'setPointTimestamp', 'scrollToCommentById', 'getCurrentScore')]
+                  'renderComments', 'setPointTimestamp', 'scrollToCommentById', 'updateScoreboard')]
     assert positions == sorted(positions)
     assert text.rstrip().endswith('{% endblock %}')
+
+
+def test_static_modules_load_before_the_inline_script_and_are_served(admin, records):
+    html = admin.get(f"/film/games/{records['game'].id}").get_data(as_text=True)
+    sources = re.findall(r'<script src="(/static/js/game_player/[^"]+)"', html)
+    assert sources == ['/static/js/game_player/format.js', '/static/js/game_player/scoreboard.js']
+    inline = html.index('let player = null;')
+    assert all(html.index(src) < inline for src in sources)
+    for src in sources:
+        response = admin.get(src)
+        assert response.status_code == 200 and b'function ' in response.data
+        response.close()

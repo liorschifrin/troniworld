@@ -50,22 +50,6 @@
     {% endif %}
   };
 
-  function extractVideoId(input) {
-    input = input.trim();
-    // Already just an ID (11 chars, no slashes)
-    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
-    // youtu.be/ID
-    let m = input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-    if (m) return m[1];
-    // youtube.com/watch?v=ID
-    m = input.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-    if (m) return m[1];
-    // youtube.com/embed/ID
-    m = input.match(/embed\/([a-zA-Z0-9_-]{11})/);
-    if (m) return m[1];
-    return null;
-  }
-
   function loadVideo(videoId) {
     if (!videoId) {
       const input = document.getElementById('videoUrl').value;
@@ -109,13 +93,6 @@
   }
 
   // Custom video controls
-  function formatTime(seconds) {
-    if (!seconds || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-  }
-
   function updateVideoControls() {
     if (!player || !playerReady) return;
 
