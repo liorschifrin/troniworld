@@ -76,6 +76,9 @@
 - T13 implementer `mcp:81a2e809-ca1b-428c-b52f-e623c1fac784` launched on `task/t13-runbook`, stacked on `origin/task/t12-browser`. Q5 stays OPEN.
 - Provider event 2026-10-26 07:50Z: Codex 401 token_expired during T13 review round 3 (thread `mcp:9e01896e-c7fd-4378-a8de-117a9335a0a6`). Failover per user rule: review re-run on claude-sonnet-5-5 medium, thread `mcp:9e4f8dbc-0e12-498f-8bf1-c0948226a053`.
 - T13 PR #22 at `285288d`: round 2 fixes pushed, CLI clean (run 18). Round 3 review running on Claude.
+- STACK READY (2026-10-26 ~08:30Z). Merge order bottom-up once approved: PR #17 (T08a, draft, waits on user decision on shared-password gap) → #18 (T09, base T08a) → #19 (T10) → #20 (T11) → #21 (T12) → #22 (T13). Heads: #17 f6bfb8f, #18 1f91d72, #19 5ff100f, #20 f6acdff, #21 d436669, #22 e8295f1. Hosted checks SUCCESS on all six. Reviews: T09 Claude APPROVE; T10 Codex APPROVE (round 2); T11 Codex APPROVE; T12 Codex APPROVE; T13 Claude APPROVE (round 3) with minors fixed. CodeRabbit CLI clean on each last run.
+- Stacked PRs: hosted CodeRabbit skips non-default-base auto reviews, so the local CLI and the fresh-thread reviews are the review record for #18–#22.
+- Q5 remains OPEN (T13 runbook lists the items; no host, licence or deploy chosen). T08b waits on Q2.
 - Failover (user 2026-10-26, overrides the earlier 401 rule): if one provider runs out (usage, quota, rate limit) or stops working (including 401/token expired), switch to the other provider at the same tier and continue from the last checkpoint on the same branch. Record the switch, the reason and the time here. Do not start unselected tasks because of a switch.
 - Limits: record the checkpoint before switching; resume on the next scheduled wakeup.
 - T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
