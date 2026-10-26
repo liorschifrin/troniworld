@@ -30,7 +30,7 @@ If you change of the below information, or add significantly to the page, update
 - `flask_app/csrf.py` checks a per-session token on every routed POST/PUT/PATCH/DELETE before the view runs. JSON routes return 403 `{"error": "CSRF token missing or invalid"}`. HTML form routes (`FORM_ENDPOINTS`) return 403 with a flashed message.
 - Every new write client must send the token. POST forms need `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`. `fetch` writes need `headers: { 'X-CSRFToken': CSRF_TOKEN }`; both base templates define `CSRF_TOKEN`. jQuery writes in `articles/base.html` get the header from `jQuery.ajaxPrefilter`. The watch-time `sendBeacon` payload includes `csrf_token: CSRF_TOKEN`.
 - Login and register call `clear_token()` before setting `user_id`, so the token rotates at sign-in; logout keeps it.
-- `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 14 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes. Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
+- `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 16 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes, which includes `upload_csv/apply` and `restore_hidden` (T10). Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
 
 ## Article HTML sanitization (T05 slice 2, 2026-10-25)
 

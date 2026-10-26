@@ -1312,6 +1312,13 @@ def restore_hidden_point(game_id, point_id):
         for player in point.players:
             if player not in game.roster:
                 game.roster.append(player)
+        # view_game builds the sheet rows from player_order_data, so list the point's players
+        # there too (appended after the existing order, like a name added later).
+        order = game.player_order_data
+        if isinstance(order, dict) and isinstance(order.get('players'), list):
+            listed = list(order['players'])
+            listed += [p.name for p in point.players if p.name not in listed]
+            game.player_order_data = {**order, 'players': listed}
         db.session.commit()
         flash(f'Point {point.point_index} restored.', 'success')
     except Exception:

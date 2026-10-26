@@ -569,3 +569,18 @@ def test_only_admins_can_preview_apply_or_restore(client_for, anonymous, db, gam
     for response in responses:
         assert response.status_code in (302, 403), response.status_code  # redirected away, never served
     assert snapshot(db) == before
+
+
+def test_restore_adds_the_points_players_to_the_sheet_order(admin, db, game):
+    do_import(admin, game, BASE)
+    victim_id = points_of(game.id)[4].id            # Alice and Cara played point 4
+    # The reimport drops point 4 and Cara entirely, so she leaves the roster and the sheet order.
+    do_import(admin, game, ',O,X,O\n,1,,3\n,,2,\n\nAlice,1,,1\nBob,2,1,\n')
+    assert game.player_order_data == {'players': ['Alice', 'Bob'], 'separator_index': None}
+    assert sorted(p.name for p in game.roster) == ['Alice', 'Bob']
+    assert admin.post(url(game, f'points/{victim_id}/restore_hidden')).status_code == 302
+    db.session.refresh(game)
+    assert game.player_order_data == {'players': ['Alice', 'Bob', 'Cara'], 'separator_index': None}
+    assert sorted(p.name for p in game.roster) == ['Alice', 'Bob', 'Cara']
+    page = admin.get(f'/film/games/{game.id}').get_data(as_text=True)
+    assert 'data-player="Cara"' in page and f'data-point-id="{victim_id}"' in page
