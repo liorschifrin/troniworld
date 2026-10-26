@@ -61,6 +61,12 @@ If you change of the below information, or add significantly to the page, update
 - The client (`game_player.html`) counts only while playing in the visible, focused tab; the unload beacon is a JSON-typed Blob. Legacy bodies without ids are refused with 400. Tests: `tests/test_engagement.py`.
 - `GET /film/api/notifications` `unread_count` is its own query over all unread viewable rows, not the length of the newest-50 list. `/film/data` counts games, points, and per-player games played from the same selected visible games.
 
+## CSV import preview (T10, 2026-10-26)
+
+- `flask_app/csv_import.py` parses a game CSV into a proposed change set (`parse_game_csv`, `build_plan`), reports row/column errors, and applies atomically (`apply_plan`). `POST /film/games/<id>/upload_csv` only previews (200) or reports errors (400); it never writes. `POST .../upload_csv/apply` rechecks a SHA-256 version token (`state_token`) of the game's points, roster and sheet order under the write lock and refuses with 409, writing nothing, if the game changed since the preview. Hiding points needs the `confirm_hidden` checkbox.
+- Points a reimport omits are hidden (`Point.hidden_by_import`, migration `n9o0p1q2r3s4`, additive), not deleted. Read points through `Game.visible_points`; never use `game.points` for display or statistics. Restore via `POST .../points/<id>/restore_hidden` or by importing a CSV that contains the point index. Invalid columns are errors, not skipped.
+- New write routes `apply_game_csv` and `restore_hidden_point` are in the CSRF form inventory (16 POST forms). Tests: `tests/test_csv_import.py`.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)

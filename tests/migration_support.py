@@ -23,6 +23,7 @@ REVISIONS = [
     '0d6f3348d878', 'a1b2c3d4e5f6', 'b7d8e9f0a1b2', 'd1e2f3a4b5c6', '8bb6161a7240',
     'e1f2a3b4c5d6', 'f1a2b3c4d5e6', 'g2h3i4j5k6l7', 'h3i4j5k6l7m8', 'i4j5k6l7m8n9',
     'j5k6l7m8n9o0', 'k6l7m8n9o0p1', 'l7m8n9o0p1q2', 'm8n9o0p1q2r3',
+    'n9o0p1q2r3s4',
 ]
 HEAD = REVISIONS[-1]
 
@@ -78,6 +79,8 @@ def snapshot_metadata(revision):
         point_cols.append(C('not_filmed', B, nullable=False, server_default='0'))
     if has('i4j5k6l7m8n9'):
         point_cols.append(C('injury_subs', sa.JSON))
+    if has('n9o0p1q2r3s4'):
+        point_cols.append(C('hidden_by_import', B, nullable=False, server_default='0'))
     T('points', md, *point_cols)
     T('point_players', md, C('point_id', I, sa.ForeignKey('points.id', ondelete='CASCADE'), primary_key=True),
       C('player_id', I, sa.ForeignKey('players.id', ondelete='CASCADE'), primary_key=True))

@@ -95,6 +95,11 @@ class Game(db.Model):
     events = db.relationship('Event', backref='game', lazy='dynamic', cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='game', lazy='dynamic', cascade='all, delete-orphan')
 
+    @property
+    def visible_points(self):
+        """Query of this game's points that are not hidden by a CSV reimport."""
+        return self.points.filter(Point.hidden_by_import.is_(False))
+
     def __repr__(self) -> str:
         return f"<Game {self.title} vs {self.opponent}>"
 
@@ -123,6 +128,9 @@ class Point(db.Model):
     tron_point = db.Column(db.Boolean)  # True if Tron scored the point
     not_filmed = db.Column(db.Boolean, default=False, nullable=False, server_default='0')  # True if this point was not captured on video
     injury_subs = db.Column(db.JSON, nullable=True)  # {"off": [player_names], "on": [player_names]} — injury timeout subs
+    # True when a CSV reimport no longer contains this point (T10). The row, its comments, annotations and
+    # player links stay; every read of a game's points skips it until an admin restores it.
+    hidden_by_import = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     pull_play = db.Column(db.String(50))
     defense_type = db.Column(db.String(50))
     offense_faced = db.Column(db.String(50))

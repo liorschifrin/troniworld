@@ -109,7 +109,8 @@ def test_global_cap_applies_to_csv_form_route(admin, records):
 def test_csv_under_the_cap_is_unchanged(admin, records):
     response = admin.post(f"/film/games/{records['game'].id}/upload_csv",
                           data={'csv_file': (BytesIO(b'a,b\n'), 'x.csv')})
-    assert response.status_code == 200
+    assert response.status_code == 400  # rejected by validation, not by the size cap
+    assert b'at least 4 rows' in response.data
 
 
 def test_traversal_filenames_are_stored_safely(admin, app):

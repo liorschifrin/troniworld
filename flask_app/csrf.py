@@ -21,7 +21,8 @@ BEACON_ENDPOINTS = frozenset({'track_watch_time'})
 FORM_ENDPOINTS = frozenset({
     'register', 'login', 'logout', 'new_post', 'edit_post', 'delete_post',
     'manage_users', 'create_users_for_all_players', 'new_tournament',
-    'new_game', 'edit_game', 'upload_game_csv', 'delete_player_sheet',
+    'new_game', 'edit_game', 'upload_game_csv',
+    'apply_game_csv', 'restore_hidden_point', 'delete_player_sheet',
 })
 
 

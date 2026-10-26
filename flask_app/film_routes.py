@@ -5,8 +5,6 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
-import csv
-import io
 import json
 import logging
 import os
@@ -22,7 +20,7 @@ def fmt_dt_est(dt):
     return aware.strftime('%b %d, %Y %I:%M %p')
 
 from . import app, db
-from . import watch_time
+from . import csv_import, watch_time
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .visibility import can_view_comment, get_visible_game_or_404, private_recipients, visible_games_query
@@ -403,7 +401,7 @@ def my_games():
         # Calculate stats for each game
         for game in my_games_list:
             # Get points where this player participated
-            player_points = [p for p in game.points if current_user.player in p.players]
+            player_points = [p for p in game.visible_points if current_user.player in p.players]
             
             # Calculate O and D stats
             o_points = [p for p in player_points if p.tron_o]
@@ -515,7 +513,7 @@ def tron_data():
     wins = losses = ties = 0
 
     for game in games:
-        pts = list(game.points)
+        pts = list(game.visible_points)
 
         o_pts   = [p for p in pts if p.tron_o]
         d_pts   = [p for p in pts if not p.tron_o]
@@ -551,7 +549,7 @@ def tron_data():
     players = Player.query.filter_by(active=True).order_by(Player.name).all()
     player_stats = []
     for player in players:
-        all_pts   = [p for p in player.points if p.game_id in selected_id_set]
+        all_pts   = [p for p in player.points if p.game_id in selected_id_set and not p.hidden_by_import]
         if not all_pts:
             continue
         o_pts     = [p for p in all_pts if p.tron_o]
@@ -573,7 +571,7 @@ def tron_data():
     player_stats.sort(key=lambda x: x['total_pts'], reverse=True)
 
     # ── Tendency breakdowns (all games combined) ────────────────────
-    all_pts = [p for p in Point.query.all() if p.game_id in selected_id_set]
+    all_pts = [p for p in Point.query.filter_by(hidden_by_import=False).all() if p.game_id in selected_id_set]
 
     pull_play_counts = {}
     for p in all_pts:
@@ -740,7 +738,8 @@ def view_game(game_id):
     
     # Option lists must not reveal labels used only in hidden games.
     all_points = Point.query.filter(
-        Point.game_id.in_(visible_games_query(current_user).with_entities(Game.id))
+        Point.game_id.in_(visible_games_query(current_user).with_entities(Game.id)),
+        Point.hidden_by_import.is_(False),
     ).all()
     for point in all_points:
         if point.pull_play:
@@ -758,7 +757,7 @@ def view_game(game_id):
     
     # Prepare player sheet data if points exist
     player_sheet_data = None
-    points = game.points.order_by(Point.point_index).all()
+    points = game.visible_points.order_by(Point.point_index).all()
     
     if points:
         # Get all players in order from player_order_data if available
@@ -1078,7 +1077,7 @@ def create_comment(game_id):
             raise BadRequest('Parent must belong to this game')
         if parent.parent_id is not None:
             raise BadRequest('Replies may only target top-level comments')
-    if point_id is not None and not Point.query.filter_by(id=point_id, game_id=game.id).first():
+    if point_id is not None and not Point.query.filter_by(id=point_id, game_id=game.id, hidden_by_import=False).first():
         raise NotFound()
 
     new_comment = Comment(
@@ -1210,215 +1209,116 @@ def update_comment(game_id, comment_id):
 # CSV UPLOAD FOR GAME DATA
 # =========================
 
+def _render_upload(game, status=200, **context):
+    hidden = Point.query.filter_by(game_id=game.id, hidden_by_import=True).order_by(Point.point_index).all()
+    return render_template('film_room/forms/upload_game_csv.html', current_user=get_current_user(),
+                           game=game, hidden_points=hidden, **context), status
+
+
+def _render_preview(game, csv_text, sheet, state, status=200, **context):
+    plan = csv_import.build_plan(sheet, state)
+    token = csv_import.state_token(state, {n for p in sheet.points for n in p.players})
+    return render_template('film_room/forms/upload_game_csv_preview.html', current_user=get_current_user(),
+                           game=game, plan=plan, csv_text=csv_text, state_token=token,
+                           point_count=len(sheet.points), **context), status
+
+
 @app.route('/film/games/<int:game_id>/upload_csv', methods=['GET', 'POST'])
 @admin_required
 def upload_game_csv(game_id):
-    """Upload CSV to populate game points and player data"""
-    current_user = get_current_user()
-    
+    """Step 1: validate an uploaded CSV and preview the change set. Never writes."""
     game = Game.query.get_or_404(game_id)
-    
-    if request.method == 'POST':
-        # Check if file was uploaded
-        if 'csv_file' not in request.files:
-            flash('No file uploaded.', 'error')
-            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
-        
-        file = request.files['csv_file']
-        
-        if file.filename == '':
-            flash('No file selected.', 'error')
-            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
-        
-        if not file.filename.endswith('.csv'):
-            flash('Please upload a CSV file.', 'error')
-            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
-        
-        try:
-            # Read CSV file
-            stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-            csv_reader = csv.reader(stream)
-            rows = list(csv_reader)
-            
-            if len(rows) < 4:
-                flash('CSV file must have at least 4 rows (O/D row, TRON row, Enemy row, and player rows).', 'error')
-                return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
-            
-            # Parse CSV structure
-            od_row = rows[0]  # O/D indicator row
-            tron_row = rows[1]  # TRON scores row
-            enemy_row = rows[2]  # Enemy scores row
-            # Skip empty row if exists
-            player_start_idx = 3
-            if player_start_idx < len(rows) and all(cell.strip() == '' for cell in rows[player_start_idx]):
-                player_start_idx = 4
-            
-            # Get player rows, stopping at "END PLAYERS" marker
-            # Also track player order and section separator
-            player_rows = []
-            player_names_ordered = []
-            separator_index = None
-            
-            for idx, row in enumerate(rows[player_start_idx:]):
-                if row and row[0].strip().upper() == 'END PLAYERS':
-                    break
-                
-                # Check if this is an empty row (potential separator)
-                if all(cell.strip() == '' for cell in row):
-                    if player_names_ordered and separator_index is None:
-                        # This is the first empty row after players started
-                        separator_index = len(player_names_ordered)
-                    continue
-                
-                # Valid player row
-                player_name = row[0].strip() if row else ''
-                if player_name:
-                    player_rows.append(row)
-                    player_names_ordered.append(player_name)
-            
-            # Find the number of point columns (starting from column 1, index 1)
-            num_points = len(od_row) - 1  # Subtract first column (label)
+    if request.method == 'GET':
+        return _render_upload(game)
 
-            # Build a map of existing points by index so we can reuse them
-            # (preserves timestamp_start, not_filmed, pull_play, etc.)
-            existing_points = {
-                p.point_index: p
-                for p in Point.query.filter_by(game_id=game_id).all()
-            }
+    file = request.files.get('csv_file')
+    if file is None:
+        flash('No file uploaded.', 'error')
+        return _render_upload(game, 400)
+    if file.filename == '':
+        flash('No file selected.', 'error')
+        return _render_upload(game, 400)
+    if not file.filename.lower().endswith('.csv'):
+        flash('Please upload a CSV file.', 'error')
+        return _render_upload(game, 400)
 
-            # Clear roster; we'll rebuild it from the CSV
-            game.roster.clear()
-            db.session.flush()
+    raw = file.stream.read(csv_import.MAX_CSV_BYTES + 1)
+    sheet, errors = csv_import.parse_game_csv(raw)
+    if errors:
+        return _render_upload(game, 400, errors=errors[:csv_import.MAX_REPORTED_ERRORS],
+                              error_total=len(errors))
+    csv_text = raw.decode('utf-8-sig')
+    return _render_preview(game, csv_text, sheet, csv_import.load_state(game))
 
-            # Track all players in this game for roster
-            roster_players = set()
-            valid_point_indices = set()
 
-            # Create or update points
-            for point_idx in range(1, num_points + 1):
-                col_idx = point_idx  # CSV column index (0-indexed, but first col is labels)
-
-                if col_idx >= len(od_row):
-                    continue
-
-                # Determine tron_o (O = True, X = False)
-                od_val = od_row[col_idx].strip().upper()
-                if od_val not in ['O', 'X']:
-                    continue  # Skip invalid columns
-                tron_o = (od_val == 'O')
-
-                # Determine tron_point (value in TRON row = True, value in Enemy row = False)
-                tron_score = tron_row[col_idx].strip() if col_idx < len(tron_row) else ''
-                enemy_score = enemy_row[col_idx].strip() if col_idx < len(enemy_row) else ''
-
-                if tron_score:
-                    tron_point = True
-                elif enemy_score:
-                    tron_point = False
-                else:
-                    continue  # Skip if neither team scored
-
-                valid_point_indices.add(point_idx)
-
-                # Reuse existing point (preserving timestamp, not_filmed, etc.) or create new
-                if point_idx in existing_points:
-                    point = existing_points[point_idx]
-                    point.tron_o = tron_o
-                    point.tron_point = tron_point
-                    # Clear existing player associations before re-adding from CSV
-                    point.players = []
-                    db.session.flush()
-                else:
-                    point = Point(
-                        game_id=game_id,
-                        point_index=point_idx,
-                        tron_o=tron_o,
-                        tron_point=tron_point
-                    )
-                    db.session.add(point)
-                    db.session.flush()  # Get point.id
-
-                # Track players added to this point to avoid duplicates
-                added_players = set()
-
-                # Track injury sub players for this point
-                sub_off_players = []  # players who were subbed off during an injury timeout
-                sub_on_players = []   # players who were subbed on during an injury timeout
-
-                # Add players to point
-                for player_row in player_rows:
-                    if not player_row:
-                        continue
-
-                    player_name = player_row[0].strip()
-                    if not player_name:
-                        continue
-
-                    # Check if player participated in this point
-                    cell_val = player_row[col_idx].strip() if col_idx < len(player_row) else ''
-                    if cell_val:
-                        # Parse injury substitution notation:
-                        #   "N/"  => player was subbed OFF during an injury timeout
-                        #   "/N"  => player was subbed ON during an injury timeout
-                        is_sub_off = cell_val.endswith('/') and not cell_val.startswith('/')
-                        is_sub_on = cell_val.startswith('/') and not cell_val.endswith('/')
-
-                        # Skip if we've already added this player to this point
-                        if player_name in added_players:
-                            continue
-
-                        # Get or create player
-                        player = Player.query.filter_by(name=player_name).first()
-                        if not player:
-                            player = Player(name=player_name, active=True)
-                            db.session.add(player)
-                            db.session.flush()
-                            # Auto-create or link user for new player
-                            link_or_create_user_for_player(player)
-
-                        # Add player to point
-                        point.players.append(player)
-                        added_players.add(player_name)
-                        roster_players.add(player)
-
-                        # Track sub status
-                        if is_sub_off:
-                            sub_off_players.append(player_name)
-                        elif is_sub_on:
-                            sub_on_players.append(player_name)
-
-                # Store injury sub data on the point
-                if sub_off_players or sub_on_players:
-                    point.injury_subs = {'off': sub_off_players, 'on': sub_on_players}
-                else:
-                    point.injury_subs = None
-
-            # Delete any stale points not present in the new CSV
-            for idx, stale_point in existing_points.items():
-                if idx not in valid_point_indices:
-                    db.session.delete(stale_point)
-
-            # Update game roster
-            for player in roster_players:
-                game.roster.append(player)
-
-            # Store player order data
-            game.player_order_data = {
-                'players': player_names_ordered,
-                'separator_index': separator_index
-            }
-
-            db.session.commit()
-            flash(f'Successfully uploaded game data! Created/updated {num_points} points with player assignments.', 'success')
-            return redirect(url_for('view_game', game_id=game.id))
-            
-        except Exception as e:
+@app.route('/film/games/<int:game_id>/upload_csv/apply', methods=['POST'])
+@admin_required
+def apply_game_csv(game_id):
+    """Step 2: apply the previewed CSV only if the game is unchanged since the preview."""
+    game = Game.query.get_or_404(game_id)
+    csv_text = request.form.get('csv_text', '')
+    token = request.form.get('state_token', '')
+    sheet, errors = csv_import.parse_game_csv(csv_text)
+    if errors:
+        return _render_upload(game, 400, errors=errors[:csv_import.MAX_REPORTED_ERRORS],
+                              error_total=len(errors))
+    try:
+        # Take the write lock first, then read, so a concurrent edit cannot slip in between
+        # the version check and the writes.
+        db.session.execute(Game.__table__.update().where(Game.id == game_id).values(id=Game.id))
+        db.session.expire_all()
+        game = db.session.get(Game, game_id)
+        state = csv_import.load_state(game)
+        names = {n for p in sheet.points for n in p.players}
+        if csv_import.state_token(state, names) != token:
             db.session.rollback()
-            flash(f'Error processing CSV: {str(e)}', 'error')
-            return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
-    
-    # GET request - show upload form
-    return render_template('film_room/forms/upload_game_csv.html', current_user=current_user, game=game)
+            flash('This game changed after the preview was made (points, roster or player sheet). '
+                  'Nothing was imported. Upload the CSV again to see the current differences.', 'error')
+            return _render_upload(game, 409)
+        plan = csv_import.build_plan(sheet, state)
+        if plan.hidden and request.form.get('confirm_hidden') != '1':
+            db.session.rollback()
+            flash('This import hides points that are not in the CSV. Tick the confirmation box '
+                  'to continue, or cancel. Nothing was imported.', 'error')
+            return _render_preview(game, csv_text, sheet, state, 400)
+
+        def create_player(name):
+            player = Player(name=name, active=True)
+            db.session.add(player)
+            db.session.flush()
+            link_or_create_user_for_player(player)
+            return player
+
+        csv_import.apply_plan(game, sheet, create_player)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.exception('CSV import failed for game %s', game_id)
+        flash('The import failed and nothing was changed.', 'error')
+        return _render_upload(db.session.get(Game, game_id), 500)
+    flash(f'Imported {len(sheet.points)} points: {len(plan.added)} added, {len(plan.changed) + len(plan.restored)} '
+          f'changed, {len(plan.hidden)} hidden.', 'success')
+    return redirect(url_for('view_game', game_id=game_id))
+
+
+@app.route('/film/games/<int:game_id>/points/<int:point_id>/restore_hidden', methods=['POST'])
+@admin_required
+def restore_hidden_point(game_id, point_id):
+    """Show a point again that a CSV reimport hid. Its comments and annotations never left."""
+    game = Game.query.get_or_404(game_id)
+    point = Point.query.filter_by(id=point_id, game_id=game_id, hidden_by_import=True).first_or_404()
+    try:
+        point.hidden_by_import = False
+        for player in point.players:
+            if player not in game.roster:
+                game.roster.append(player)
+        db.session.commit()
+        flash(f'Point {point.point_index} restored.', 'success')
+    except Exception:
+        db.session.rollback()
+        logger.exception('Could not restore point %s', point_id)
+        flash('Could not restore the point.', 'error')
+    return redirect(url_for('upload_game_csv', game_id=game_id))
 
 
 @app.route('/film/games/<int:game_id>/delete_player_sheet', methods=['POST'])
@@ -1432,7 +1332,7 @@ def delete_player_sheet(game_id):
     try:
         # Remove all player↔point associations while keeping the points themselves
         # (preserves timestamp_start, not_filmed, pull_play, etc.)
-        for point in game.points:
+        for point in game.visible_points:
             point.players = []
 
         # Clear the game roster and stored player order
@@ -1453,7 +1353,7 @@ def delete_player_sheet(game_id):
 def update_point(game_id, point_id):
     """Update point information (pull_play, defense_type, offense_faced, timestamp_start)"""
     get_visible_game_or_404(game_id, get_current_user())
-    point = Point.query.filter_by(id=point_id, game_id=game_id).first_or_404()
+    point = Point.query.filter_by(id=point_id, game_id=game_id, hidden_by_import=False).first_or_404()
     data = json_object({'pull_play', 'defense_type', 'offense_faced', 'timestamp_start', 'not_filmed'})
     updates = {}
     for field in ('pull_play', 'defense_type', 'offense_faced'):
@@ -1488,7 +1388,7 @@ def update_player_sheet(game_id):
     # so any of those names is editable as long as the Player row already exists.
     sheet_players = {player.name: player for player in game.roster}
     sheet_players.update((player.name, player) for player in Player.query.join(Player.points)
-                         .filter(Point.game_id == game_id))
+                         .filter(Point.game_id == game_id, Point.hidden_by_import.is_(False)))
     listed = game.player_order_data.get('players') if isinstance(game.player_order_data, dict) else None
     listed_names = {name for name in listed if isinstance(name, str)} if isinstance(listed, list) else set()
     validated = []
@@ -1508,7 +1408,7 @@ def update_player_sheet(game_id):
             raise BadRequest('sub_status must be null, off, or on')
         if sub_status is not None and not in_point:
             raise BadRequest('Substitutions require in_point to be true')
-        point = Point.query.filter_by(id=point_id, game_id=game_id).first()
+        point = Point.query.filter_by(id=point_id, game_id=game_id, hidden_by_import=False).first()
         if point is None:
             raise NotFound()
         player = sheet_players.get(player_name)

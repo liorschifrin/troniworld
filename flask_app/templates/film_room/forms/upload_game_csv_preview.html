@@ -1,0 +1,140 @@
+{% extends "film_room/forms/upload_game_csv.html" %}
+
+{% block title %}Import preview - Troniworld{% endblock %}
+
+{% block extra_style %}
+{{ super() }}
+  .container { max-width: 960px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+  .summary .chip { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 0.9rem; }
+  .summary .chip b { color: var(--lime); font-family: 'DM Mono', monospace; }
+  .summary .chip.danger b { color: var(--warm); }
+  .section { margin-bottom: 24px; }
+  .section h4 { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 1px; margin-bottom: 8px; }
+  .section.add h4 { color: var(--lime); }
+  .section.change h4 { color: var(--sky); }
+  .section.hide h4 { color: var(--warm); }
+  .diff { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .diff th, .diff td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .diff th { color: var(--muted); font-weight: 500; }
+  .note { color: var(--muted); font-size: 0.85rem; margin: 4px 0 8px; }
+  .confirm { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; font-size: 0.92rem; }
+{% endblock %}
+
+{% block content %}
+<header>
+  <h1>TRONIWORLD</h1>
+  <span>// Import Preview</span>
+</header>
+
+<nav>
+  <a href="{{ url_for('upload_game_csv', game_id=game.id) }}">← Choose a different file</a>
+</nav>
+
+<div class="container">
+  <div class="game-info">
+    <h2>{{ game.title }}</h2>
+    <p>vs {{ game.opponent }} {% if game.game_date %}({{ game.game_date }}){% endif %}</p>
+  </div>
+
+  <div class="form-card">
+    <h3>Review before importing</h3>
+    <p class="note">Nothing has been saved yet. The CSV has {{ point_count }} points.</p>
+
+    <div class="summary" id="import-summary">
+      <span class="chip"><b>{{ plan.added|length }}</b> added</span>
+      <span class="chip"><b>{{ plan.changed|length + plan.restored|length }}</b> changed</span>
+      <span class="chip"><b>{{ plan.unchanged }}</b> unchanged</span>
+      <span class="chip {{ 'danger' if plan.hidden }}"><b>{{ plan.hidden|length }}</b> hidden by reimport</span>
+    </div>
+
+    {% if not plan.has_changes %}
+    <p class="note">This CSV matches the game as it is. Applying it changes nothing.</p>
+    {% endif %}
+
+    {% if plan.hidden %}
+    <div class="section hide" id="section-hidden">
+      <h4>Hidden by reimport ({{ plan.hidden|length }})</h4>
+      <div class="warning-box">
+        <strong>These points are not in the CSV.</strong>
+        <p>They will be hidden from everyone, not deleted. Comments stay in the database and annotations (film time, "no film" flag, tags, injury subs, players) are kept. They disappear from the points bar, player sheet and statistics until you restore them on the upload page.</p>
+      </div>
+      <table class="diff">
+        <tr><th>Point</th><th>Was</th><th>Comments kept</th><th>Film time</th><th>Other notes kept</th></tr>
+        {% for p in plan.hidden %}
+        <tr>
+          <td>{{ p.index }}</td>
+          <td>{{ 'Offense' if p.tron_o else 'Defense' }}, {{ 'Tron scored' if p.tron_point else 'Opponent scored' }}; {{ p.players|length }} players</td>
+          <td>{{ p.comment_count }}</td>
+          <td>{% if p.not_filmed %}no film{% elif p.timestamp_start is not none %}{{ p.timestamp_start }}s{% else %}not set{% endif %}</td>
+          <td>{% set notes = [] %}{% if p.pull_play %}{% set _ = notes.append('pull: ' ~ p.pull_play) %}{% endif %}{% if p.defense_type %}{% set _ = notes.append('defense: ' ~ p.defense_type) %}{% endif %}{% if p.offense_faced %}{% set _ = notes.append('faced: ' ~ p.offense_faced) %}{% endif %}{% if p.injury_subs %}{% set _ = notes.append('injury subs') %}{% endif %}{{ notes|join('; ') or 'none' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if plan.added %}
+    <div class="section add" id="section-added">
+      <h4>Added ({{ plan.added|length }})</h4>
+      <table class="diff">
+        <tr><th>Point</th><th>Details</th></tr>
+        {% for d in plan.added %}
+        <tr><td>{{ d.index }}</td><td>{% for label, before, after in d.changes %}{{ label }}: {{ after }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if plan.restored %}
+    <div class="section change" id="section-restored">
+      <h4>Restored from hidden ({{ plan.restored|length }})</h4>
+      <p class="note">These points were hidden by an earlier import and are in this CSV, so they reappear with their comments and notes.</p>
+      <table class="diff">
+        <tr><th>Point</th><th>Differences from the stored point</th></tr>
+        {% for d in plan.restored %}
+        <tr><td>{{ d.index }}</td><td>{% for label, before, after in d.changes %}{{ label }}: {{ before }} → {{ after }}{% if not loop.last %}<br>{% endif %}{% else %}no differences{% endfor %}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if plan.changed %}
+    <div class="section change" id="section-changed">
+      <h4>Changed ({{ plan.changed|length }})</h4>
+      <p class="note">Comments, film times, "no film" flags and tags on these points are kept.</p>
+      <table class="diff">
+        <tr><th>Point</th><th>Change</th></tr>
+        {% for d in plan.changed %}
+        <tr><td>{{ d.index }}</td><td>{% for label, before, after in d.changes %}{{ label }}: {{ before }} → {{ after }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if plan.new_players or plan.roster_added or plan.roster_removed or plan.order_changed %}
+    <div class="section change" id="section-roster">
+      <h4>Roster and sheet</h4>
+      {% if plan.new_players %}<p>New players created (a login account is created or linked for each): {{ plan.new_players|join(', ') }}</p>{% endif %}
+      {% if plan.roster_added %}<p>Added to roster: {{ plan.roster_added|join(', ') }}</p>{% endif %}
+      {% if plan.roster_removed %}<p>Removed from roster: {{ plan.roster_removed|join(', ') }}</p>{% endif %}
+      {% if plan.order_changed %}<p>Player sheet order: {{ plan.order_before|join(', ') or 'none' }}{% if plan.separator_before %} (section break after {{ plan.separator_before }}){% endif %} → {{ plan.order_after|join(', ') }}{% if plan.separator_after %} (section break after {{ plan.separator_after }}){% endif %}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('apply_game_csv', game_id=game.id) }}" id="apply-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="state_token" value="{{ state_token }}">
+      <input type="hidden" name="csv_text" value="{{ csv_text }}">
+      {% if plan.hidden %}
+      <label class="confirm"><input type="checkbox" name="confirm_hidden" value="1" required>
+        <span>I understand that {{ plan.hidden|length }} point{{ '' if plan.hidden|length == 1 else 's' }} will be hidden by this import.</span></label>
+      {% endif %}
+      <div class="form-actions">
+        <button type="submit" class="btn">Apply import</button>
+        <a href="{{ url_for('view_game', game_id=game.id) }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
