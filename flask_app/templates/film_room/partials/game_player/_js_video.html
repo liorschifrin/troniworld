@@ -5,6 +5,7 @@
     const on = layout.classList.contains('theater-mode');
     document.body.classList.toggle('theater-mode', on);
     btn.classList.toggle('vc-active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     // Always collapse the comment input when switching modes so state is consistent
     const wrap = document.getElementById('commentInputWrap');
     const addBtn = document.getElementById('addCommentBtn');
@@ -21,7 +22,7 @@
         const layout = document.querySelector('.layout');
         const btn = document.getElementById('vcTheaterBtn');
         if (layout) { layout.classList.add('theater-mode'); }
-        if (btn) { btn.classList.add('vc-active'); }
+        if (btn) { btn.classList.add('vc-active'); btn.setAttribute('aria-pressed', 'true'); }
         document.body.classList.add('theater-mode');
       }
     } catch(e) {}
@@ -38,12 +39,61 @@
       .catch(() => {});
   }
 
+  // Visible error state for a video that cannot be shown (T12). The text goes in the role="alert" region above
+  // the player and the controls that need a player are disabled, so the page never shows a silent blank box.
+  function showPlayerError(message, videoId) {
+    const box = document.getElementById('playerError');
+    if (!box) return;
+    box.textContent = message;
+    if (videoId) {
+      const link = document.createElement('a');
+      link.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(videoId);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Open it on YouTube';
+      box.appendChild(document.createTextNode(' '));
+      box.appendChild(link);
+    }
+    box.hidden = false;
+    document.querySelectorAll('#videoControls button').forEach(b => { b.disabled = true; });
+  }
+
+  function clearPlayerError() {
+    const box = document.getElementById('playerError');
+    if (box) { box.hidden = true; box.textContent = ''; }
+    document.querySelectorAll('#videoControls button').forEach(b => { b.disabled = false; });
+  }
+
+  const YT_API_PROBLEM = 'The video player could not be loaded from YouTube, so this video cannot be played. ' +
+    'Check your connection or a content blocker, then reload the page.';
+  const YT_ERROR_TEXT = {
+    2: 'This video link is not valid.',
+    5: 'This video cannot be played in the embedded player.',
+    100: 'This video was removed or is private.',
+    101: 'The video owner does not allow it to be embedded.',
+    150: 'The video owner does not allow it to be embedded.'
+  };
+  let ytApiFailed = false;
+  let ytApiTimer = null;
+
+  function ytApiReady() { return typeof YT !== 'undefined' && !!YT.Player; }
+
+  function onYtApiFailure() {
+    if (ytApiReady()) return;
+    ytApiFailed = true;
+    if (currentVideoId) showPlayerError(YT_API_PROBLEM);
+  }
+
   // Load YouTube IFrame API
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
+  tag.onerror = onYtApiFailure;
   document.head.appendChild(tag);
+  ytApiTimer = setTimeout(onYtApiFailure, 10000);
 
   window.onYouTubeIframeAPIReady = function() {
+    clearTimeout(ytApiTimer);
+    ytApiFailed = false;
     {% if game.youtube_id %}
     // Auto-load the video
     loadVideo('{{ game.youtube_id }}');
@@ -61,19 +111,28 @@
     }
     
     currentVideoId = videoId;
+    if (!ytApiReady()) {
+      showPlayerError(YT_API_PROBLEM);
+      return;
+    }
     const placeholder = document.getElementById('placeholder');
     if (placeholder) {
       placeholder.style.display = 'none';
     }
 
     if (player) {
+      clearPlayerError();
       player.loadVideoById(videoId);
     } else {
       player = new YT.Player('player', {
         videoId: videoId,
         playerVars: { rel: 0, modestbranding: 1 },
         events: {
+          onError: (event) => {
+            showPlayerError(YT_ERROR_TEXT[event.data] || 'This video could not be played.', videoId);
+          },
           onReady: () => {
+            clearPlayerError();
             playerReady = true;
             startVideoControlsUpdate();
             resumeFromLastPosition();
@@ -357,6 +416,7 @@
     presetBtns.forEach(btn => {
       const btnRate = parseFloat(btn.getAttribute('data-rate'));
       btn.classList.toggle('vc-active', btnRate === rate);
+      btn.setAttribute('aria-pressed', btnRate === rate ? 'true' : 'false');
     });
 
     if (!isPreset) {
@@ -413,6 +473,8 @@
     const isPlaying = state === YT.PlayerState.PLAYING;
     icon.innerHTML    = isPlaying ? VC_ICON_PAUSE : VC_ICON_PLAY;
     label.textContent = isPlaying ? 'Pause' : 'Play';
+    const btn = document.getElementById('vcPlayPauseBtn');
+    if (btn) btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
   }
 
   const VC_ICON_UNMUTED = `<svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="m19 6c1.5 1.5 2 4 2 6s-.5 4.5-2 6m-3-9.00002c.5.5 1 1.50002 1 3.00002s-.5 2.5-1 3m-13-4.5v3c0 1.1046.5 2 2.5 2.5s3.5 5 6.5 5c2 0 2-18 0-18-3 0-4.5 4.5-6.5 5s-2.5 1.39543-2.5 2.5z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>`;
@@ -425,58 +487,59 @@
     const icon  = document.getElementById('vcMuteIcon');
     const label = document.getElementById('vcMuteLabel');
     if (!icon || !label) return;
-    if (muted) {
-      icon.innerHTML   = VC_ICON_MUTED;
-      label.textContent = 'Unmute';
-    } else {
-      icon.innerHTML   = VC_ICON_UNMUTED;
-      label.textContent = 'Mute';
-    }
+    // The label stays "Mute" and aria-pressed carries the state, so the name does not change under assistive tech
+    icon.innerHTML = muted ? VC_ICON_MUTED : VC_ICON_UNMUTED;
+    const btn = document.getElementById('vcMuteBtn');
+    if (btn) btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  }
+
+  // ── Keyboard shortcuts (one handler for the whole page) ───────────────
+  // Letters, space and arrows must never act while the user is typing or operating another control.
+  function isEditableTarget(el) {
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return true;
+    const role = el.getAttribute && el.getAttribute('role');
+    return role === 'textbox' || role === 'combobox' || role === 'searchbox' || role === 'listbox';
+  }
+
+  function isActivatableTarget(el) {
+    // A focused button, link or button-like element uses Space/Enter itself
+    return !!el && !!el.closest && !!el.closest('button, a[href], summary, [role="button"], [role="menuitem"], [role="tab"]');
   }
 
   document.addEventListener('keydown', (e) => {
-    // Skip when focus is inside a text input or editable element
-    const tag = document.activeElement ? document.activeElement.tagName : '';
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+    if (e.defaultPrevented) return;
+    const active = document.activeElement;
+    if (isEditableTarget(active)) return;
     // Let browser/OS handle modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Roster-edit cells use the arrow keys to move between cells
+    const inGrid = !!(active && active.closest && active.closest('td[data-player]'));
 
+    let handled = true;
     switch (e.key) {
-      case 'k':
+      case ' ':
+        if (isActivatableTarget(active)) return;
         togglePlayPause();
-        e.preventDefault();
         break;
-      case 'j':
-        seekRelative(-10);
-        e.preventDefault();
+      case 'k': case 'K': togglePlayPause(); break;
+      case 'j': case 'J': seekRelative(-10); break;
+      case 'l': case 'L': seekRelative(10); break;
+      case 'ArrowLeft':  if (inGrid) return; seekRelative(-5); break;
+      case 'ArrowRight': if (inGrid) return; seekRelative(5); break;
+      case ',': seekRelative(-1/30); break;
+      case '.': seekRelative(1/30); break;
+      case '<': adjustPlaybackSpeed(-0.25); break;  // Shift + ,
+      case '>': adjustPlaybackSpeed(0.25); break;   // Shift + .
+      case 'f': case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else vcFullscreen();
         break;
-      case 'l':
-        seekRelative(10);
-        e.preventDefault();
-        break;
-      case '<': // Shift + ,  — speed down
-        adjustPlaybackSpeed(-0.25);
-        e.preventDefault();
-        break;
-      case '>': // Shift + .  — speed up
-        adjustPlaybackSpeed(0.25);
-        e.preventDefault();
-        break;
-      case 'f':
-      case 'F':
-        vcFullscreen();
-        e.preventDefault();
-        break;
-      case 'm':
-      case 'M':
-        toggleMute();
-        e.preventDefault();
-        break;
-      case 't':
-      case 'T':
-        toggleTheaterMode();
-        e.preventDefault();
-        break;
+      case 'm': case 'M': toggleMute(); break;
+      case 't': case 'T': toggleTheaterMode(); break;
+      default: handled = false;
     }
+    if (handled) e.preventDefault();
   });
 

@@ -67,7 +67,7 @@
     if (!_isSingleColumnLayout()) return; // wide 2-column layout: always visible
     const willOpen = forceOpen !== undefined ? forceOpen : !wrap.classList.contains('mobile-open');
     wrap.classList.toggle('mobile-open', willOpen);
-    if (btn) btn.classList.toggle('active', willOpen);
+    if (btn) { btn.classList.toggle('active', willOpen); btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); }
     if (willOpen) {
       setTimeout(() => document.getElementById('commentInput')?.focus(), 260);
     }
@@ -77,6 +77,7 @@
     isPrivateComment = !isPrivateComment;
     const btn  = document.getElementById('privacyToggleBtn');
     const wrap = document.getElementById('privateToWrap');
+    btn.setAttribute('aria-pressed', isPrivateComment ? 'true' : 'false');
     if (isPrivateComment) {
       btn.classList.add('active');
       wrap.style.display = 'flex';
@@ -97,7 +98,7 @@
     privateToUsers.forEach((username, idx) => {
       const chip = document.createElement('span');
       chip.className = 'private-to-chip';
-      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removePrivateUser(${idx})" title="Remove">×</button>`;
+      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removePrivateUser(${idx})" title="Remove" aria-label="Remove ${escHtml(username)}">×</button>`;
       container.insertBefore(chip, input);
     });
   }
@@ -123,6 +124,7 @@
     editIsPrivate = !editIsPrivate;
     const btn  = document.getElementById('editPrivacyToggleBtn');
     const wrap = document.getElementById('editPrivateToWrap');
+    btn.setAttribute('aria-pressed', editIsPrivate ? 'true' : 'false');
     if (editIsPrivate) {
       btn.classList.add('active');
       wrap.style.display = 'flex';
@@ -143,7 +145,7 @@
     editPrivateToUsers.forEach((username, idx) => {
       const chip = document.createElement('span');
       chip.className = 'private-to-chip';
-      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removeEditPrivateUser(${idx})" title="Remove">×</button>`;
+      chip.innerHTML = `${escHtml(username)} <button class="chip-remove" onclick="removeEditPrivateUser(${idx})" title="Remove" aria-label="Remove ${escHtml(username)}">×</button>`;
       container.insertBefore(chip, input);
     });
   }
@@ -315,7 +317,7 @@
         isPrivateComment = false;
         privateToUsers = [];
         const privBtn = document.getElementById('privacyToggleBtn');
-        if (privBtn) privBtn.classList.remove('active');
+        if (privBtn) { privBtn.classList.remove('active'); privBtn.setAttribute('aria-pressed', 'false'); }
         const privWrap = document.getElementById('privateToWrap');
         if (privWrap) privWrap.style.display = 'none';
         renderPrivateChips();
@@ -451,10 +453,10 @@
     const isOwnComment = currentUserName && c.author_name === currentUserName;
     const canEdit      = isOwnComment;
     const canDelete    = isAdmin || isOwnComment;
-    const editBtn   = canEdit   ? `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit">✎</button>` : '';
-    const deleteBtn = canDelete ? `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete">✕</button>` : '';
+    const editBtn   = canEdit   ? `<button class="comment-edit-btn" onclick="event.stopPropagation(); editComment(${c.id}, this)" title="Edit" aria-label="Edit comment">✎</button>` : '';
+    const deleteBtn = canDelete ? `<button class="comment-delete-btn" onclick="event.stopPropagation(); deleteComment(${c.id})" title="Delete" aria-label="Delete comment">✕</button>` : '';
 
-    const timestampPrefix = timestampFormatted ? `<span class="comment-video-timestamp">${escHtml(timestampFormatted)}</span> ` : '';
+    const timestampPrefix = timestampFormatted ? `<span class="comment-video-timestamp" role="button" tabindex="0" aria-label="Jump to ${escHtml(timestampFormatted)} in the video">${escHtml(timestampFormatted)}</span> ` : '';
 
     const authorNameHtml = isOwnComment
       ? `<span class="comment-author-self">${escHtml(c.author_name)}</span>`
@@ -523,7 +525,7 @@
     if (isReplying) {
       replyInputHtml = `
       <div class="reply-input-wrap" id="reply-input-${c.id}">
-        <div class="reply-input" id="reply-textarea-${c.id}" contenteditable="true" data-placeholder="Reply to ${escHtml(c.author_name)}..." data-empty="true" role="textbox"></div>
+        <div class="reply-input" id="reply-textarea-${c.id}" contenteditable="true" data-placeholder="Reply to ${escHtml(c.author_name)}..." data-empty="true" role="textbox" aria-multiline="true" aria-label="Reply to ${escHtml(c.author_name)}"></div>
         <div class="reply-actions">
           <button class="reply-cancel-btn" onclick="cancelReply()">Cancel</button>
           <button class="reply-submit-btn" id="reply-submit-${c.id}" onclick="submitReply(${c.id})">Reply</button>
@@ -547,7 +549,7 @@
     if (isEditing) {
       return `
         <div class="thread-reply-item" id="reply-item-${reply.id}">
-          <div class="reply-input" id="edit-reply-textarea-${reply.id}" contenteditable="true" data-empty="false" role="textbox"></div>
+          <div class="reply-input" id="edit-reply-textarea-${reply.id}" contenteditable="true" data-empty="false" role="textbox" aria-multiline="true" aria-label="Edit reply"></div>
           <div class="reply-actions">
             <button class="reply-cancel-btn" onclick="cancelEditReply()">Cancel</button>
             <button class="reply-submit-btn" id="edit-reply-submit-${reply.id}" onclick="saveEditReply(${reply.id})">Save</button>
@@ -556,10 +558,10 @@
     }
 
     const editBtn   = isOwnReply
-      ? `<button class="reply-edit-btn" onclick="editReply(${reply.id})" title="Edit">✎</button>`
+      ? `<button class="reply-edit-btn" onclick="editReply(${reply.id})" title="Edit" aria-label="Edit reply">✎</button>`
       : '';
     const deleteBtn = canDelete
-      ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete">✕</button>`
+      ? `<button class="reply-delete-btn" onclick="deleteComment(${reply.id})" title="Delete" aria-label="Delete reply">✕</button>`
       : '';
     const replyIsPrivate      = Array.isArray(reply.private_to);
     const replyPrivateBadge   = replyIsPrivate ? `<span class="comment-private-badge" title="Private reply">🔒</span>` : '';
@@ -748,9 +750,9 @@
     // Create edit interface
     const editHTML = `
       <div class="comment-edit-wrap">
-        <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox"></div>
+        <div class="comment-input" id="editCommentInput" contenteditable="true" data-placeholder="Edit your comment..." data-empty="false" role="textbox" aria-multiline="true" aria-label="Edit your comment"></div>
         <div class="comment-controls">
-          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private">🔒 Private</button>
+          <button class="privacy-toggle-btn" id="editPrivacyToggleBtn" onclick="toggleEditPrivacy()" title="Toggle private" aria-pressed="false">🔒 Private</button>
           <button class="comment-btn" id="editSaveBtn">Save</button>
           <button class="comment-btn-cancel" id="editCancelBtn">Cancel</button>
         </div>
@@ -778,7 +780,7 @@
     if (editIsPrivate) {
       const epBtn = document.getElementById('editPrivacyToggleBtn');
       const epWrap = document.getElementById('editPrivateToWrap');
-      if (epBtn) epBtn.classList.add('active');
+      if (epBtn) { epBtn.classList.add('active'); epBtn.setAttribute('aria-pressed', 'true'); }
       if (epWrap) epWrap.style.display = 'flex';
       renderEditPrivateChips();
     }

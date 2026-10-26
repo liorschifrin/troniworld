@@ -28,7 +28,51 @@
     // Ensure the sheet is open
     const content = document.getElementById('playerSheetContent');
     if (content && !content.classList.contains('open')) togglePlayerSheet();
+    // Keyboard access: each editable cell is a toggle button, reached with one tab stop and the arrow keys
+    const cells = psEditableCells();
+    cells.forEach((td, i) => {
+      td.setAttribute('role', 'button');
+      td.tabIndex = i === 0 ? 0 : -1;
+      psCellA11y(td, { in_point: td.dataset.inPoint === '1', sub: td.dataset.subStatus || null });
+    });
+    if (table) table.setAttribute('aria-label', 'Player sheet, editing: press Space to change a player on a point, arrow keys to move');
+    if (cells.length) cells[0].focus();
   }
+
+  function psEditableCells() {
+    return [...document.querySelectorAll('.player-sheet-table:not(.ps-pinned-table) td[data-player]:not(.not-filmed)')];
+  }
+
+  const PS_STATE_TEXT = { none: 'not on the point', normal: 'on the point', off: 'subbed off', on: 'subbed on' };
+  function psCellA11y(td, state) {
+    const text = !state.in_point ? PS_STATE_TEXT.none : state.sub === 'off' ? PS_STATE_TEXT.off
+      : state.sub === 'on' ? PS_STATE_TEXT.on : PS_STATE_TEXT.normal;
+    td.setAttribute('aria-pressed', state.in_point ? 'true' : 'false');
+    td.setAttribute('aria-label', `${td.dataset.player}, point ${psPointLabel(td)}: ${text}`);
+  }
+
+  function psPointLabel(td) {
+    const th = document.querySelector('.player-sheet-table:not(.ps-pinned-table) thead tr').cells[td.cellIndex];
+    return th ? th.textContent.trim() : '';
+  }
+
+  // Arrow keys move between editable cells (rows = players, columns = points)
+  document.addEventListener('keydown', (e) => {
+    if (!playerSheetEditMode || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    const current = document.activeElement;
+    if (!current || !current.matches || !current.matches('td[data-player]')) return;
+    const cells = psEditableCells();
+    const row = cells.filter(c => c.parentElement === current.parentElement);
+    const col = cells.filter(c => c.cellIndex === current.cellIndex);
+    const move = (list, step) => list[list.indexOf(current) + step];
+    const target = e.key === 'ArrowLeft' ? move(row, -1) : e.key === 'ArrowRight' ? move(row, 1)
+      : e.key === 'ArrowUp' ? move(col, -1) : move(col, 1);
+    e.preventDefault();
+    if (!target) return;
+    current.tabIndex = -1;
+    target.tabIndex = 0;
+    target.focus();
+  });
 
   function exitPlayerSheetEdit() {
     playerSheetEditMode = false;
@@ -43,10 +87,14 @@
         delete td.dataset.origContent;
       }
     });
+    document.querySelectorAll('.player-sheet-table td[data-player]').forEach(td => {
+      ['role', 'tabindex', 'aria-pressed', 'aria-label'].forEach(a => td.removeAttribute(a));
+    });
+    if (table) table.removeAttribute('aria-label');
     const bar = document.getElementById('psEditBar');
     if (bar) bar.style.display = 'none';
     const btn = document.getElementById('psEditBtn');
-    if (btn) btn.style.display = '';
+    if (btn) { btn.style.display = ''; btn.focus(); }
   }
 
   function handlePsCellClick(td, event, timestamp) {
@@ -118,6 +166,7 @@
         td.innerHTML = '<span class="ps-check">/✓</span>';
       }
     }
+    psCellA11y(td, key in psChanges ? psChanges[key] : { in_point: origInPoint, sub: origSub });
   }
 
   async function savePlayerSheetChanges() {
@@ -163,7 +212,9 @@
   function togglePlayerSheet() {
     const content = document.getElementById('playerSheetContent');
     const icon = document.getElementById('toggleIcon');
+    const toggleBtn = document.getElementById('psToggleBtn');
     
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', content.classList.contains('open') ? 'false' : 'true');
     if (content.classList.contains('open')) {
       content.classList.remove('open');
       icon.classList.remove('open');
@@ -249,6 +300,7 @@
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       isWatched = data.watched;
+      btn.setAttribute('aria-pressed', isWatched ? 'true' : 'false');
       if (isWatched) {
         btn.textContent = '✓ Watched';
         btn.classList.add('is-watched');

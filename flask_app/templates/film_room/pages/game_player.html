@@ -25,9 +25,9 @@
 {% include 'film_room/partials/game_player/_js_scoreboard.html' %}
 </script>
 
-<div id="pointAddMenuGlobal">
-  <div class="point-add-option" id="pamSetTime">⏱ Set time</div>
-  <div class="point-add-option point-add-nofilm" id="pamNoFilm">✕ No film</div>
+<div id="pointAddMenuGlobal" role="menu" aria-label="Point time options">
+  <div class="point-add-option" id="pamSetTime" role="menuitem" tabindex="0">⏱ Set time</div>
+  <div class="point-add-option point-add-nofilm" id="pamNoFilm" role="menuitem" tabindex="0">✕ No film</div>
 </div>
 
 {% endblock %}

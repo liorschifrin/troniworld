@@ -127,6 +127,32 @@
     background: rgba(255,255,255,0.06);
   }
 
+  .ps-toggle-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .player-error {
+    background: rgba(255,107,43,0.12);
+    border: 1px solid var(--warm);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+  }
+  .player-error[hidden] { display: none; }
+  .player-error a { color: var(--lime); }
+  .vc-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
   .player-sheet-toggle h3 {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 1rem;
@@ -2282,4 +2308,29 @@
     animation: notif-flash 1.6s ease 3;
     border-radius: 6px;
     scroll-margin-top: 16px;
+  }
+
+  /* T12: controls that only appear on hover must also appear for keyboard focus and on touch screens */
+  .comment-item:focus-within .reply-btn,
+  .reply-btn:focus-visible,
+  .thread-reply-item:focus-within .reply-delete-btn,
+  .thread-reply-item:focus-within .reply-edit-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  @media (hover: none) {
+    .reply-btn,
+    .reply-delete-btn,
+    .reply-edit-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* T12: touch targets on phones; the speed row and control bar were about 29px tall */
+  @media (max-width: 767px) {
+    .video-controls .vc-btn {
+      min-height: 36px;
+      min-width: 36px;
+    }
   }

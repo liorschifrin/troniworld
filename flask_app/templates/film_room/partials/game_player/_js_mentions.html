@@ -6,6 +6,8 @@
     el.className = 'mention-dropdown';
     el.style.display = 'none';
     el.id = 'globalMentionDropdown';
+    el.setAttribute('role', 'listbox');
+    el.setAttribute('aria-label', 'Mention suggestions');
     el.addEventListener('touchstart', _dropTouchStart, { passive: true });
     el.addEventListener('touchmove',  _dropTouchMove,  { passive: true });
     document.body.appendChild(el);
@@ -154,6 +156,10 @@
 
   function hideMentionDropdown() {
     mentionDropdownEl.style.display = 'none';
+    if (mentionState.inputEl) {
+      mentionState.inputEl.setAttribute('aria-expanded', 'false');
+      mentionState.inputEl.removeAttribute('aria-activedescendant');
+    }
     mentionState.active  = false;
     mentionState.inputEl = null;
   }
@@ -195,7 +201,7 @@
   function renderMentionDropdown(inputEl) {
     const users = mentionState.filteredUsers;
     if (users.length === 0) {
-      mentionDropdownEl.innerHTML = `<div class="mention-dropdown-empty">No users found</div>`;
+      mentionDropdownEl.innerHTML = `<div class="mention-dropdown-empty" role="presentation">No users found</div>`;
     } else {
       mentionDropdownEl.innerHTML = users.map((u, i) => {
         const isEnemy    = u === opponentName;
@@ -211,7 +217,7 @@
         const label  = isEnemy    ? `${escHtml(u)} <span style="font-size:0.65rem;opacity:0.6;"></span>` :
                        isEveryone ? `Everyone <span style="font-size:0.65rem;opacity:0.7;">notify all members</span>` :
                        escHtml(u);
-        return `<div class="${itemCls}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention(this.dataset.user)" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention(this.dataset.user);}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
+        return `<div class="${itemCls}" role="option" id="mention-option-${i}" aria-selected="${i === mentionState.selectedIndex}" data-user="${escHtml(u)}" data-idx="${i}" onmousedown="event.preventDefault(); selectMention(this.dataset.user)" ontouchend="if(!_dropTouchScrolled){event.preventDefault(); selectMention(this.dataset.user);}"><div class="${avatarCls}">${avatarChar}</div>${label}</div>`;
       }).join('');
     }
     let anchorRect = null;
@@ -243,6 +249,10 @@
     mentionDropdownEl.style.width  = '100%';
     mentionDropdownEl.style.left   = '0';
     mentionDropdownEl.style.display = 'block';
+    inputEl.setAttribute('aria-expanded', 'true');
+    inputEl.setAttribute('aria-controls', 'globalMentionDropdown');
+    if (users.length > 0) inputEl.setAttribute('aria-activedescendant', `mention-option-${mentionState.selectedIndex}`);
+    else inputEl.removeAttribute('aria-activedescendant');
 
     // Scroll the selected item into view
     const selectedItem = mentionDropdownEl.querySelector('.mention-dropdown-item.selected');
@@ -376,6 +386,8 @@
   }
 
   function bindMentionInput(el) {
+    el.setAttribute('aria-haspopup', 'listbox');
+    el.setAttribute('aria-expanded', 'false');
     el.addEventListener('input',   handleMentionInput);
     el.addEventListener('keydown', handleMentionKeydown);
     el.addEventListener('keyup',   handleMentionKeyup);
