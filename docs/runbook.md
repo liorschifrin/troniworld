@@ -15,7 +15,7 @@ A generic Flask WSGI app, one SQLite file, and a local directory of uploaded ima
   data/                          NOT part of any release; survives deploys
     app.db                       SQLite database (DATABASE_URI)
     uploads/                     uploaded images (UPLOAD_DIR), served at /static/uploads/<name>
-  backups/<timestamp>/           app.db, uploads/, uploads.sha256.json
+  backups/<timestamp>/           app.db, uploads/, uploads.sha256
   env                            environment file, mode 0600, owned by the service user (never in git)
 ```
 
@@ -158,7 +158,7 @@ chown -R "$SERVICE_USER" /srv/troniworld/data; chmod 700 /srv/troniworld/data; c
 sudo -u "$SERVICE_USER" test -w "$NEW_DB" -a -w "$UPLOAD_DIR"              # access check as the service user
 ```
 
-The old backup in `$OLD_BACKUP` has the same layout as a section 6 backup (`app.db`, `uploads/`, `uploads.sha256`), so rollback path B can use it. Then continue at step 3 below (the new database is upgraded, not the old one). Keep the old release and database untouched until the smoke checks pass.
+The old backup in `$OLD_BACKUP` has the same layout as a section 6 backup (`app.db`, `uploads/`, `uploads.sha256`), so rollback path B can use it. Then continue at step 3 of the upgrade list above (the new database is upgraded, not the old one). Keep the old release and database untouched until the smoke checks pass.
 
 Rollback (decide quickly; each step is reversible until data is written under the new version):
 
