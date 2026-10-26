@@ -243,6 +243,7 @@ class CurrentPoint:
 
 @dataclass(frozen=True)
 class CurrentState:
+    game_id: int
     points: dict              # point_index -> CurrentPoint
     roster: tuple             # sorted names
     player_order_data: object
@@ -355,6 +356,7 @@ def build_plan(sheet, state):
 def state_token(state, csv_names=()):
     """Hash of everything an import reads or overwrites, for stale-preview detection."""
     payload = {
+        'game': state.game_id,  # a token is only valid for the game it was issued for
         'points': [[p.index, p.id, p.tron_o, p.tron_point, p.hidden, list(p.players),
                     list(_subs_key(p.injury_subs)[0]), list(_subs_key(p.injury_subs)[1]),
                     p.timestamp_start, p.not_filmed, p.pull_play, p.defense_type, p.offense_faced]
@@ -387,7 +389,7 @@ def load_state(game):
             injury_subs=p.injury_subs, timestamp_start=p.timestamp_start, not_filmed=bool(p.not_filmed),
             pull_play=p.pull_play, defense_type=p.defense_type, offense_faced=p.offense_faced,
             comment_count=counts.get(p.id, 0))
-    return CurrentState(points=points, roster=tuple(sorted(pl.name for pl in game.roster)),
+    return CurrentState(game_id=game.id, points=points, roster=tuple(sorted(pl.name for pl in game.roster)),
                         player_order_data=game.player_order_data,
                         known_players=frozenset(n for (n,) in db.session.query(Player.name).all()))
 

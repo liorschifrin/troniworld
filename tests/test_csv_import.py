@@ -629,3 +629,29 @@ def test_comma_heavy_csv_applies_through_the_real_multipart_form(app, admin, db,
     old = client.post(url(game, 'upload_csv/apply'), data=body,
                       content_type='application/x-www-form-urlencoded')
     assert old.status_code == 413
+
+
+def test_a_preview_token_is_bound_to_its_game(admin, db, game):
+    from flask_app.models import Game, Player
+    twin = Game(title='Identical twin', opponent='Synthetic visitors')
+    db.session.add(twin)
+    db.session.commit()
+    # Two empty games with identical state: only the game id can tell their tokens apart.
+    _, token, text = preview(admin, game, BASE)
+    assert preview(admin, twin, BASE)[1] != token
+    before = snapshot(db)
+    response = apply(admin, twin, text, token)
+    assert response.status_code == 409 and b'changed after the preview' in response.data
+    assert snapshot(db) == before          # nothing written to either game
+    assert points_of(twin.id) == {} and points_of(game.id) == {} and Player.query.count() == 0
+    # The token still works on the game it was issued for.
+    assert apply(admin, game, text, token).status_code == 302
+    assert sorted(points_of(game.id)) == [1, 2, 3, 4] and points_of(twin.id) == {}
+
+
+def test_a_token_replayed_on_its_own_game_after_a_successful_apply_is_refused(admin, db, game):
+    _, token, text = preview(admin, game, BASE)
+    assert apply(admin, game, text, token).status_code == 302
+    before = snapshot(db)
+    assert apply(admin, game, text, token).status_code == 409
+    assert snapshot(db) == before
