@@ -1,0 +1,44 @@
+  {% if player_sheet_data %}
+    window.player_sheet_data = {
+      points: [
+        {% for point in player_sheet_data['points'] %}
+        {
+          id: {{ point.id }},
+          tron_point: {{ 'true' if point.tron_point else 'false' }},
+          timestamp_start: {% if point.timestamp_start is video_timestamp %}{{ point.timestamp_start }}{% else %}null{% endif %},
+          not_filmed: {{ 'true' if point.not_filmed else 'false' }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    };
+  {% endif %}
+  let player = null;
+  let playerReady = false;
+  let pendingResumePosition = null;
+  let comments = [];
+  let currentVideoId = {{ game.youtube_id | tojson }};
+  const currentUserName = {{ (current_user.username if current_user else none) | tojson }};
+  const isAdmin = {% if current_user and current_user.is_admin %}true{% else %}false{% endif %};
+  const isCurrentUserLeadership = {% if current_user and current_user.is_leadership %}true{% else %}false{% endif %};
+  let currentActivePointId = null;
+  let currentActiveCommentId = null;
+  let _suppressAutoScroll = false;  // set true briefly after a notification scroll
+  let _isEditingComment  = false;   // set true while the inline edit form is open
+  const gameId = {{ game.id }};
+  let isWatched = {% if is_watched %}true{% else %}false{% endif %};
+  let selectedCommentType = 'Comment';
+  let isPrivateComment = false;
+  let privateToUsers = [];
+  let editIsPrivate = false;
+  let editPrivateToUsers = [];
+  const expandedThreads = new Set();   // comment IDs whose replies are shown
+  let activeReplyInputId = null;        // comment ID currently being replied to
+  let activeEditReplyId  = null;        // reply ID currently being edited
+  const allUsers = {{ users | tojson }};
+  const opponentName = {{ game.opponent | tojson }};
+  const allMentionables = [
+    ...allUsers,
+    opponentName,
+    ...(isCurrentUserLeadership ? ['Everyone'] : []),
+  ];
+

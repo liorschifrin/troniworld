@@ -11,6 +11,8 @@ import subprocess
 
 import pytest
 
+from template_source import expanded_source
+
 ROOT = Path(__file__).resolve().parents[1]
 GAME = 'film_room/pages/game_player.html'
 ATTACK = '\'");T04_PAYLOAD();//<img src=x onerror="T04_PAYLOAD()">'
@@ -31,7 +33,7 @@ class Elements(HTMLParser):
 
 
 def source(template):
-    return (ROOT / 'flask_app/templates' / template).read_text()
+    return expanded_source(template)
 
 
 def functions(template, *names):

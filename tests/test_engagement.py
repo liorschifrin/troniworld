@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from flask_app import watch_time
+from template_source import expanded_source
 
 
 def track(client, game, **body):
@@ -54,7 +55,7 @@ def test_unparseable_bodies_get_400_json_without_writes(ordinary, records, db, b
 
 def test_template_sends_a_json_blob_and_gates_on_visible_focused_playback():
     from pathlib import Path
-    source = (Path(watch_time.__file__).parent / 'templates/film_room/pages/game_player.html').read_text()
+    source = expanded_source('film_room/pages/game_player.html')
     assert "new Blob([data], { type: 'application/json' })" in source
     assert "state === YT.PlayerState.PLAYING && watchTabActive()" in source
     assert "document.visibilityState === 'visible' && document.hasFocus()" in source
