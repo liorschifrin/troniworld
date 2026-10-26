@@ -311,6 +311,61 @@ def test_a_component_swapped_for_a_symlink_after_the_look_is_refused(app, client
     assert client_for().get('/static/uploads/dir/x.png').status_code == 404
 
 
+def test_a_platform_without_nofollow_opens_serves_nothing(app, client_for, monkeypatch):
+    from flask_app import uploads
+    (Path(app.config['UPLOAD_FOLDER']) / 'ok.png').write_bytes(synthetic_image())
+    assert client_for().get('/static/uploads/ok.png').status_code == 200
+    monkeypatch.setattr(uploads, '_nofollow_supported', lambda: False)
+    response = client_for().get('/static/uploads/ok.png')
+    assert response.status_code == 404 and response.get_data() != synthetic_image()
+
+
+def test_every_descriptor_opened_for_an_upload_is_closed(app, monkeypatch, tmp_path):
+    from flask_app import uploads
+    folder = Path(app.config['UPLOAD_FOLDER'])
+    (folder / 'a' / 'b').mkdir(parents=True)
+    (folder / 'a' / 'b' / 'ok.png').write_bytes(synthetic_image())
+    live = set()
+    real_open, real_close = os.open, os.close
+
+    def tracking_open(*args, **kwargs):
+        fd = real_open(*args, **kwargs)
+        live.add(fd)
+        return fd
+
+    def tracking_close(fd):
+        live.discard(fd)
+        return real_close(fd)
+
+    monkeypatch.setattr(uploads.os, 'open', tracking_open)
+    monkeypatch.setattr(uploads.os, 'close', tracking_close)
+    # supports_dir_fd is keyed by the original function object.
+    monkeypatch.setattr(uploads, '_nofollow_supported', lambda: True)
+    handle, _ = uploads.open_plain_file(str(folder), 'a/b/ok.png')
+    assert live == {handle.fileno()}  # only the returned file is still open
+    live.discard(handle.fileno())  # the file object closes its own descriptor (not via os.close)
+    handle.close()
+    assert not live
+    # Failure paths and a close() that raises on the first directory leave nothing open.
+    for missing in ('a/b/missing.png', 'a/nope/ok.png', 'a/b'):
+        assert uploads.open_plain_file(str(folder), missing) is None and not live, missing
+    state = {'failed': False}
+
+    def flaky_close(fd):
+        if not state['failed']:
+            state['failed'] = True
+            real_close(fd)
+            live.discard(fd)
+            raise OSError('synthetic close failure')
+        return tracking_close(fd)
+
+    monkeypatch.setattr(uploads.os, 'close', flaky_close)
+    handle, _ = uploads.open_plain_file(str(folder), 'a/b/ok.png')
+    live.discard(handle.fileno())
+    handle.close()
+    assert not live
+
+
 def test_other_unsafe_upload_paths_are_refused_and_headers_are_kept(app, client_for):
     folder = Path(app.config['UPLOAD_FOLDER'])
     (folder / 'ok.png').write_bytes(synthetic_image())
@@ -383,6 +438,7 @@ def test_the_documented_restore_guard_refuses_a_dangling_symlink(tmp_path):
     runbook = (ROOT / 'docs' / 'runbook.md').read_text()
     start = runbook.index('for target in /srv/troniworld/data/app.db')
     guard = runbook[start:runbook.index('\ndone\n', start) + len('\ndone')]
+    assert start < runbook.index('cp "$BACKUP/app.db"') and start < runbook.index('cp -a "$BACKUP/uploads"')  # guard first
     guard = guard.replace('/srv/troniworld/data', str(tmp_path / 'data'))
 
     def run():

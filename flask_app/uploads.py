@@ -13,8 +13,7 @@ import uuid
 
 from flask import abort, current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
-from werkzeug.utils import send_file
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename, send_file
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
@@ -91,46 +90,57 @@ def _open_at(name, flags, dir_fd):
     return os.open(name, flags, dir_fd=dir_fd)
 
 
+def _nofollow_supported():
+    """True where descriptor-relative, no-follow opens exist (POSIX)."""
+    return (os.open in os.supports_dir_fd
+            and hasattr(os, 'O_NOFOLLOW') and hasattr(os, 'O_DIRECTORY'))
+
+
 def open_plain_file(root, filename):
     """Open ``filename`` under ``root`` without ever following a symlink.
 
     Each component is opened relative to the directory descriptor of its parent
     with O_NOFOLLOW, so a component swapped for a symlink after any earlier look
-    is refused by the kernel rather than raced. Returns (file object, fstat) for
-    a regular file, or None for anything else (missing, symlink, directory,
-    traversal, absolute path).
+    is refused by the kernel rather than raced. Every descriptor opened here is
+    closed in a ``finally`` unless it is handed back as the file object.
+    Returns (file object, fstat) for a regular file, or None for anything else
+    (missing, symlink, directory, traversal, absolute path, or a platform
+    without no-follow opens, which is refused rather than served unsafely).
     """
+    if not _nofollow_supported():
+        return None
     parts = filename.split('/')
     if any(part in ('', '.', '..') or '\0' in part or '\\' in part for part in parts):
         return None
-    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0)
+    cloexec = getattr(os, 'O_CLOEXEC', 0)
+    flags = os.O_RDONLY | os.O_NOFOLLOW | cloexec
+    opened = []  # directory descriptors still open
+    descriptor = None
     try:
-        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | getattr(os, 'O_CLOEXEC', 0))
-    except OSError:
-        return None
-    try:
-        for part in parts[:-1]:
-            try:
-                child = _open_at(part, flags | os.O_DIRECTORY, directory)
-            except OSError:
-                return None
-            os.close(directory)
-            directory = child
         try:
-            descriptor = _open_at(parts[-1], flags | getattr(os, 'O_NONBLOCK', 0), directory)
+            opened.append(os.open(root, os.O_RDONLY | os.O_DIRECTORY | cloexec))
+            for part in parts[:-1]:
+                opened.append(_open_at(part, flags | os.O_DIRECTORY, opened[-1]))
+            descriptor = _open_at(parts[-1], flags | getattr(os, 'O_NONBLOCK', 0), opened[-1])
         except OSError:
             return None
-    finally:
-        os.close(directory)
-    try:
         info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode):
-            os.close(descriptor)
             return None
-        return os.fdopen(descriptor, 'rb'), info
-    except BaseException:
-        os.close(descriptor)
-        raise
+        handle = os.fdopen(descriptor, 'rb')
+        descriptor = None  # now owned by the file object
+        return handle, info
+    finally:
+        for fd in opened:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def init_app(app):
