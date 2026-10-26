@@ -19,7 +19,7 @@ A generic Flask WSGI app, one SQLite file, and a local directory of uploaded ima
   env                            environment file, mode 0600, owned by the service user (never in git)
 ```
 
-Rules that make data survive a deploy: the database file and the upload directory are outside the code tree; a release only ever replaces `releases/` and the `current` link. The production profile (section 3) refuses to start if either lives inside the code tree.
+Rules that make data survive a deploy (the startup check can only see the running code tree, so the operator must also keep `data/` out of `releases/` and out of any other directory a deploy replaces or prunes): the database file and the upload directory are outside the code tree; a release only ever replaces `releases/` and the `current` link. The production profile (section 3) refuses to start if either lives inside the code tree.
 
 ## 2. Host and WSGI server: OPTIONS (not a decision)
 
@@ -81,7 +81,7 @@ Back up while the service is running or stopped; use SQLite's online backup, not
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$DEST"
 sqlite3 /srv/troniworld/data/app.db ".backup $DEST/app.db"
 cp -a /srv/troniworld/data/uploads "$DEST/uploads"
-(cd "$DEST/uploads" && sha256sum * > ../uploads.sha256)
+(cd "$DEST/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # empty file if there are no uploads
 sqlite3 "$DEST/app.db" "PRAGMA integrity_check;"      # must print ok
 ```
 
@@ -97,7 +97,7 @@ On a clean host or directory, with the service stopped:
 mkdir -p /srv/troniworld/data
 cp /srv/troniworld/backups/<stamp>/app.db /srv/troniworld/data/app.db
 cp -a /srv/troniworld/backups/<stamp>/uploads /srv/troniworld/data/uploads
-(cd /srv/troniworld/data/uploads && sha256sum -c ../../backups/<stamp>/uploads.sha256)
+[ ! -s /srv/troniworld/backups/<stamp>/uploads.sha256 ] || (cd /srv/troniworld/data/uploads && sha256sum -c /srv/troniworld/backups/<stamp>/uploads.sha256)   # skipped when the backup had no uploads
 sqlite3 /srv/troniworld/data/app.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"   # ok, then nothing
 flask --app app db current        # with the production environment; shows the stamp the backup was taken at
 ```
@@ -170,6 +170,7 @@ The following are recorded as **open**. None was decided in T13; the options are
 - [ ] Q5 items in section 11 are decided by the owner (or explicitly accepted as unresolved for a limited trial).
 - [ ] `pip check` clean; test gates green on the release commit.
 - [ ] Backup taken and verified; restore rehearsed on the current data size (not just the synthetic rehearsal).
+- [ ] `data/` is not under `releases/` or any directory the deploy tooling replaces or prunes.
 - [ ] Section 3 environment set on the host; the service starts (it refuses to start on an unsafe config).
 - [ ] Smoke checklist (section 9) done, automated part green and manual part completed on the real host.
 - [ ] Rollback path chosen and previous release kept on disk.
