@@ -41,7 +41,7 @@ Core modules:
 - `flask_app/uploads.py`: image content validation, size limits, the 413 handler, and the `nosniff` header for served uploads (T05 slice 3).
 - `flask_app/routes.py`: public articles, authentication, editor uploads, article comment APIs and notifications.
 - `flask_app/film_routes.py`: film pages, admin operations, imports, statistics, comments, notifications, watch tracking.
-- `migrations/`: Alembic history. Current documented head is `k6l7m8n9o0p1`. `env.py` turns SQLite foreign keys off while migrating and checks `PRAGMA foreign_key_check` afterwards (T07). `flask_app/bootstrap.py` provides `flask bootstrap-db` for empty databases.
+- `migrations/`: Alembic history. Current documented head is `l7m8n9o0p1q2` (adds `user.archived_at`, T08a). `env.py` turns SQLite foreign keys off while migrating and checks `PRAGMA foreign_key_check` afterwards (T07). `flask_app/bootstrap.py` provides `flask bootstrap-db` for empty databases.
 
 Frontend:
 
@@ -114,7 +114,7 @@ Ownership and recipients use usernames instead of user foreign keys. Renaming/re
 - `GET /film/my-games`: linked-player participation and own comments (hidden games and comments on them omitted for non-admins).
 - `GET /film/data`: team/player/tactical statistics, optional repeated `game_ids` query values (hidden ids behave as missing for non-admins).
 - `GET /film/analytics`: admin engagement dashboard.
-- `GET/POST /admin/users`: admin account creation, deletion, role changes.
+- `GET/POST /admin/users`: admin account creation, archiving (`action=archive`), role changes. There is no hard delete and no restore; see Account archiving below.
 - `POST /admin/users/create_all_players`: admin bulk account creation.
 - `GET/POST /film/tournaments/new`: admin tournament creation.
 - `GET/POST /film/games/new` and `/film/games/<id>/edit`: admin game metadata.
@@ -178,6 +178,8 @@ Watch tracking accumulates playback time and posts increments around ten seconds
 
 ### Comments and notifications
 
+Account archiving (T08a): the admin "Archive" action sets `User.archived_at` instead of deleting the row. The row, `LoginEvent`, `VideoWatchSession`, `GameWatched` records, and every comment, reply, tag, and notification attributed to the username are unchanged. `get_current_user()` returns no user for an archived account, so login is refused with the usual generic failure and an older session cookie is treated as signed out (login-required pages redirect, JSON APIs return 401). The username stays reserved: registration and admin creation refuse it case-insensitively, and the player auto-link/auto-create paths neither relink nor recreate it. Archived users are omitted from the login suggestion list, mention autocomplete, and new `@Everyone` notifications; existing notifications are untouched. The admin user table shows an Archived label and hides role toggles and the archive button; analytics and admin report endpoints still include the records. Admins cannot archive themselves. Not covered: restoring an archived account (needs a manual database change), hard-deleting discussion history, and relational comment authorship (T08b / open question Q2; authorship is still the username string).
+
 Comment bodies use mention tokens such as `@[Alice]`; Everyone is `@[Everyone]`. The main create endpoint flushes the comment, creates notification rows, then commits. Notification priority is private > everyone > mention > reply > thread. Film comment edits preserve notification identity and read timestamps for recipients who remain entitled, add newly targeted recipients as unread, and delete rows for recipients who lost access; descendant rows are filtered on read if an ancestor changes. See the visibility policy for details. Navigation polls approximately every 60 seconds and links to `?comment=<id>`; the player expands the target reply thread and scrolls it into view.
 
 Editing a film comment deletes and recreates notification rows, resetting read history. Article comment creation commits the comment before separately creating notifications, so those operations are not atomic. Thread depth and cross-parent association checks need improvement.
@@ -206,7 +208,7 @@ The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's te
 - Leadership nonrecipients and admin reports had separate private-content exceptions (removed by T03 round 1 under Q1 option A); admin comment/tag counts now match the viewing admin’s detail lists.
 - Cross-game parent references and nonnumeric timestamps were accepted (fixed for new writes by T04; existing data is not cleaned up).
 - JSON text sent with a string-beacon media type failed with HTTP 500.
-- User deletion with login history raised a non-null foreign-key integrity error.
+- User deletion with login history raised a non-null foreign-key integrity error (fixed by T08a: the admin action now archives; a row delete of such a user still fails and is pinned as a characterization test).
 - Migration replay on an empty database failed with `no such table: user` (still true; `flask bootstrap-db` is the supported path for new databases, T07).
 - `flask db upgrade` on SQLite with foreign keys enabled deleted rows from child tables when a migration rebuilt `user` or `games` (fixed in `migrations/env.py` by T07).
 - Thirteen major page reads returned 200; twenty HTML templates compiled.

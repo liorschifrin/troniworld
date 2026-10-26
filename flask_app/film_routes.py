@@ -95,7 +95,7 @@ def _create_notifications_for_comment(comment, game_id, author_username, author_
         mention_names = re.findall(r'@\[([^\]]+)\]', comment.content)
         for uname in mention_names:
             if uname == 'Everyone' and author_is_leadership:
-                for u in User.query.all():
+                for u in User.query.filter(User.archived_at.is_(None)).all():
                     _set(u.username, 'everyone')
             else:
                 if User.query.filter_by(username=uname).first():
@@ -148,7 +148,7 @@ def link_or_create_user_for_player(player):
     
     if existing_user:
         # Link the existing user to this player (if not already linked)
-        if not existing_user.player_id:
+        if not existing_user.player_id and not existing_user.is_archived:
             existing_user.player_id = player.id
             db.session.flush()
     else:
@@ -192,7 +192,7 @@ def manage_users():
             # Check if username already exists
             existing = User.query.filter(func.lower(User.username) == username.lower()).first()
             if existing:
-                flash('Username already exists.', 'error')
+                flash('Username is archived and reserved.' if existing.is_archived else 'Username already exists.', 'error')
                 return redirect(url_for('manage_users'))
             
             # Get the appropriate shared password based on role
@@ -232,21 +232,24 @@ def manage_users():
             
             return redirect(url_for('manage_users'))
         
-        elif action == 'delete':
+        elif action == 'archive':
+            # Archive, never delete: login, watch and discussion records stay attributed
+            # to the username and the username stays reserved (T08a).
             user_id = request.form.get('user_id')
-            if user_id:
-                user_to_delete = User.query.get(user_id)
-                if user_to_delete:
-                    if user_to_delete.id == current_user.id:
-                        flash('You cannot delete your own account.', 'error')
-                    else:
-                        try:
-                            db.session.delete(user_to_delete)
-                            db.session.commit()
-                            flash(f'User "{user_to_delete.username}" deleted.', 'success')
-                        except Exception as e:
-                            db.session.rollback()
-                            flash(f'Error deleting user: {str(e)}', 'error')
+            user_to_archive = User.query.get(user_id) if user_id else None
+            if user_to_archive:
+                if user_to_archive.id == current_user.id:
+                    flash('You cannot archive your own account.', 'error')
+                elif user_to_archive.is_archived:
+                    flash(f'User "{user_to_archive.username}" is already archived.', 'error')
+                else:
+                    try:
+                        user_to_archive.archived_at = datetime.utcnow()
+                        db.session.commit()
+                        flash(f'User "{user_to_archive.username}" archived. Their records are kept.', 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f'Error archiving user: {str(e)}', 'error')
             return redirect(url_for('manage_users'))
         
         elif action == 'toggle_role':
@@ -255,7 +258,12 @@ def manage_users():
             
             if user_id and role_type:
                 user_to_update = User.query.get(user_id)
-                if user_to_update:
+                if user_to_update and user_to_update.is_archived:
+                    error_msg = f'"{user_to_update.username}" is archived.'
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'message': error_msg}), 400
+                    flash(error_msg, 'error')
+                elif user_to_update:
                     try:
                         if role_type == 'admin':
                             # Toggle admin status
@@ -794,7 +802,7 @@ def view_game(game_id):
                     for n in player_sheet_data['point_players'][point.point_index]
                 ]
     
-    users = [u.username for u in User.query.order_by(User.username).all()]
+    users = [u.username for u in User.query.filter(User.archived_at.is_(None)).order_by(User.username).all()]
     is_watched = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first() is not None
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users, is_watched=is_watched)
 

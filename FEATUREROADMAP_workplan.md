@@ -164,13 +164,13 @@ State: [ ] proposed [ ] ready [ ] active [ ] paused [ ] blocked [x] done [ ] dro
 
 ### T08 — Deletion and identity integrity
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** C; T01, T07; coordinate identity migration with T06. P1.
 - **Scope/read:** ORM/database cascades; user/player uniqueness; username-based authors/recipients. Split into T08a cascade fix and T08b relational identity migration if necessary.
 - **Acceptance:** [ ] user with login/watch records deletes or archives according to an explicit policy; [ ] no orphan or accidental comment deletion; [ ] username reuse cannot transfer ownership; [ ] migrations handle ambiguous old names with a reconciliation report; [ ] linked-player cardinality is enforced or deliberately relaxed.
 - **Decision notes:** user deletion with LoginEvent reproduced an integrity error. Cascades and historical attribution are separate product choices; do not fix a database error by indiscriminately deleting discussion history.
-- **Evidence/checkpoint:** not implemented. Next: specify deletion/retention semantics and test the smallest cascade repair. Rollback: backup plus verified attribution migration reversal where feasible.
+- **Evidence/checkpoint (2026-10-26):** T08a active on branch `task/t08a-deletion` (record `docs/orchestration/tasks/T08a.md`): admin delete now archives (`user.archived_at`, migration `l7m8n9o0p1q2`), records and attribution stay, archived usernames stay reserved; covers acceptance items 1-3 (partly: no ownership transfer by reuse). T08b (reconciliation report, linked-player cardinality, Q2) not started. Original note: not implemented. Next: specify deletion/retention semantics and test the smallest cascade repair. Rollback: backup plus verified attribution migration reversal where feasible.
 
 ### T09 — Trustworthy engagement and notification state
 

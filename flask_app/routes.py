@@ -44,6 +44,7 @@ def register():
 
         existing = User.query.filter(func.lower(User.username) == username.lower()).first()
         if existing:
+            # Archived usernames stay reserved so nobody inherits old comments.
             flash('Username already exists.')
             return redirect(url_for('register'))
 
@@ -100,6 +101,9 @@ def login():
         password = request.form.get('password', '').strip().lower()
 
         user = User.query.filter(func.lower(User.username) == username.lower()).first()
+        if user and user.is_archived:
+            logger.warning("login_failed reason=archived_user user_id=%s", user.id)
+            user = None
         if not user:
             logger.warning("login_failed reason=unknown_user")
             flash('Invalid username or password.')
@@ -143,7 +147,7 @@ def login():
         return redirect(url_for('index'))
 
     template = _login_template(next_url)
-    all_usernames = [u.username for u in User.query.order_by(User.username).all()]
+    all_usernames = [u.username for u in User.query.filter(User.archived_at.is_(None)).order_by(User.username).all()]
     return render_template(template, next=next_url, all_usernames=all_usernames)
 
 

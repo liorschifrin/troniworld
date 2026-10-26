@@ -7,7 +7,12 @@ def get_current_user() -> User | None:
     user_id = session.get('user_id')
     if not user_id:
         return None
-    return User.query.get(user_id)
+    user = User.query.get(user_id)
+    # An archived account keeps its records but can no longer act, even with a
+    # session cookie issued before it was archived.
+    if user is not None and user.is_archived:
+        return None
+    return user
 
 
 def login_required(f):

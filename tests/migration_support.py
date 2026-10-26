@@ -22,7 +22,7 @@ REVISIONS = [
     '3cf0153b0d39', '88ebf2c498ab', '3ccbad256d39', 'c9c8714eb81b', 'f65e956efdb9',
     '0d6f3348d878', 'a1b2c3d4e5f6', 'b7d8e9f0a1b2', 'd1e2f3a4b5c6', '8bb6161a7240',
     'e1f2a3b4c5d6', 'f1a2b3c4d5e6', 'g2h3i4j5k6l7', 'h3i4j5k6l7m8', 'i4j5k6l7m8n9',
-    'j5k6l7m8n9o0', 'k6l7m8n9o0p1',
+    'j5k6l7m8n9o0', 'k6l7m8n9o0p1', 'l7m8n9o0p1q2',
 ]
 HEAD = REVISIONS[-1]
 
@@ -45,6 +45,8 @@ def snapshot_metadata(revision):
                       C('player_id', I, sa.ForeignKey('players.id', ondelete='SET NULL'))]
         if not has('f1a2b3c4d5e6'):
             user_cols.append(C('is_film_user', B, nullable=False, server_default='0'))
+    if has('l7m8n9o0p1q2'):
+        user_cols.append(C('archived_at', DT))
     T('user', md, *user_cols)
 
     post_cols = [C('id', I, primary_key=True), C('title', S(255), nullable=False),

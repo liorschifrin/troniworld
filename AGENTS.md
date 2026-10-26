@@ -51,6 +51,10 @@ If you change of the below information, or add significantly to the page, update
 - Existing databases: back up, then `flask db upgrade`. Works from `f65e956efdb9` onward; older stamps hit a double drop of legacy tables. `migrations/env.py` disables SQLite foreign keys during migration (batch table rebuilds otherwise cascade-delete child rows) and runs `PRAGMA foreign_key_check` afterwards.
 - `tests/test_migrations.py` pins the known model/migration drift (`KNOWN_MIGRATION_DRIFT`); update it when you add a migration that changes the schema, and prefer to add the new revision's snapshot changes in `tests/migration_support.py` (`REVISIONS`, `snapshot_metadata`). Never edit an existing revision file.
 
+## Account archiving (T08a, 2026-10-26)
+
+- `/admin/users` `action=archive` sets `User.archived_at` (migration `l7m8n9o0p1q2`, additive nullable column); users are never row-deleted. `get_current_user()` returns None for archived users (no login, existing sessions act as signed out). Archived usernames stay reserved (register/admin-create refuse them; case-insensitive). Records and comments/notifications attributed to the username are untouched. Excluded from login suggestions, mention autocomplete, and new `@Everyone` notifications. Tests: `tests/test_user_archive.py`, `tests/test_migrations.py` (`archived_at`).
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
