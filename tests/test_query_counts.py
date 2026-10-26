@@ -22,7 +22,8 @@ BEFORE = {
     'team_data': {'small': 23, 'large': 27},
     'my_games': {'small': 14, 'large': 82},
 }
-CEILING = dict(BEFORE)
+CEILING = {name: dict(sizes) for name, sizes in BEFORE.items()}
+CEILING['comments_api'] = {'small': 5, 'large': 5}  # serializers + batched replies/authors
 
 PATHS = {
     'game_page': '/film/games/{first}',

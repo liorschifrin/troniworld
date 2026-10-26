@@ -1,8 +1,7 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import BadRequest, NotFound
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 import json
@@ -10,17 +9,9 @@ import logging
 import os
 import re
 
-_EST = ZoneInfo('America/New_York')
-
-def fmt_dt_est(dt):
-    """Format a naive-UTC datetime as a human-readable EST/EDT string."""
-    if dt is None:
-        return ''
-    aware = dt.replace(tzinfo=timezone.utc).astimezone(_EST)
-    return aware.strftime('%b %d, %Y %I:%M %p')
-
 from . import app, db
 from . import csv_import, watch_time
+from .serializers import fmt_dt_est, iso_utc, stored_private_to, thread_comment, thread_reply, written_comment
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .visibility import can_view_comment, get_visible_game_or_404, private_recipients, visible_games_query
@@ -462,12 +453,12 @@ def my_games():
             'timestamp_str': (f'{r.timestamp // 60}:{r.timestamp % 60:02d}'
                               if r.timestamp is not None else None),
             'created_at': fmt_dt_est(r.created_at),
-            'created_at_iso': r.created_at.isoformat() + 'Z' if r.created_at else '',
+            'created_at_iso': iso_utc(r.created_at),
             'game_id': r.game_id,
             'is_reply': r.parent_id is not None,
             'game_title': r.game_title,
             'game_opponent': r.game_opponent,
-            'private_to': (json.loads(r.private_to) if r.private_to else None),
+            'private_to': stored_private_to(r.private_to),
         }
         for r in my_comments_rows
     ]
@@ -996,56 +987,28 @@ def get_comments(game_id):
         Comment.created_at.asc()
     ).all()
 
-    def can_see(comment):
-        """Return True if the current viewer is allowed to see this comment."""
-        return can_view_comment(current_user, comment)
+    visible = [c for c in comments if can_view_comment(current_user, c)]
+    # One query for every reply (1-level nesting) and one for the authors' roles,
+    # instead of two lookups per comment.
+    replies_by_parent = {}
+    if visible:
+        replies = Comment.query.filter(Comment.parent_id.in_([c.id for c in visible])) \
+            .order_by(Comment.created_at.asc()).all()
+        for reply in replies:
+            if can_view_comment(current_user, reply):
+                replies_by_parent.setdefault(reply.parent_id, []).append(reply)
+    authors = {c.author_name for c in visible}
+    authors.update(r.author_name for group in replies_by_parent.values() for r in group)
+    leaders = {u.username for u in User.query.filter(User.username.in_(authors),
+                                                      User.is_leadership.is_(True))} if authors else set()
 
     comments_list = []
-    for comment in comments:
-        if not can_see(comment):
-            continue
-        private_to_list = None
-        if comment.private_to:
-            try:
-                private_to_list = json.loads(comment.private_to)
-            except (ValueError, TypeError):
-                private_to_list = []
-        comment_author = User.query.filter_by(username=comment.author_name).first()
-        comment_data = {
-            'id': comment.id,
-            'author_name': comment.author_name,
-            'is_leadership': bool(comment_author and comment_author.is_leadership),
-            'content': comment.content,
-            'comment_type': comment.comment_type,
-            'timestamp': comment.timestamp,
-            'created_at': fmt_dt_est(comment.created_at),
-            'private_to': private_to_list,
-            'replies': []
-        }
-        
-        # Get replies (1-level nesting)
-        replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
-        for reply in replies:
-            if not can_see(reply):
-                continue
-            reply_private_to = None
-            if reply.private_to:
-                try:
-                    reply_private_to = json.loads(reply.private_to)
-                except (ValueError, TypeError):
-                    reply_private_to = []
-            reply_author = User.query.filter_by(username=reply.author_name).first()
-            comment_data['replies'].append({
-                'id': reply.id,
-                'author_name': reply.author_name,
-                'is_leadership': bool(reply_author and reply_author.is_leadership),
-                'content': reply.content,
-                'created_at': fmt_dt_est(reply.created_at),
-                'private_to': reply_private_to
-            })
-        
+    for comment in visible:
+        comment_data = thread_comment(comment, comment.author_name in leaders)
+        comment_data['replies'] = [thread_reply(r, r.author_name in leaders)
+                                   for r in replies_by_parent.get(comment.id, [])]
         comments_list.append(comment_data)
-    
+
     return jsonify({'comments': comments_list})
 
 
@@ -1105,20 +1068,9 @@ def create_comment(game_id):
 
         db.session.commit()
 
-        private_to_list = json.loads(private_to_stored) if private_to_stored else None
         return jsonify({
             'success': True,
-            'comment': {
-                'id': new_comment.id,
-                'author_name': new_comment.author_name,
-                'is_leadership': bool(current_user and current_user.is_leadership),
-                'content': new_comment.content,
-                'comment_type': new_comment.comment_type,
-                'timestamp': new_comment.timestamp,
-                'created_at': fmt_dt_est(new_comment.created_at),
-                'parent_id': new_comment.parent_id,
-                'private_to': private_to_list
-            }
+            'comment': written_comment(new_comment, current_user and current_user.is_leadership),
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -1181,24 +1133,9 @@ def update_comment(game_id, comment_id):
 
         db.session.commit()
 
-        private_to_list = None
-        if comment.private_to:
-            try:
-                private_to_list = json.loads(comment.private_to)
-            except (ValueError, TypeError):
-                private_to_list = []
         return jsonify({
             'success': True,
-            'comment': {
-                'id': comment.id,
-                'content': comment.content,
-                'author_name': comment.author_name,
-                'comment_type': comment.comment_type,
-                'timestamp': comment.timestamp,
-                'created_at': fmt_dt_est(comment.created_at),
-                'parent_id': comment.parent_id,
-                'private_to': private_to_list
-            }
+            'comment': written_comment(comment),
         }), 200
     except Exception as e:
         db.session.rollback()
@@ -1659,7 +1596,7 @@ def get_notifications():
             'notification_type': n.notification_type,
             'is_read': n.is_read,
             'created_at': fmt_dt_est(n.created_at),
-            'created_at_iso': n.created_at.isoformat() + 'Z' if n.created_at else '',
+            'created_at_iso': iso_utc(n.created_at),
             'author_name': n.comment.author_name if n.comment else '',
             'content_snippet': snippet,
             'comment_timestamp': n.comment.timestamp if n.comment else None,
@@ -1715,7 +1652,7 @@ def user_comment_list(username):
             'content': comment.content,
             'timestamp': comment.timestamp,
             'created_at': fmt_dt_est(comment.created_at),
-            'created_at_iso': comment.created_at.isoformat() + 'Z' if comment.created_at else '',
+            'created_at_iso': iso_utc(comment.created_at),
             'game_id': comment.game_id,
             'is_reply': comment.parent_id is not None,
             'game_title': comment.game.title,
@@ -1741,7 +1678,7 @@ def user_leadership_tags(username):
                 'comment_id': row.comment_id,
                 'content': row.comment.content,
                 'timestamp': row.comment.timestamp,
-                'created_at_iso': row.created_at.isoformat() + 'Z' if row.created_at else '',
+                'created_at_iso': iso_utc(row.created_at),
                 'author_name': row.comment.author_name,
                 'game_id': row.comment.game_id,
                 'is_reply': row.comment.parent_id is not None,
@@ -1799,7 +1736,7 @@ def get_user_watched_games(username):
                 'title': r.title,
                 'opponent': r.opponent,
                 'game_date': r.game_date,
-                'watched_at_iso': r.watched_at.isoformat() + 'Z' if r.watched_at else '',
+                'watched_at_iso': iso_utc(r.watched_at),
             }
             for r in rows
         ]
