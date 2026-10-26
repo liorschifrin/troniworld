@@ -103,6 +103,11 @@ def test_production_refuses_data_inside_the_code_tree(tmp_path, tree):
         apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(root / 'uploads')))
     with pytest.raises(ConfigError, match='outside the code tree'):
         apply_config(tree, production_env(tmp_path, DATABASE_URI=f'sqlite:///{root}/instance/app.db'))
+    # An ancestor of the tree would publish the code and everything beside it.
+    with pytest.raises(ConfigError, match='not contain it'):
+        apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(root.parent)))
+    with pytest.raises(ConfigError, match='must not contain'):  # tmp_path also holds the database
+        apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(tmp_path)))
     # A symlink into the tree is still inside it.
     link = tmp_path / 'link'
     link.symlink_to(root / 'flask_app' / 'static')

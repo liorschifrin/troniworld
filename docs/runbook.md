@@ -45,10 +45,10 @@ Set these in the service environment (the `env` file above). Values are placehol
 | `APP_ENV` | yes | `production` switches on the production profile. Any other value keeps development behaviour. |
 | `SECRET_KEY` | yes | Signs session cookies and CSRF tokens. At least 32 random characters, not a placeholder. Example generator (run on the host, store the output only in the env file): `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
 | `DATABASE_URI` | yes | `sqlite:////srv/troniworld/data/app.db` (four slashes = absolute path). Must be absolute, not in-memory, and outside the code tree. |
-| `UPLOAD_DIR` | yes | Absolute directory outside the code tree and not containing the database file (it is public at `/static/uploads/`), for example `/srv/troniworld/data/uploads`. Created at start if missing. |
+| `UPLOAD_DIR` | yes | Absolute directory outside the code tree, not containing it, not containing the database file, and holding nothing but uploads (everything in it is public at `/static/uploads/`; keep the environment file and backups elsewhere), for example `/srv/troniworld/data/uploads`. Created at start if missing. |
 | `FILM_USER_PASSWORD`, `FILM_ADMIN_PASSWORD` | yes | The shared login passwords (known limitation until T06). Compared case-insensitively. Treat as secrets. |
 
-What `APP_ENV=production` does (`flask_app/config.py`, tested in `tests/test_release.py`): `DEBUG` and `TESTING` off; template auto-reload off; one-hour static cache instead of none; `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY` and `SESSION_COOKIE_SAMESITE=Lax` set; HTTPS URL scheme; and **startup is refused** (`ConfigError`, process exits) when `SECRET_KEY` is missing, short or a known placeholder, when `DATABASE_URI` is missing, in-memory, relative, or inside the code tree, or when `UPLOAD_DIR` is missing, relative, inside the code tree, or a directory that contains the database file. Development (no `APP_ENV`) is unchanged, including the upload folder `flask_app/static/uploads`.
+What `APP_ENV=production` does (`flask_app/config.py`, tested in `tests/test_release.py`): `DEBUG` and `TESTING` off; template auto-reload off; one-hour static cache instead of none; `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY` and `SESSION_COOKIE_SAMESITE=Lax` set; HTTPS URL scheme; and **startup is refused** (`ConfigError`, process exits) when `SECRET_KEY` is missing, short or a known placeholder, when `DATABASE_URI` is missing, in-memory, relative, or inside the code tree, or when `UPLOAD_DIR` is missing, relative, inside the code tree, an ancestor of it, or a directory that contains the database file. Development (no `APP_ENV`) is unchanged, including the upload folder `flask_app/static/uploads`.
 
 The app also calls `load_dotenv()`; on a host prefer real environment variables and do not leave a `.env` file in the code tree. Existing environment variables win over `.env`.
 
@@ -83,7 +83,7 @@ DB_PATH=/srv/troniworld/data/app.db      # the file named in DATABASE_URI
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$(dirname "$DEST")"; mkdir "$DEST"   # fails if the stamp exists
 [ -s "$DB_PATH" ]                                       # a missing source must fail, not become an empty database
 sqlite3 -readonly "$DB_PATH" ".backup $DEST/app.db"
-cp -a /srv/troniworld/data/uploads "$DEST/uploads"
+cp -a /srv/troniworld/data/uploads "$DEST/uploads"     # uploads write a temp file and rename it: copy off-peak, or from a filesystem snapshot
 chmod -R go-rwx "$DEST"                                 # backups hold private comments
 (cd "$DEST/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # empty file if there are no uploads
 sqlite3 "$DEST/app.db" "PRAGMA integrity_check;"        # must print ok
