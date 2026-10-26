@@ -73,6 +73,13 @@ If you change of the below information, or add significantly to the page, update
 - `game_player.html` is a shell that includes partials from `templates/film_room/partials/game_player/` (`_styles`, `_markup`, `_js_state`, `_js_mentions`, `_js_player_sheet`, `_js_watch_time`, `_js_video`, `_js_comments`, `_js_points`, `_js_bootstrap`, `_js_scoreboard`). The `_js_*` partials form one inline script in that order; keep that order and do not add a second declaration of a top-level name. Pure helpers live in `static/js/game_player/{format,scoreboard}.js` (loaded first). Tests that read the player source use `tests/template_source.py` (`player_script_source()`).
 - `tests/test_query_counts.py` pins statements per request (SQLAlchemy `before_cursor_execute`) for the game page, comments API, games list, team data and My Games, small and large synthetic datasets; the `CEILING` table must not rise. Lower it when you reduce a count. Pagination of long lists is deferred (it would change the contract).
 
+## Browser coverage and accessibility (T12, 2026-10-26)
+
+- `tests/test_browser.py` (marker `browser`, opt-in) drives the real pages in Chromium with Playwright (`playwright==1.64.1`, dev-only, in `requirements-dev.txt`). Setup: `python -m playwright install chromium`; run `python -m pytest -m browser`. Without `-m browser` the tests are skipped; without Chromium they skip with a reason.
+- `tests/browser_support.py` serves every request through Flask's test client (no socket, no server) and replaces the YouTube IFrame API with a local stub (`window.__yt.calls` records the commands). Other hosts are refused. Supported matrix: desktop Chromium 1280x800 and Chromium with mobile emulation at 390x844; nothing else is claimed.
+- The player has ONE keyboard handler (`_js_video.html`); do not add another `document` `keydown` shortcut listener (two used to run for `k`/`j`/`l`/`f`). New clickable non-button elements need `role="button"`, `tabindex="0"` and an `aria-label`; the generic Enter/Space handler in `_js_bootstrap.html` activates them. Toggles need `aria-pressed` or `aria-expanded` and the code that flips them must update it.
+- Details and the manual/automated split: `docs/orchestration/tasks/T12.md`.
+
 ## Active work: game_player.html
 
 Primary files: `flask_app/templates/film_room/pages/game_player.html` (shell) and the partials in `flask_app/templates/film_room/partials/game_player/` (~5,500 lines in total). Line references below predate the split.
