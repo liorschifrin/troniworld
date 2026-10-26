@@ -30,7 +30,7 @@ If you change of the below information, or add significantly to the page, update
 - `flask_app/csrf.py` checks a per-session token on every routed POST/PUT/PATCH/DELETE before the view runs. JSON routes return 403 `{"error": "CSRF token missing or invalid"}`. HTML form routes (`FORM_ENDPOINTS`) return 403 with a flashed message.
 - Every new write client must send the token. POST forms need `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`. `fetch` writes need `headers: { 'X-CSRFToken': CSRF_TOKEN }`; both base templates define `CSRF_TOKEN`. jQuery writes in `articles/base.html` get the header from `jQuery.ajaxPrefilter`. The watch-time `sendBeacon` payload includes `csrf_token: CSRF_TOKEN`.
 - Login and register call `clear_token()` before setting `user_id`, so the token rotates at sign-in; logout keeps it.
-- `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 14 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes. Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
+- `tests/test_csrf.py` pins the exact inventory (20 fetch writes, 16 POST forms, 1 beacon, 3 jQuery posts) and the list of write routes, which includes `upload_csv/apply` and `restore_hidden` (T10). Update both when adding a client or route. Shared test clients in `tests/conftest.py` send their session token by default.
 
 ## Article HTML sanitization (T05 slice 2, 2026-10-25)
 
@@ -60,6 +60,12 @@ If you change of the below information, or add significantly to the page, update
 - Watch time is approximate client-reported engagement, never proof of learning. `flask_app/watch_time.py` implements contract v2 for `POST /film/api/games/<id>/track-watch-time`: `{client_session_id, event_id, seconds_watched, playback_position}`. Accepted events are stored in `video_watch_events` (unique per session and event id), so retries and late or replayed chunks count once. One event is capped at 60 s, negatives and non-finite values are 400, and sessions are keyed by user, game, and client session id. A chunk overlapping another session's credited time (same user and game) is trimmed. Migration `m8n9o0p1q2r3` is additive; its downgrade refuses while event rows exist.
 - The client (`game_player.html`) counts only while playing in the visible, focused tab; the unload beacon is a JSON-typed Blob. Legacy bodies without ids are refused with 400. Tests: `tests/test_engagement.py`.
 - `GET /film/api/notifications` `unread_count` is its own query over all unread viewable rows, not the length of the newest-50 list. `/film/data` counts games, points, and per-player games played from the same selected visible games.
+
+## CSV import preview (T10, 2026-10-26)
+
+- `flask_app/csv_import.py` parses a game CSV into a proposed change set (`parse_game_csv`, `build_plan`), reports row/column errors, and applies atomically (`apply_plan`). `POST /film/games/<id>/upload_csv` only previews (200) or reports errors (400); it never writes. `POST .../upload_csv/apply` rechecks a SHA-256 version token (`state_token`) of the game's points, roster and sheet order under the write lock and refuses with 409, writing nothing, if the game changed since the preview. Hiding points needs the `confirm_hidden` checkbox.
+- Points a reimport omits are hidden (`Point.hidden_by_import`, migration `n9o0p1q2r3s4`, additive), not deleted. Read points through `Game.visible_points`; never use `game.points` for display or statistics. Restore via `POST .../points/<id>/restore_hidden` or by importing a CSV that contains the point index. Invalid columns are errors, not skipped.
+- New write routes `apply_game_csv` and `restore_hidden_point` are in the CSRF form inventory (16 POST forms). Tests: `tests/test_csv_import.py`.
 
 ## Active work: game_player.html
 

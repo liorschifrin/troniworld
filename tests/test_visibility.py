@@ -366,7 +366,7 @@ def test_admin_only_pages_and_reports(client_for, records, db, role, path):
     ('post', '/film/tournaments/new', {}, 200),
     ('post', '/film/games/new', {}, 200),
     ('post', '/film/games/{game_id}/edit', {}, 200),
-    ('post', '/film/games/{game_id}/upload_csv', {}, 200),
+    ('post', '/film/games/{game_id}/upload_csv', {}, 400),
     ('post', '/film/games/{game_id}/delete_player_sheet', {}, 302),
     ('patch', '/film/api/games/{game_id}/points/{point_id}', {}, 200),
     ('post', '/film/api/games/{game_id}/update_player_sheet', {'changes': []}, 200),

@@ -11,21 +11,22 @@ from sqlalchemy import select
 ERROR = {'error': 'CSRF token missing or invalid'}
 FLASH = 'Your session expired or the form was invalid'
 TEMPLATES = Path(__file__).resolve().parents[1] / 'flask_app/templates'
-CSV = b'O\n1\n0\nSynthetic roster player,1\n'
+CSV = b',O\n,1\n,\n\nSynthetic roster player,1\n'
 
 
 @pytest.fixture
 def writes(records, db):
     """Synthetic rows for every write route, plus the inventory of write requests."""
     from flask_app.models import (ArticleComment, ArticleCommentNotification, Comment,
-                                  CommentNotification, Player, Post, User)
+                                  CommentNotification, Player, Point, Post, User)
     game, point = records['game'], records['point']
     player = Player(name='Synthetic roster player')
     unlinked = Player(name='Synthetic unlinked player')
     game.roster.append(player)
     post = Post(title='Synthetic post', author='Synthetic author', content='Synthetic body')
     disposable = User(username='Disposable', hashed_password='synthetic-unused-hash')
-    db.session.add_all([player, unlinked, post, disposable])
+    hidden_point = Point(game_id=game.id, point_index=2, tron_o=True, tron_point=True, hidden_by_import=True)
+    db.session.add_all([player, unlinked, post, disposable, hidden_point])
     db.session.flush()
     article = ArticleComment(post_id=post.id, author_name='ordinary', content='Synthetic article comment')
     comment = Comment(game_id=game.id, author_name='ordinary', content='Synthetic comment',
@@ -42,6 +43,13 @@ def writes(records, db):
     article_notif = ArticleCommentNotification.query.one().id
     film_notif = CommentNotification.query.one().id
     film = f'/film/api/games/{game.id}'
+
+    def apply_body():
+        from flask_app import csv_import
+        sheet, _ = csv_import.parse_game_csv(CSV)
+        token = csv_import.state_token(csv_import.load_state(game), {'Synthetic roster player'})
+        return {'csv_text': CSV.decode(), 'state_token': token, 'confirm_hidden': '1'}
+
     image = lambda: {'upload': (BytesIO(synthetic_image()), 'synthetic.png')}
     # (role, method, path, client kind, body factory, legitimate status)
     return {
@@ -80,7 +88,12 @@ def writes(records, db):
         'edit-game': ('admin', 'post', f'/film/games/{game.id}/edit', 'form',
                       lambda: {'title': 'Synthetic edit', 'opponent': 'Synthetic'}, 302),
         'upload-csv': ('admin', 'post', f'/film/games/{game.id}/upload_csv', 'form',
-                       lambda: {'csv_file': (BytesIO(CSV), 'synthetic.csv')}, 302),
+                       lambda: {'csv_file': (BytesIO(CSV), 'synthetic.csv')}, 200),
+        'upload-csv-apply': ('admin', 'post', f'/film/games/{game.id}/upload_csv/apply', 'form',
+                             apply_body, 302),
+        'restore-hidden-point': ('admin', 'post',
+                                 f'/film/games/{game.id}/points/{hidden_point.id}/restore_hidden', 'form',
+                                 dict, 302),
         'delete-player-sheet': ('admin', 'post', f'/film/games/{game.id}/delete_player_sheet', 'form',
                                 dict, 302),
         'comment-create': ('ordinary', 'post', film + '/comments', 'fetch',
@@ -173,6 +186,7 @@ WRITE_IDS = ['login', 'logout', 'register', 'new-post', 'edit-post', 'delete-pos
              'article-edit', 'article-delete', 'upload-image', 'article-notif-read',
              'article-notif-read-all', 'user-create', 'user-archive', 'user-toggle-role',
              'create-all-players', 'new-tournament', 'new-game', 'edit-game', 'upload-csv',
+             'upload-csv-apply', 'restore-hidden-point',
              'delete-player-sheet', 'comment-create', 'comment-edit', 'comment-delete', 'point-patch',
              'player-sheet', 'watch-time', 'watch-time-beacon', 'notif-read', 'notif-read-all',
              'toggle-watched']
@@ -197,6 +211,8 @@ def test_legitimate_write_with_token_succeeds(session_client, writes, db, app, n
     assert response.status_code == write[5], response.get_data(as_text=True)[:500]
     if name == 'logout':
         assert not logged_in(client)
+    elif name == 'upload-csv':
+        assert snapshot(db, app) == before  # a preview never writes
     else:
         assert snapshot(db, app) != before
     if name == 'login':
@@ -406,4 +422,4 @@ def test_every_template_write_client_carries_the_token():
     assert "xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN)" in base[prefilter:prefilter + 300]
     assert prefilter < base.index('jQuery.post(')
     # Exact inventory; a new client must be added here deliberately.
-    assert (fetch_writes, forms, beacons, jquery) == (20, 14, 1, 3)
+    assert (fetch_writes, forms, beacons, jquery) == (20, 16, 1, 3)
