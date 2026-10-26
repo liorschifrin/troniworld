@@ -207,3 +207,17 @@ def test_archived_user_gets_no_new_everyone_notification(admin, db, history, rec
 def test_archived_username_hidden_from_login_suggestions(anonymous, admin, history):
     archive(admin, history)
     assert 'ordinary' not in anonymous.get('/login').text
+
+
+def test_cannot_demote_last_active_admin_after_archiving_the_other(admin, db, records):
+    me = records['users']['admin']
+    other = User(username='other_admin', hashed_password='x', is_admin=True)
+    db.session.add(other)
+    db.session.commit()
+    archive(admin, other)
+    response = admin.post('/admin/users', data={'action': 'toggle_role', 'user_id': str(me.id),
+                                                'role_type': 'admin'},
+                          headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 400
+    db.session.expire_all()
+    assert db.session.get(User, me.id).is_admin is True

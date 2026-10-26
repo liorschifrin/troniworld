@@ -265,6 +265,16 @@ def manage_users():
                     flash(error_msg, 'error')
                 elif user_to_update:
                     try:
+                        if (role_type == 'admin' and user_to_update.is_admin
+                                and not User.query.filter(
+                                    User.is_admin.is_(True), User.archived_at.is_(None),
+                                    User.id != user_to_update.id).first()):
+                            # Archived admins cannot sign in, so they do not count.
+                            error_msg = 'You cannot remove the last active admin.'
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return jsonify({'success': False, 'message': error_msg}), 400
+                            flash(error_msg, 'error')
+                            return redirect(url_for('manage_users'))
                         if role_type == 'admin':
                             # Toggle admin status
                             user_to_update.is_admin = not user_to_update.is_admin
