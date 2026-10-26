@@ -78,11 +78,17 @@ Dependencies are pinned. A vulnerability scan (for example `pip-audit`) was **no
 Back up while the service is running or stopped; use SQLite's online backup, not `cp`, for a live database:
 
 ```bash
+set -euo pipefail; umask 077
+DB_PATH=/srv/troniworld/data/app.db      # the file named in DATABASE_URI
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$DEST"
-sqlite3 /srv/troniworld/data/app.db ".backup $DEST/app.db"
+[ -s "$DB_PATH" ]                                       # a missing source must fail, not become an empty database
+sqlite3 -readonly "$DB_PATH" ".backup $DEST/app.db"
 cp -a /srv/troniworld/data/uploads "$DEST/uploads"
+chmod -R go-rwx "$DEST"                                 # backups hold private comments
 (cd "$DEST/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # empty file if there are no uploads
-sqlite3 "$DEST/app.db" "PRAGMA integrity_check;"      # must print ok
+sqlite3 "$DEST/app.db" "PRAGMA integrity_check;"        # must print ok
+sqlite3 "$DEST/app.db" "SELECT version_num FROM alembic_version;"   # must print the stamp of the live database
+sqlite3 "$DEST/app.db" "SELECT count(*) FROM games; SELECT count(*) FROM user;"   # compare with the live counts
 ```
 
 Always take one immediately before any schema upgrade (section 8). Copy backups off the host (destination, schedule, retention and who holds them are open: section 11). The recovery-time and data-loss objectives are **not defined**; the backup frequency cannot be chosen until they are.
