@@ -32,12 +32,10 @@ def test_invalid_comment_rejected_without_write(ordinary, records, db, invalid):
             'Invalid comment accepted or persisted')
 
 
-@pytest.mark.known_failure
-@pytest.mark.xfail(strict=True, raises=AuditRegression, reason='T09: string beacon content type returns 500')
 def test_string_beacon_does_not_return_server_error(ordinary, records):
+    # T09: a text/plain beacon body (older cached pages) used to become a 500.
     response = ordinary.post(f'/film/api/games/{records["game"].id}/track-watch-time',
                              data=json.dumps({'seconds_watched': 10, 'playback_position': 40}),
                              content_type='text/plain;charset=UTF-8')
     assert response.is_json
-    assert response.status_code in (200, 400, 415, 500)
-    require(response.status_code != 500, 'String beacon becomes internal server error')
+    assert response.status_code in (200, 400, 415)

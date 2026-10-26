@@ -116,7 +116,7 @@ HIDDEN_SURFACES = [
     ('post', '/film/api/games/{id}/comments', {'content': 'Synthetic probe'}),
     ('patch', '/film/api/games/{id}/comments/{comment}', {'content': 'Synthetic probe'}),
     ('delete', '/film/api/games/{id}/comments/{comment}', None),
-    ('post', '/film/api/games/{id}/track-watch-time', {'seconds_watched': 5}),
+    ('post', '/film/api/games/{id}/track-watch-time', {'seconds_watched': 5, 'client_session_id': 's', 'event_id': 's:1'}),
     ('get', '/film/api/games/{id}/watch-progress', None),
     ('post', '/film/api/games/{id}/toggle-watched', None),
 ]
@@ -629,7 +629,7 @@ def test_admin_comment_writes_and_watch_tracking_unchanged(admin, records, db, g
     edited = admin.patch(f'{path}/comments/{comment_id}', json={'content': 'Synthetic admin edit'})
     assert edited.status_code == 200
     assert db.session.get(Comment, comment_id).content == 'Synthetic admin edit'
-    watched = admin.post(path + '/track-watch-time', json={'seconds_watched': 5})
+    watched = admin.post(path + '/track-watch-time', json={'seconds_watched': 5, 'client_session_id': 's', 'event_id': 's:1'})
     assert watched.status_code == 200
     row = VideoWatchSession.query.filter_by(user_id=records['users']['admin'].id, game_id=game_id).one()
     assert row.watch_duration_seconds == 5
@@ -643,7 +643,8 @@ def test_admin_watch_progress_and_toggle_unchanged(admin, records, db, game_key)
     game_id = records[game_key].id
     path = f'/film/api/games/{game_id}'
     assert admin.post(path + '/track-watch-time', json={
-        'seconds_watched': 5, 'playback_position': 65}).status_code == 200
+        'seconds_watched': 5, 'playback_position': 65,
+        'client_session_id': 's', 'event_id': 's:1'}).status_code == 200
     response = admin.get(path + '/watch-progress')
     assert response.status_code == 200
     assert response.json == {'last_position': 65}

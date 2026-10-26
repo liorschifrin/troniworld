@@ -3374,40 +3374,88 @@
   // =========================
   // VIDEO WATCH TIME TRACKING
   // =========================
-  let watchSessionId = null;
+  // Contract v2 (flask_app/watch_time.py). Time counts only while the video is
+  // playing in the visible, focused tab. This page load owns one client session; every
+  // chunk has its own event id and is resent unchanged until the server acknowledges
+  // it, so a retry or a replayed beacon can never be counted twice or dropped.
+  const watchClientSessionId = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const WATCH_URL = '/film/api/games/{{ game.id }}/track-watch-time';
+  const MAX_PENDING_WATCH_CHUNKS = 50;
+  let watchEventCounter = 0;
   let lastTrackTime = 0;
   let accumulatedWatchSeconds = 0;
+  let pendingWatchChunks = [];            // [{event_id, seconds_watched}] not yet acknowledged
+  const inFlightWatchChunks = new Set();  // event ids with a request outstanding
   const TRACK_INTERVAL_SECONDS = 10; // Send tracking data every 10 seconds
+  // The controls interval ticks every 100 ms; back off so a failing request is not
+  // resent on every tick.
+  const WATCH_RETRY_INITIAL_DELAY_MS = 1000;
+  const WATCH_RETRY_MAX_DELAY_MS = 60000;
+  let nextWatchRetryAt = 0;
+  let watchRetryDelayMs = WATCH_RETRY_INITIAL_DELAY_MS;
+
+  function scheduleWatchRetry() {
+    nextWatchRetryAt = Date.now() + watchRetryDelayMs;
+    watchRetryDelayMs = Math.min(watchRetryDelayMs * 2, WATCH_RETRY_MAX_DELAY_MS);
+  }
+
+  function resetWatchRetry() {
+    nextWatchRetryAt = 0;
+    watchRetryDelayMs = WATCH_RETRY_INITIAL_DELAY_MS;
+  }
+
+  function watchTabActive() {
+    return document.visibilityState === 'visible' && document.hasFocus();
+  }
+
+  function queueWatchChunk() {
+    if (accumulatedWatchSeconds <= 0) return;
+    watchEventCounter += 1;
+    pendingWatchChunks.push({
+      event_id: watchClientSessionId + ':' + watchEventCounter,
+      seconds_watched: Math.round(accumulatedWatchSeconds * 1000) / 1000
+    });
+    accumulatedWatchSeconds = 0;
+    if (pendingWatchChunks.length > MAX_PENDING_WATCH_CHUNKS) pendingWatchChunks.shift();
+  }
 
   function sendWatchTimeTracking() {
-    if (accumulatedWatchSeconds <= 0 && !watchSessionId) return;
-
-    const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
-    const data = {
-      seconds_watched: accumulatedWatchSeconds,
-      session_id: watchSessionId,
-      playback_position: currentPosition
-    };
-
-    fetch('/film/api/games/{{ game.id }}/track-watch-time', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': CSRF_TOKEN,
-      },
-      body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-      if (result.success) {
-        // Update session ID for future requests
-        watchSessionId = result.session_id;
-        // Reset accumulated time
-        accumulatedWatchSeconds = 0;
-      }
-    })
-    .catch(error => {
-      console.error('Error tracking watch time:', error);
+    queueWatchChunk();
+    if (Date.now() < nextWatchRetryAt) return;
+    pendingWatchChunks.forEach(chunk => {
+      if (inFlightWatchChunks.has(chunk.event_id)) return;
+      inFlightWatchChunks.add(chunk.event_id);
+      const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
+      fetch(WATCH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({
+          client_session_id: watchClientSessionId,
+          event_id: chunk.event_id,
+          seconds_watched: chunk.seconds_watched,
+          playback_position: currentPosition
+        })
+      })
+      .then(response => {
+        // Acknowledged (including a replay the server already had) or permanently
+        // refused: stop resending. Network errors and 5xx keep the chunk for next time.
+        if (response.ok || (response.status >= 400 && response.status < 500)) {
+          pendingWatchChunks = pendingWatchChunks.filter(c => c.event_id !== chunk.event_id);
+          resetWatchRetry();
+        } else {
+          scheduleWatchRetry();
+        }
+      })
+      .catch(error => {
+        console.error('Error tracking watch time:', error);
+        scheduleWatchRetry();
+      })
+      .finally(() => inFlightWatchChunks.delete(chunk.event_id));
     });
   }
 
@@ -3418,8 +3466,8 @@
       const state = player.getPlayerState();
       const currentTime = Date.now() / 1000; // Current timestamp in seconds
 
-      // Only track time when video is actually playing
-      if (state === YT.PlayerState.PLAYING) {
+      // Only count time while the video is playing in the visible, focused tab
+      if (state === YT.PlayerState.PLAYING && watchTabActive()) {
         if (lastTrackTime > 0) {
           const elapsed = currentTime - lastTrackTime;
           // Only add if elapsed time is reasonable (prevent tracking when tab was inactive)
@@ -3434,10 +3482,10 @@
         }
         lastTrackTime = currentTime;
       } else {
-        // Reset last track time when video is not playing
+        // Reset last track time when video is not counting
         lastTrackTime = 0;
-        // Send any accumulated time when video is paused/stopped
-        if (accumulatedWatchSeconds > 0) {
+        // Send any accumulated time (and retry unacknowledged chunks)
+        if (accumulatedWatchSeconds > 0 || pendingWatchChunks.length > 0) {
           sendWatchTimeTracking();
         }
       }
@@ -3446,20 +3494,30 @@
     }
   }
 
-  // Send watch time before user leaves the page
-  window.addEventListener('beforeunload', () => {
-    if (accumulatedWatchSeconds > 0 || watchSessionId) {
-      // Use sendBeacon for reliable tracking on page unload
-      const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
-      const data = JSON.stringify({
-        seconds_watched: accumulatedWatchSeconds,
-        session_id: watchSessionId,
-        playback_position: currentPosition,
-        csrf_token: CSRF_TOKEN  // sendBeacon cannot set headers
-      });
-      navigator.sendBeacon('/film/api/games/{{ game.id }}/track-watch-time', data);
-    }
-  });
+  function beaconWatchChunk(chunk) {
+    const currentPosition = (player && playerReady) ? player.getCurrentTime() : null;
+    const data = JSON.stringify({
+      client_session_id: watchClientSessionId,
+      event_id: chunk.event_id,
+      seconds_watched: chunk.seconds_watched,
+      playback_position: currentPosition,
+      csrf_token: CSRF_TOKEN  // sendBeacon cannot set headers
+    });
+    // A typed Blob sends Content-Type: application/json; a bare string would be text/plain.
+    navigator.sendBeacon(WATCH_URL, new Blob([data], { type: 'application/json' }));
+  }
+
+  // Leaving the page: send what is unacknowledged. Both events may fire; event ids
+  // make the second send harmless.
+  function flushWatchTimeOnLeave() {
+    queueWatchChunk();
+    pendingWatchChunks.forEach(beaconWatchChunk);
+  }
+  window.addEventListener('pagehide', flushWatchTimeOnLeave);
+  window.addEventListener('beforeunload', flushWatchTimeOnLeave);
+  // Losing visibility or focus ends the counted interval right away.
+  document.addEventListener('visibilitychange', () => { if (!watchTabActive()) sendWatchTimeTracking(); });
+  window.addEventListener('blur', sendWatchTimeTracking);
 
   function toggleTheaterMode() {
     const layout = document.querySelector('.layout');

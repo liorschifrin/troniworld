@@ -55,6 +55,12 @@ If you change of the below information, or add significantly to the page, update
 
 - `/admin/users` `action=archive` sets `User.archived_at` (migration `l7m8n9o0p1q2`, additive nullable column); users are never row-deleted. `get_current_user()` returns None for archived users (no login, existing sessions act as signed out). Archived usernames stay reserved (register/admin-create refuse them; case-insensitive). Records and comments/notifications attributed to the username are untouched. Excluded from login suggestions, mention autocomplete, and new `@Everyone` notifications. Tests: `tests/test_user_archive.py`, `tests/test_migrations.py` (`archived_at`).
 
+## Engagement and notification state (T09, 2026-10-26)
+
+- Watch time is approximate client-reported engagement, never proof of learning. `flask_app/watch_time.py` implements contract v2 for `POST /film/api/games/<id>/track-watch-time`: `{client_session_id, event_id, seconds_watched, playback_position}`. Accepted events are stored in `video_watch_events` (unique per session and event id), so retries and late or replayed chunks count once. One event is capped at 60 s, negatives and non-finite values are 400, and sessions are keyed by user, game, and client session id. A chunk overlapping another session's credited time (same user and game) is trimmed. Migration `m8n9o0p1q2r3` is additive; its downgrade refuses while event rows exist.
+- The client (`game_player.html`) counts only while playing in the visible, focused tab; the unload beacon is a JSON-typed Blob. Legacy bodies without ids are refused with 400. Tests: `tests/test_engagement.py`.
+- `GET /film/api/notifications` `unread_count` is its own query over all unread viewable rows, not the length of the newest-50 list. `/film/data` counts games, points, and per-player games played from the same selected visible games.
+
 ## Active work: game_player.html
 
 Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
