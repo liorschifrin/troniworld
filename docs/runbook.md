@@ -100,11 +100,17 @@ Always take one immediately before any schema upgrade (section 8). Copy backups 
 On a clean host or directory, with the service stopped:
 
 ```bash
+set -euo pipefail; umask 077
+STAMP=20261026T120000Z                                  # placeholder: the selected backup
+BACKUP="/srv/troniworld/backups/$STAMP"; SERVICE_USER=troniworld    # placeholder service account
 mkdir -p /srv/troniworld/data
-cp /srv/troniworld/backups/<stamp>/app.db /srv/troniworld/data/app.db
-cp -a /srv/troniworld/backups/<stamp>/uploads /srv/troniworld/data/uploads
-[ ! -s /srv/troniworld/backups/<stamp>/uploads.sha256 ] || (cd /srv/troniworld/data/uploads && sha256sum -c /srv/troniworld/backups/<stamp>/uploads.sha256)   # skipped when the backup had no uploads
-sqlite3 /srv/troniworld/data/app.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"   # ok, then nothing
+cp "$BACKUP/app.db" /srv/troniworld/data/app.db
+cp -a "$BACKUP/uploads" /srv/troniworld/data/uploads    # on an existing uploads/ this would nest uploads/uploads: move the old one aside first
+[ ! -s "$BACKUP/uploads.sha256" ] || (cd /srv/troniworld/data/uploads && sha256sum -c "$BACKUP/uploads.sha256")
+chown -R "$SERVICE_USER" /srv/troniworld/data           # the service must own data/ (SQLite creates journal files beside app.db)
+chmod 700 /srv/troniworld/data; chmod 600 /srv/troniworld/data/app.db
+sudo -u "$SERVICE_USER" test -w /srv/troniworld/data/app.db -a -w /srv/troniworld/data/uploads   # access check as the service user
+sqlite3 -readonly /srv/troniworld/data/app.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"   # ok, then nothing
 flask --app app db current        # with the production environment; shows the stamp the backup was taken at
 ```
 
