@@ -390,7 +390,9 @@ def test_every_template_write_client_carries_the_token():
                 assert 'name="csrf_token" value="{{ csrf_token() }}"' in form, (name, form)
         for args in call_arguments(source, 'navigator.sendBeacon'):
             beacons += 1
-            variable = args.split(',')[1].strip()
+            blob = re.search(r"new Blob\(\[(\w+)\],\s*\{\s*type:\s*'application/json'\s*\}\)", args)
+            assert blob, (name, 'the beacon body must be a JSON-typed Blob')
+            variable = blob.group(1)
             assigned = re.search(rf'const {variable} = JSON\.stringify\(\{{(.*?)\}}\);', source, re.S)
             assert assigned and 'csrf_token: CSRF_TOKEN' in assigned.group(1), name
         if 'jQuery.post(' in source or '$.post(' in source or '$.ajax(' in source:
