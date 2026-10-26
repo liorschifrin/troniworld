@@ -47,10 +47,10 @@ def test_top_level_script_names_are_declared_once():
     for text in script_partials().values():
         names.update(re.findall(r'^  (?:async )?function (\w+)\(', text, re.M))
         names.update(re.findall(r'^  (?:const|let) (\w+)\b', text, re.M))
-    # pointPlayersData is declared in both branches of one {% if player_sheet_data %}.
-    assert [n for n, count in names.items() if count > 1] == ['pointPlayersData']
     for module in PLAYER_MODULES.glob('*.js'):
         names.update(re.findall(r'^(?:async )?function (\w+)\(', module.read_text(), re.M))
+    # pointPlayersData is declared in both branches of one {% if player_sheet_data %}.
+    assert [n for n, count in names.items() if count > 1] == ['pointPlayersData']
     assert len(names) > 100  # guards a vacuous pass
 
 
@@ -88,8 +88,10 @@ def test_served_scripts_define_what_the_markup_calls(served_script, records, adm
     html = admin.get(f"/film/games/{records['game'].id}").get_data(as_text=True)
     # The page also loads the notification bell and menu scripts from the base template.
     served_script = '\n'.join(re.findall(r'<script>(.*?)</script>', html, re.S))
-    called = set(re.findall(r'on(?:click|input|keydown|change|keyup|blur)="\s*(\w+)\(', html))
+    called = set(re.findall(
+        r'on(?:click|input|keydown|change|keyup|blur)="\s*(?:event\.\w+\(\);\s*)?(\w+)\(', html))
     defined = set(re.findall(r'function (\w+)\(', served_script))
+    assert {'enterPlayerSheetEdit', 'toggleAddMenu'} <= called  # handlers behind an event.stopPropagation() prefix
     assert called and called <= defined, called - defined
 
 
