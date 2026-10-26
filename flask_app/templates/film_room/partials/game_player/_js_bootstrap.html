@@ -1,0 +1,157 @@
+  // Load comments when page loads
+  loadComments().then(() => {
+    // If navigated here from a notification, scroll to the target comment
+    const _urlParams = new URLSearchParams(window.location.search);
+    const _targetCommentId = _urlParams.get('comment');
+    if (_targetCommentId) {
+      scrollToCommentById(parseInt(_targetCommentId, 10));
+    }
+  });
+
+  function scrollToCommentById(commentId) {
+    // If the target is a reply, make sure its parent thread is expanded so the element exists in the DOM
+    for (const c of comments) {
+      if (c.replies && c.replies.some(r => r.id === commentId)) {
+        if (!expandedThreads.has(c.id)) {
+          expandedThreads.add(c.id);
+          renderComments();
+        }
+        break;
+      }
+    }
+    const el = document.querySelector(`[data-comment-id="${commentId}"]`);
+    if (!el) return;
+    // Suppress the auto-scroll from updateActiveComment for 3s so it doesn't
+    // immediately override the notification scroll.
+    _suppressAutoScroll = true;
+    clearTimeout(window._suppressAutoScrollTimer);
+    window._suppressAutoScrollTimer = setTimeout(() => { _suppressAutoScroll = false; }, 3000);
+    el.classList.add('notif-highlight');
+    scrollCommentIntoView(el, { smooth: true, toTop: true });
+    // Remove the highlight class after flashing so it can retrigger if needed
+    el.addEventListener('animationend', () => el.classList.remove('notif-highlight'), { once: true });
+  }
+
+  // Player sheet column hover effect
+  document.addEventListener('DOMContentLoaded', () => {
+    const playerSheetTable = document.querySelector('.player-sheet-table');
+    if (playerSheetTable) {
+      playerSheetTable.addEventListener('mouseover', (e) => {
+        const cell = e.target.closest('td.clickable, th.clickable');
+        if (cell) {
+          // Get column index
+          const row = cell.parentElement;
+          const columnIndex = Array.from(row.children).indexOf(cell);
+          
+          // Highlight all cells in this column
+          const rows = playerSheetTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cellInColumn = row.children[columnIndex];
+            if (cellInColumn && cellInColumn.classList.contains('clickable')) {
+              cellInColumn.classList.add('column-hover');
+            }
+          });
+        }
+      });
+      
+      playerSheetTable.addEventListener('mouseout', (e) => {
+        const cell = e.target.closest('td.clickable, th.clickable');
+        if (cell) {
+          // Remove highlight from all cells
+          const allClickables = playerSheetTable.querySelectorAll('.column-hover');
+          allClickables.forEach(el => el.classList.remove('column-hover'));
+        }
+      });
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const active = document.activeElement;
+    const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
+    if (tagNamesToIgnore.includes(active.tagName)) return;
+    if (active.isContentEditable) return;
+    // Let browser/OS handle any modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    
+    // Prevent default for keys we're handling
+    const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', ',', '.', 'k', 'K', 'f', 'F'];
+    if (keysToPrevent.includes(e.key)) {
+      e.preventDefault();
+    }
+
+    // Play/Pause: Space or K
+    if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
+      togglePlayPause();
+    }
+    
+    // Seek 5 seconds: Arrow keys
+    else if (e.key === 'ArrowLeft') {
+      seekRelative(-5);
+    }
+    else if (e.key === 'ArrowRight') {
+      seekRelative(5);
+    }
+    
+    // Seek 10 seconds: J/L
+    else if (e.key === 'j' || e.key === 'J') {
+      seekRelative(-10);
+    }
+    else if (e.key === 'l' || e.key === 'L') {
+      seekRelative(10);
+    }
+    
+    // Frame by frame (approx 1/30 second): Comma/Period
+    else if (e.key === ',') {
+      seekRelative(-1/30);
+    }
+    else if (e.key === '.') {
+      seekRelative(1/30);
+    }
+    
+    // Fullscreen: F
+    else if (e.key === 'f' || e.key === 'F') {
+      if (player) {
+        const iframe = player.getIframe();
+        if (!document.fullscreenElement) {
+          iframe.requestFullscreen().catch(err => {
+            console.log('Error attempting to enable fullscreen:', err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    }
+  });
+
+  // Bind mention engine to the main comment input, then register submit shortcut
+  const _commentInputEl = document.getElementById('commentInput');
+  bindMentionInput(_commentInputEl);
+
+  // Bind private-user autocomplete to the static private-to input programmatically
+  // (inline oninput can be unreliable on iOS Safari for inputs inside hidden-then-shown wrappers)
+  const _privateToInput = document.getElementById('privateToInput');
+  if (_privateToInput) {
+    _privateToInput.addEventListener('input', () => {
+      handlePrivateUserInput(_privateToInput, addPrivateUser, privateToUsers);
+    });
+    _privateToInput.addEventListener('keydown', e => handlePrivateUserKeydown(e, addPrivateUser));
+    _privateToInput.addEventListener('blur', () => setTimeout(hidePrivateUserDropdown, 200));
+  }
+
+  // Allow Enter to submit comment (Shift+Enter for new line)
+  _commentInputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addComment();
+    }
+  });
+
+  {% if not game.youtube_id %}
+  document.getElementById('videoUrl').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      loadVideo();
+    }
+  });
+  {% endif %}

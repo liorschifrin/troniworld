@@ -1,8 +1,7 @@
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.exceptions import BadRequest, NotFound
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 import json
@@ -10,17 +9,9 @@ import logging
 import os
 import re
 
-_EST = ZoneInfo('America/New_York')
-
-def fmt_dt_est(dt):
-    """Format a naive-UTC datetime as a human-readable EST/EDT string."""
-    if dt is None:
-        return ''
-    aware = dt.replace(tzinfo=timezone.utc).astimezone(_EST)
-    return aware.strftime('%b %d, %Y %I:%M %p')
-
 from . import app, db
-from . import csv_import, watch_time
+from . import csv_import, game_stats, player_sheet, watch_time
+from .serializers import fmt_dt_est, iso_utc, stored_private_to, thread_comment, thread_reply, written_comment
 from .models import Player, Game, Point, Event, Comment, Tournament, point_players, User, VideoWatchSession, LoginEvent, CommentNotification, GameWatched
 from .utils import get_current_user, login_required, admin_required
 from .visibility import can_view_comment, get_visible_game_or_404, private_recipients, visible_games_query
@@ -398,42 +389,33 @@ def my_games():
         # Sort by date descending (game_date is a string in ISO format YYYY-MM-DD, or None)
         my_games_list = sorted(my_games_list, key=lambda g: (g.game_date or '', g.id), reverse=True)
         
-        # Calculate stats for each game
+        # Points this player was in, for all of their games in one query
+        points_by_game = game_stats.points_of_player(current_user.player.id, [g.id for g in my_games_list])
+
         for game in my_games_list:
-            # Get points where this player participated
-            player_points = [p for p in game.visible_points if current_user.player in p.players]
-            
-            # Calculate O and D stats
-            o_points = [p for p in player_points if p.tron_o]
-            d_points = [p for p in player_points if not p.tron_o]
-            
-            o_count = len(o_points)
-            o_scored = len([p for p in o_points if p.tron_point])
-            hold_pct = (o_scored / o_count * 100) if o_count > 0 else 0
-            
-            d_count = len(d_points)
-            d_scored = len([p for p in d_points if p.tron_point])
-            break_pct = (d_scored / d_count * 100) if d_count > 0 else 0
-            
+            counts = game_stats.tally(points_by_game.get(game.id, []))
+            o_count, o_scored = counts['o_count'], counts['o_scored']
+            d_count, d_scored = counts['d_count'], counts['d_scored']
+
             games_with_stats.append({
                 'game': game,
                 'o_count': o_count,
                 'o_scored': o_scored,
-                'hold_pct': hold_pct,
+                'hold_pct': game_stats.rate(o_scored, o_count, 0),
                 'd_count': d_count,
                 'd_scored': d_scored,
-                'break_pct': break_pct
+                'break_pct': game_stats.rate(d_scored, d_count, 0),
             })
-            
+
             # Add to totals
             total_o_points += o_count
             total_o_scored += o_scored
             total_d_points += d_count
             total_d_scored += d_scored
-    
+
     # Calculate total percentages
-    total_hold_pct = (total_o_scored / total_o_points * 100) if total_o_points > 0 else 0
-    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else 0
+    total_hold_pct = game_stats.rate(total_o_scored, total_o_points, 0)
+    total_break_pct = game_stats.rate(total_d_scored, total_d_points, 0)
 
     # Fetch all comments by this user for the "My Comments" section
     my_comments_rows = (
@@ -462,12 +444,12 @@ def my_games():
             'timestamp_str': (f'{r.timestamp // 60}:{r.timestamp % 60:02d}'
                               if r.timestamp is not None else None),
             'created_at': fmt_dt_est(r.created_at),
-            'created_at_iso': r.created_at.isoformat() + 'Z' if r.created_at else '',
+            'created_at_iso': iso_utc(r.created_at),
             'game_id': r.game_id,
             'is_reply': r.parent_id is not None,
             'game_title': r.game_title,
             'game_opponent': r.game_opponent,
-            'private_to': (json.loads(r.private_to) if r.private_to else None),
+            'private_to': stored_private_to(r.private_to),
         }
         for r in my_comments_rows
     ]
@@ -512,18 +494,16 @@ def tron_data():
     total_d_points = total_d_scored = 0
     wins = losses = ties = 0
 
+    # Every visible point of the selected games, with players, in two queries
+    selected_points = game_stats.visible_points(selected_id_set, with_players=True)
+    points_by_game = game_stats.group_by_game(selected_points)
+
     for game in games:
-        pts = list(game.visible_points)
-
-        o_pts   = [p for p in pts if p.tron_o]
-        d_pts   = [p for p in pts if not p.tron_o]
-
-        o_count   = len(o_pts)
-        o_scored  = len([p for p in o_pts if p.tron_point])
-        d_count   = len(d_pts)
-        d_scored  = len([p for p in d_pts if p.tron_point])
-        hold_pct  = (o_scored / o_count * 100) if o_count > 0 else None
-        break_pct = (d_scored / d_count * 100) if d_count > 0 else None
+        counts = game_stats.tally(points_by_game.get(game.id, []))
+        o_count, o_scored = counts['o_count'], counts['o_scored']
+        d_count, d_scored = counts['d_count'], counts['d_scored']
+        hold_pct  = game_stats.rate(o_scored, o_count)
+        break_pct = game_stats.rate(d_scored, d_count)
 
         total_o_points += o_count;  total_o_scored += o_scored
         total_d_points += d_count;  total_d_scored += d_scored
@@ -542,36 +522,36 @@ def tron_data():
             'd_count': d_count, 'd_scored': d_scored, 'break_pct': break_pct,
         })
 
-    total_hold_pct  = (total_o_scored / total_o_points * 100) if total_o_points > 0 else None
-    total_break_pct = (total_d_scored / total_d_points * 100) if total_d_points > 0 else None
+    total_hold_pct  = game_stats.rate(total_o_scored, total_o_points)
+    total_break_pct = game_stats.rate(total_d_scored, total_d_points)
 
     # ── Player leaderboard ──────────────────────────────────────────
     players = Player.query.filter_by(active=True).order_by(Player.name).all()
+    points_by_player = {}
+    for point in selected_points:
+        for member in point.players:
+            points_by_player.setdefault(member.id, []).append(point)
+    games_played = game_stats.games_played(selected_id_set)
     player_stats = []
     for player in players:
-        all_pts   = [p for p in player.points if p.game_id in selected_id_set and not p.hidden_by_import]
+        all_pts = points_by_player.get(player.id, [])
         if not all_pts:
             continue
-        o_pts     = [p for p in all_pts if p.tron_o]
-        d_pts     = [p for p in all_pts if not p.tron_o]
-        o_count   = len(o_pts)
-        o_scored  = len([p for p in o_pts if p.tron_point])
-        d_count   = len(d_pts)
-        d_scored  = len([p for p in d_pts if p.tron_point])
+        counts = game_stats.tally(all_pts)
         player_stats.append({
             'player': player,
             'total_pts': len(all_pts),
-            'games_played': len([g for g in player.games if g.id in selected_id_set]),
-            'o_count': o_count, 'o_scored': o_scored,
-            'hold_pct': (o_scored / o_count * 100) if o_count > 0 else None,
-            'd_count': d_count, 'd_scored': d_scored,
-            'break_pct': (d_scored / d_count * 100) if d_count > 0 else None,
+            'games_played': games_played.get(player.id, 0),
+            'o_count': counts['o_count'], 'o_scored': counts['o_scored'],
+            'hold_pct': game_stats.rate(counts['o_scored'], counts['o_count']),
+            'd_count': counts['d_count'], 'd_scored': counts['d_scored'],
+            'break_pct': game_stats.rate(counts['d_scored'], counts['d_count']),
         })
     # Sort by total points played descending
     player_stats.sort(key=lambda x: x['total_pts'], reverse=True)
 
     # ── Tendency breakdowns (all games combined) ────────────────────
-    all_pts = [p for p in Point.query.filter_by(hidden_by_import=False).all() if p.game_id in selected_id_set]
+    all_pts = selected_points
 
     pull_play_counts = {}
     for p in all_pts:
@@ -731,87 +711,9 @@ def view_game(game_id):
     current_user = get_current_user()
     game = get_visible_game_or_404(game_id, current_user)
     
-    # Get all unique point detail field values across ALL games
-    all_pull_plays = set()
-    all_defense_types = set()
-    all_offense_faced = set()
-    
-    # Option lists must not reveal labels used only in hidden games.
-    all_points = Point.query.filter(
-        Point.game_id.in_(visible_games_query(current_user).with_entities(Game.id)),
-        Point.hidden_by_import.is_(False),
-    ).all()
-    for point in all_points:
-        if point.pull_play:
-            all_pull_plays.add(point.pull_play)
-        if point.defense_type:
-            all_defense_types.add(point.defense_type)
-        if point.offense_faced:
-            all_offense_faced.add(point.offense_faced)
-    
-    point_field_options = {
-        'pull_play': sorted(list(all_pull_plays)),
-        'defense_type': sorted(list(all_defense_types)),
-        'offense_faced': sorted(list(all_offense_faced))
-    }
-    
-    # Prepare player sheet data if points exist
-    player_sheet_data = None
-    points = game.visible_points.order_by(Point.point_index).all()
-    
-    if points:
-        # Get all players in order from player_order_data if available
-        all_players = []
-        separator_index = None
-        
-        if game.player_order_data and 'players' in game.player_order_data:
-            # Use the stored player order
-            all_players = game.player_order_data['players']
-            separator_index = game.player_order_data.get('separator_index')
-        elif game.roster:
-            # Fallback to roster order
-            all_players = [p.name for p in game.roster]
-        else:
-            # Fallback: collect players from points
-            player_set = set()
-            for point in points:
-                for player in point.players:
-                    if player.name not in player_set:
-                        all_players.append(player.name)
-                        player_set.add(player.name)
-        
-        # Only build the player sheet if there are actual players
-        # (after a "clear" deletion, all_players will be empty and we fall back to Upload CSV)
-        if all_players:
-            player_sheet_data = {
-                'points': points,
-                'players': all_players,
-                'separator_index': separator_index,
-                'point_players': {}  # Map of point_index -> [player_names]
-            }
+    point_field_options = player_sheet.point_field_options(current_user)
+    player_sheet_data = player_sheet.build_player_sheet(game, player_sheet.game_points(game))
 
-            for point in points:
-                player_sheet_data['point_players'][point.point_index] = sorted(
-                    [p.name for p in point.players],
-                    key=lambda n: all_players.index(n) if n in all_players else len(all_players)
-                )
-
-            # Build injury sub lookups for the template and JS
-            player_sheet_data['point_injury_subs'] = {}
-            player_sheet_data['point_players_js'] = {}
-            for point in points:
-                subs = point.injury_subs or {}
-                sub_off_set = set(subs.get('off', []))
-                sub_on_set = set(subs.get('on', []))
-                player_sheet_data['point_injury_subs'][point.point_index] = subs
-                player_sheet_data['point_players_js'][point.point_index] = [
-                    {
-                        'name': n,
-                        'sub': 'off' if n in sub_off_set else ('on' if n in sub_on_set else None)
-                    }
-                    for n in player_sheet_data['point_players'][point.point_index]
-                ]
-    
     users = [u.username for u in User.query.filter(User.archived_at.is_(None)).order_by(User.username).all()]
     is_watched = GameWatched.query.filter_by(user_id=current_user.id, game_id=game_id).first() is not None
     return render_template('film_room/pages/game_player.html', current_user=current_user, game=game, player_sheet_data=player_sheet_data, point_field_options=point_field_options, users=users, is_watched=is_watched)
@@ -996,56 +898,28 @@ def get_comments(game_id):
         Comment.created_at.asc()
     ).all()
 
-    def can_see(comment):
-        """Return True if the current viewer is allowed to see this comment."""
-        return can_view_comment(current_user, comment)
+    visible = [c for c in comments if can_view_comment(current_user, c)]
+    # One query for every reply (1-level nesting) and one for the authors' roles,
+    # instead of two lookups per comment.
+    replies_by_parent = {}
+    if visible:
+        replies = Comment.query.filter(Comment.parent_id.in_([c.id for c in visible])) \
+            .order_by(Comment.created_at.asc()).all()
+        for reply in replies:
+            if can_view_comment(current_user, reply):
+                replies_by_parent.setdefault(reply.parent_id, []).append(reply)
+    authors = {c.author_name for c in visible}
+    authors.update(r.author_name for group in replies_by_parent.values() for r in group)
+    leaders = {u.username for u in User.query.filter(User.username.in_(authors),
+                                                      User.is_leadership.is_(True))} if authors else set()
 
     comments_list = []
-    for comment in comments:
-        if not can_see(comment):
-            continue
-        private_to_list = None
-        if comment.private_to:
-            try:
-                private_to_list = json.loads(comment.private_to)
-            except (ValueError, TypeError):
-                private_to_list = []
-        comment_author = User.query.filter_by(username=comment.author_name).first()
-        comment_data = {
-            'id': comment.id,
-            'author_name': comment.author_name,
-            'is_leadership': bool(comment_author and comment_author.is_leadership),
-            'content': comment.content,
-            'comment_type': comment.comment_type,
-            'timestamp': comment.timestamp,
-            'created_at': fmt_dt_est(comment.created_at),
-            'private_to': private_to_list,
-            'replies': []
-        }
-        
-        # Get replies (1-level nesting)
-        replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at.asc()).all()
-        for reply in replies:
-            if not can_see(reply):
-                continue
-            reply_private_to = None
-            if reply.private_to:
-                try:
-                    reply_private_to = json.loads(reply.private_to)
-                except (ValueError, TypeError):
-                    reply_private_to = []
-            reply_author = User.query.filter_by(username=reply.author_name).first()
-            comment_data['replies'].append({
-                'id': reply.id,
-                'author_name': reply.author_name,
-                'is_leadership': bool(reply_author and reply_author.is_leadership),
-                'content': reply.content,
-                'created_at': fmt_dt_est(reply.created_at),
-                'private_to': reply_private_to
-            })
-        
+    for comment in visible:
+        comment_data = thread_comment(comment, comment.author_name in leaders)
+        comment_data['replies'] = [thread_reply(r, r.author_name in leaders)
+                                   for r in replies_by_parent.get(comment.id, [])]
         comments_list.append(comment_data)
-    
+
     return jsonify({'comments': comments_list})
 
 
@@ -1105,20 +979,9 @@ def create_comment(game_id):
 
         db.session.commit()
 
-        private_to_list = json.loads(private_to_stored) if private_to_stored else None
         return jsonify({
             'success': True,
-            'comment': {
-                'id': new_comment.id,
-                'author_name': new_comment.author_name,
-                'is_leadership': bool(current_user and current_user.is_leadership),
-                'content': new_comment.content,
-                'comment_type': new_comment.comment_type,
-                'timestamp': new_comment.timestamp,
-                'created_at': fmt_dt_est(new_comment.created_at),
-                'parent_id': new_comment.parent_id,
-                'private_to': private_to_list
-            }
+            'comment': written_comment(new_comment, current_user and current_user.is_leadership),
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -1181,24 +1044,9 @@ def update_comment(game_id, comment_id):
 
         db.session.commit()
 
-        private_to_list = None
-        if comment.private_to:
-            try:
-                private_to_list = json.loads(comment.private_to)
-            except (ValueError, TypeError):
-                private_to_list = []
         return jsonify({
             'success': True,
-            'comment': {
-                'id': comment.id,
-                'content': comment.content,
-                'author_name': comment.author_name,
-                'comment_type': comment.comment_type,
-                'timestamp': comment.timestamp,
-                'created_at': fmt_dt_est(comment.created_at),
-                'parent_id': comment.parent_id,
-                'private_to': private_to_list
-            }
+            'comment': written_comment(comment),
         }), 200
     except Exception as e:
         db.session.rollback()
@@ -1659,7 +1507,7 @@ def get_notifications():
             'notification_type': n.notification_type,
             'is_read': n.is_read,
             'created_at': fmt_dt_est(n.created_at),
-            'created_at_iso': n.created_at.isoformat() + 'Z' if n.created_at else '',
+            'created_at_iso': iso_utc(n.created_at),
             'author_name': n.comment.author_name if n.comment else '',
             'content_snippet': snippet,
             'comment_timestamp': n.comment.timestamp if n.comment else None,
@@ -1715,7 +1563,7 @@ def user_comment_list(username):
             'content': comment.content,
             'timestamp': comment.timestamp,
             'created_at': fmt_dt_est(comment.created_at),
-            'created_at_iso': comment.created_at.isoformat() + 'Z' if comment.created_at else '',
+            'created_at_iso': iso_utc(comment.created_at),
             'game_id': comment.game_id,
             'is_reply': comment.parent_id is not None,
             'game_title': comment.game.title,
@@ -1741,7 +1589,7 @@ def user_leadership_tags(username):
                 'comment_id': row.comment_id,
                 'content': row.comment.content,
                 'timestamp': row.comment.timestamp,
-                'created_at_iso': row.created_at.isoformat() + 'Z' if row.created_at else '',
+                'created_at_iso': iso_utc(row.created_at),
                 'author_name': row.comment.author_name,
                 'game_id': row.comment.game_id,
                 'is_reply': row.comment.parent_id is not None,
@@ -1799,7 +1647,7 @@ def get_user_watched_games(username):
                 'title': r.title,
                 'opponent': r.opponent,
                 'game_date': r.game_date,
-                'watched_at_iso': r.watched_at.isoformat() + 'Z' if r.watched_at else '',
+                'watched_at_iso': iso_utc(r.watched_at),
             }
             for r in rows
         ]

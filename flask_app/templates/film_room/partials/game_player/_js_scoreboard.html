@@ -1,0 +1,33 @@
+  // Scoreboard logic
+  function updateScoreboard() {
+    try {
+      const tronEl = document.getElementById('scoreValueTron');
+      const opponentEl = document.getElementById('scoreValueOpponent');
+      if (!tronEl || !opponentEl) return;
+      if (!window.player_sheet_data || !Array.isArray(window.player_sheet_data.points)) {
+        tronEl.textContent = '0';
+        opponentEl.textContent = '0';
+        return;
+      }
+
+      // Find current point based on video timestamp
+      const ts = (player && playerReady && typeof player.getCurrentTime === 'function')
+        ? player.getCurrentTime()
+        : 0;
+      const duration = (player && playerReady && typeof player.getDuration === 'function')
+        ? player.getDuration()
+        : 0;
+      const points = window.player_sheet_data.points;
+      // If the video has fully ended, show the true final score immediately.
+      const isEnded = player && playerReady && typeof player.getPlayerState === 'function'
+        && player.getPlayerState() === YT.PlayerState.ENDED;
+      const completedPoints = isEnded ? points : getCompletedPoints(points, ts, duration);
+      const score = getCurrentScore(completedPoints);
+      tronEl.textContent = String(score.tron);
+      opponentEl.textContent = String(score.opp);
+    } catch (e) {
+      // Keep scoreboard updates from breaking other player update loops.
+    }
+  }
+
+  updateScoreboard();

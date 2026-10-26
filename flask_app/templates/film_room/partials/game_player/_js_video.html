@@ -1,0 +1,482 @@
+  function toggleTheaterMode() {
+    const layout = document.querySelector('.layout');
+    const btn = document.getElementById('vcTheaterBtn');
+    layout.classList.toggle('theater-mode');
+    const on = layout.classList.contains('theater-mode');
+    document.body.classList.toggle('theater-mode', on);
+    btn.classList.toggle('vc-active', on);
+    // Always collapse the comment input when switching modes so state is consistent
+    const wrap = document.getElementById('commentInputWrap');
+    const addBtn = document.getElementById('addCommentBtn');
+    if (wrap)   wrap.classList.remove('mobile-open');
+    if (addBtn) addBtn.classList.remove('active');
+    // Persist preference
+    try { localStorage.setItem('theaterMode', on ? '1' : '0'); } catch(e) {}
+  }
+
+  // Restore theater mode preference on load
+  (function() {
+    try {
+      if (localStorage.getItem('theaterMode') === '1') {
+        const layout = document.querySelector('.layout');
+        const btn = document.getElementById('vcTheaterBtn');
+        if (layout) { layout.classList.add('theater-mode'); }
+        if (btn) { btn.classList.add('vc-active'); }
+        document.body.classList.add('theater-mode');
+      }
+    } catch(e) {}
+  })();
+
+  function resumeFromLastPosition() {
+    fetch('/film/api/games/{{ game.id }}/watch-progress')
+      .then(r => r.json())
+      .then(data => {
+        if (data.last_position) {
+          pendingResumePosition = data.last_position;
+        }
+      })
+      .catch(() => {});
+  }
+
+  // Load YouTube IFrame API
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+
+  window.onYouTubeIframeAPIReady = function() {
+    {% if game.youtube_id %}
+    // Auto-load the video
+    loadVideo('{{ game.youtube_id }}');
+    {% endif %}
+  };
+
+  function loadVideo(videoId) {
+    if (!videoId) {
+      const input = document.getElementById('videoUrl').value;
+      videoId = extractVideoId(input);
+      if (!videoId) {
+        alert('Could not find a YouTube video ID in that URL. Try pasting the full YouTube link.');
+        return;
+      }
+    }
+    
+    currentVideoId = videoId;
+    const placeholder = document.getElementById('placeholder');
+    if (placeholder) {
+      placeholder.style.display = 'none';
+    }
+
+    if (player) {
+      player.loadVideoById(videoId);
+    } else {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => {
+            playerReady = true;
+            startVideoControlsUpdate();
+            resumeFromLastPosition();
+          },
+          onStateChange: (event) => {
+            // On first BUFFERING/PLAYING, apply any pending resume position
+            if (pendingResumePosition !== null &&
+                (event.data === YT.PlayerState.BUFFERING || event.data === YT.PlayerState.PLAYING)) {
+              const pos = pendingResumePosition;
+              pendingResumePosition = null;
+              player.seekTo(pos, true);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // Custom video controls
+  function updateVideoControls() {
+    if (!player || !playerReady) return;
+
+    try {
+      const currentTime = player.getCurrentTime();
+      const duration = player.getDuration();
+      const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+      const progressFill = document.getElementById('progressFill');
+      const timeDisplay = document.getElementById('timeDisplay');
+      const playerTimestamp = document.getElementById('playerTimestamp');
+
+      if (progressFill) {
+        progressFill.style.width = `${progressPercent}%`;
+      }
+
+      if (timeDisplay) {
+        timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      if (playerTimestamp) {
+        playerTimestamp.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+      }
+
+      // Update active point based on timestamp
+      updateActivePoint(currentTime);
+      
+      // Update active comment based on timestamp
+      updateActiveComment(currentTime);
+      
+      // Track video watch time
+      trackVideoWatchTime();
+    } catch (e) {
+      // Ignore errors if player not fully loaded
+    }
+  }
+
+  function updateActivePoint(currentTime) {
+    // Find all point items with timestamps
+    const pointItems = document.querySelectorAll('.point-item[data-timestamp]');
+    if (pointItems.length === 0) return;
+
+    // Find the most recent point that has been passed
+    let activePoint = null;
+    let closestTimestamp = -1;
+
+    pointItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activePoint = item;
+      }
+    });
+
+    // If we found an active point and it's different from current
+    if (activePoint) {
+      const activePointId = activePoint.getAttribute('data-point-id');
+      
+      if (activePointId !== currentActivePointId) {
+        // Remove active class from all points
+        pointItems.forEach(item => item.classList.remove('active'));
+        
+        // Add active class to new point
+        activePoint.classList.add('active');
+        
+        // Update current players display
+        const pointIndex = parseInt(activePoint.getAttribute('data-point-index'));
+        updateCurrentPlayers(pointIndex);
+        updatePlayerSheetActiveColumn(pointIndex);
+        
+        // Scroll active point to the center of the points bar
+        const scrollContainer = document.querySelector('.point-info-scroll');
+        if (scrollContainer) {
+          const targetLeft = activePoint.offsetLeft - (scrollContainer.clientWidth / 2) + (activePoint.offsetWidth / 2);
+          scrollContainer.scrollTo({ left: targetLeft, behavior: 'smooth' });
+        } else {
+          activePoint.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+        
+        currentActivePointId = activePointId;
+      }
+    } else if (currentActivePointId !== null) {
+      // No active point, remove all highlights
+      pointItems.forEach(item => item.classList.remove('active'));
+      currentActivePointId = null;
+      updatePlayerSheetActiveColumn(null);
+    }
+  }
+
+  function updatePlayerSheetActiveColumn(pointIndex) {
+    const table = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
+    if (!table) return;
+    table.querySelectorAll('.column-active').forEach(el => el.classList.remove('column-active'));
+    if (pointIndex == null) return;
+    const th = table.querySelector(`th[data-point-index="${pointIndex}"]`);
+    if (!th) return;
+    const colIdx = th.cellIndex;
+    table.querySelectorAll('tr').forEach(row => {
+      const cell = row.cells[colIdx];
+      if (cell) cell.classList.add('column-active');
+    });
+  }
+
+  function updateCurrentPlayers(pointIndex) {
+    const playersContainer = document.getElementById('currentPlayers');
+    const playersList = document.getElementById('currentPlayersList');
+    
+    if (!playersContainer || !playersList) return;
+    
+    const players = pointPlayersData[pointIndex];
+    
+    if (players && players.length > 0) {
+      playersContainer.classList.remove('empty');
+      playersList.innerHTML = players.map(({name, sub}) => {
+        const isSelf = currentUserName && name === currentUserName;
+        let cls = 'player-badge';
+        if (isSelf) cls += ' player-badge-self';
+        if (sub === 'off') cls += ' player-badge-suboff';
+        else if (sub === 'on') cls += ' player-badge-subon';
+        const prefix = sub === 'off' ? '↓ ' : sub === 'on' ? '↑ ' : '';
+        return `<span class="${cls}" title="${sub === 'off' ? 'Subbed off (injury timeout)' : sub === 'on' ? 'Subbed on (injury timeout)' : ''}">${prefix}${escHtml(name)}</span>`;
+      }).join('');
+    } else {
+      playersContainer.classList.add('empty');
+      playersList.innerHTML = '<span class="player-badge">No players listed</span>';
+    }
+  }
+
+  function updateActiveComment(currentTime) {
+    // Find all comment items with timestamps
+    const commentItems = document.querySelectorAll('.comment-item[data-timestamp]');
+    if (commentItems.length === 0) return;
+
+    // Find the most recent comment that has been passed
+    let activeComment = null;
+    let closestTimestamp = -1;
+
+    commentItems.forEach(item => {
+      const timestamp = parseInt(item.getAttribute('data-timestamp'));
+      if (timestamp <= currentTime && timestamp > closestTimestamp) {
+        closestTimestamp = timestamp;
+        activeComment = item;
+      }
+    });
+
+    // If we found an active comment and it's different from current
+    if (activeComment) {
+      const activeCommentId = activeComment.getAttribute('data-comment-id');
+      
+      if (activeCommentId !== currentActiveCommentId) {
+        // Remove active classes from all comments
+        commentItems.forEach(item => {
+          item.classList.remove('active');
+          item.classList.remove('active-pulse');
+        });
+        
+        // Add active class to new comment
+        activeComment.classList.add('active');
+        activeComment.classList.add('active-pulse');
+        
+        // Scroll to show the active comment — on mobile landscape, scroll within list only (no page scroll)
+        if (!_suppressAutoScroll && !_isEditingComment) {
+          const isMobileLandscape = window.innerWidth <= 1100 && window.innerWidth > window.innerHeight;
+          if (!isMobileLandscape) {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: true });
+          } else {
+            scrollCommentIntoView(activeComment, { smooth: true, toTop: false });
+          }
+        }
+        
+        // Remove pulse animation after it completes (1s)
+        setTimeout(() => {
+          activeComment.classList.remove('active-pulse');
+        }, 1000);
+        
+        currentActiveCommentId = activeCommentId;
+      }
+    } else if (currentActiveCommentId !== null) {
+      // No active comment, remove all highlights
+      commentItems.forEach(item => {
+        item.classList.remove('active');
+        item.classList.remove('active-pulse');
+      });
+      currentActiveCommentId = null;
+    }
+  }
+
+  function seekToProgress(event) {
+    if (!player || !playerReady) return;
+
+    const progressBar = event.currentTarget;
+    const rect = progressBar.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percent = clickX / rect.width;
+    const duration = player.getDuration();
+    const seekTime = duration * percent;
+
+    player.seekTo(seekTime, true);
+  }
+
+  let controlsUpdateInterval = null;
+  function startVideoControlsUpdate() {
+    if (controlsUpdateInterval) {
+      clearInterval(controlsUpdateInterval);
+    }
+    controlsUpdateInterval = setInterval(() => {
+      updateVideoControls();
+      updateScoreboard();
+      syncPlaybackRateIndicator();
+      syncMuteIndicator();
+      syncPlayPauseIndicator();
+    }, 100);
+  }
+
+  function togglePlayPause() {
+    if (!player || !playerReady) return;
+
+    const state = player.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+    syncPlayPauseIndicator();
+  }
+
+  function seekRelative(seconds) {
+    if (!player || !playerReady) return;
+    const current = player.getCurrentTime();
+    player.seekTo(current + seconds, true);
+  }
+
+  function setPlaybackSpeed(rate) {
+    if (!player || !playerReady) return;
+    player.setPlaybackRate(rate);
+    syncPlaybackRateIndicator();
+  }
+
+  function adjustPlaybackSpeed(delta) {
+    if (!player || !playerReady) return;
+    let current;
+    try { current = player.getPlaybackRate(); } catch(e) { return; }
+    const next = Math.round((current + delta) * 100) / 100;
+    const clamped = Math.min(2, Math.max(0.25, next));
+    setPlaybackSpeed(clamped);
+  }
+
+  function syncPlaybackRateIndicator() {
+    if (!player || !playerReady) return;
+    let rate;
+    try { rate = player.getPlaybackRate(); } catch(e) { return; }
+
+    // Remove any existing custom rate badge
+    const existing = document.getElementById('vc-custom-rate');
+    if (existing) existing.remove();
+
+    const presetBtns = [...document.querySelectorAll('.vc-speed[data-speed-group]')];
+    const presetRates = presetBtns.map(b => parseFloat(b.getAttribute('data-rate')));
+    const isPreset = presetRates.includes(rate);
+
+    // Highlight / un-highlight preset buttons
+    presetBtns.forEach(btn => {
+      const btnRate = parseFloat(btn.getAttribute('data-rate'));
+      btn.classList.toggle('vc-active', btnRate === rate);
+    });
+
+    if (!isPreset) {
+      // Build the badge
+      const badge = document.createElement('span');
+      badge.id = 'vc-custom-rate';
+      badge.className = 'vc-btn vc-speed-custom vc-active';
+      badge.title = `Current speed: ${rate}× (set via YouTube controls)`;
+      badge.innerHTML = `<span class="vc-label">${rate}×</span>`;
+
+      // Insert in sorted position among speed buttons
+      const container = document.getElementById('vcSpeedRow');
+      // Find the first preset button whose rate is greater than current rate
+      const insertBefore = presetBtns.find(b => parseFloat(b.getAttribute('data-rate')) > rate);
+      if (insertBefore) {
+        container.insertBefore(badge, insertBefore);
+      } else {
+        // rate is higher than all presets — insert after the last preset button
+        const lastPreset = presetBtns[presetBtns.length - 1];
+        lastPreset.insertAdjacentElement('afterend', badge);
+      }
+    }
+  }
+
+  function vcFullscreen() {
+    let iframe = null;
+    try { iframe = player && player.getIframe ? player.getIframe() : null; } catch(e) {}
+    if (!iframe) iframe = document.querySelector('#player iframe');
+    if (!iframe) return;
+    const req = iframe.requestFullscreen || iframe.webkitRequestFullscreen || iframe.mozRequestFullScreen;
+    if (req) req.call(iframe);
+  }
+
+  function toggleMute() {
+    if (!player || !playerReady) return;
+    if (player.isMuted()) {
+      player.unMute();
+    } else {
+      player.mute();
+    }
+    syncMuteIndicator();
+  }
+
+  const VC_ICON_PLAY  = `<svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z" stroke="currentColor" stroke-width="1.5"/></svg>`;
+  const VC_ICON_PAUSE = `<svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M14 19L14 5C14 3.89543 14.8954 3 16 3L17 3C18.1046 3 19 3.89543 19 5L19 19C19 20.1046 18.1046 21 17 21L16 21C14.8954 21 14 20.1046 14 19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 19L10 5C10 3.89543 9.10457 3 8 3L7 3C5.89543 3 5 3.89543 5 5L5 19C5 20.1046 5.89543 21 7 21L8 21C9.10457 21 10 20.1046 10 19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  function syncPlayPauseIndicator() {
+    if (!player || !playerReady) return;
+    let state;
+    try { state = player.getPlayerState(); } catch(e) { return; }
+    const icon  = document.getElementById('vcPlayPauseIcon');
+    const label = document.getElementById('vcPlayPauseLabel');
+    if (!icon || !label) return;
+    const isPlaying = state === YT.PlayerState.PLAYING;
+    icon.innerHTML    = isPlaying ? VC_ICON_PAUSE : VC_ICON_PLAY;
+    label.textContent = isPlaying ? 'Pause' : 'Play';
+  }
+
+  const VC_ICON_UNMUTED = `<svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="m19 6c1.5 1.5 2 4 2 6s-.5 4.5-2 6m-3-9.00002c.5.5 1 1.50002 1 3.00002s-.5 2.5-1 3m-13-4.5v3c0 1.1046.5 2 2.5 2.5s3.5 5 6.5 5c2 0 2-18 0-18-3 0-4.5 4.5-6.5 5s-2.5 1.39543-2.5 2.5z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>`;
+  const VC_ICON_MUTED   = `<svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="m19 6c1.5 1.5 2 4 2 6s-.5 4.5-2 6m-3-9.00002c.5.5 1 1.50002 1 3.00002s-.5 2.5-1 3m-13-4.5v3c0 1.1046.5 2 2.5 2.5s3.5 5 6.5 5c2 0 2-18 0-18-3 0-4.5 4.5-6.5 5s-2.5 1.39543-2.5 2.5z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>`;
+
+  function syncMuteIndicator() {
+    if (!player || !playerReady) return;
+    let muted;
+    try { muted = player.isMuted(); } catch(e) { return; }
+    const icon  = document.getElementById('vcMuteIcon');
+    const label = document.getElementById('vcMuteLabel');
+    if (!icon || !label) return;
+    if (muted) {
+      icon.innerHTML   = VC_ICON_MUTED;
+      label.textContent = 'Unmute';
+    } else {
+      icon.innerHTML   = VC_ICON_UNMUTED;
+      label.textContent = 'Mute';
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    // Skip when focus is inside a text input or editable element
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+    // Let browser/OS handle modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    switch (e.key) {
+      case 'k':
+        togglePlayPause();
+        e.preventDefault();
+        break;
+      case 'j':
+        seekRelative(-10);
+        e.preventDefault();
+        break;
+      case 'l':
+        seekRelative(10);
+        e.preventDefault();
+        break;
+      case '<': // Shift + ,  — speed down
+        adjustPlaybackSpeed(-0.25);
+        e.preventDefault();
+        break;
+      case '>': // Shift + .  — speed up
+        adjustPlaybackSpeed(0.25);
+        e.preventDefault();
+        break;
+      case 'f':
+      case 'F':
+        vcFullscreen();
+        e.preventDefault();
+        break;
+      case 'm':
+      case 'M':
+        toggleMute();
+        e.preventDefault();
+        break;
+      case 't':
+      case 'T':
+        toggleTheaterMode();
+        e.preventDefault();
+        break;
+    }
+  });
+

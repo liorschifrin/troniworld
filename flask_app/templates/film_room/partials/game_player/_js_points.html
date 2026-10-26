@@ -1,0 +1,369 @@
+  // Point timestamp functions
+  function seekToPointTimestamp(timestamp) {
+    if (timestamp == null || timestamp == undefined) {
+      return;
+    }
+    if (player && playerReady) {
+      player.seekTo(timestamp, true);
+    }
+  }
+
+  function _addMenuHTML(pointId) {
+    return `<div class="point-add-menu-wrap" data-point-id="${pointId}">` +
+      `<div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
+    `</div>`;
+  }
+
+  let _menuWrap = null;
+
+  function toggleAddMenu(btnEl) {
+    const wrap = btnEl.closest('.point-add-menu-wrap');
+    const pointId = parseInt(wrap.getAttribute('data-point-id'));
+    const wasOpen = _menuWrap === wrap;
+    closeAddMenus();
+    if (!wasOpen) {
+      _menuWrap = wrap;
+      const popup = document.getElementById('pointAddMenuGlobal');
+      document.getElementById('pamSetTime').onclick = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); setPointTimestamp(pointId, w); };
+      document.getElementById('pamNoFilm').onclick  = (e) => { e.stopPropagation(); const w = _menuWrap; closeAddMenus(); markAsNotFilmed(pointId, w); };
+      const rect = btnEl.getBoundingClientRect();
+      popup.style.bottom  = (window.innerHeight - rect.top + 4) + 'px';
+      popup.style.right   = (window.innerWidth  - rect.right) + 'px';
+      popup.style.display = 'block';
+      wrap.classList.add('open');
+    }
+  }
+
+  function closeAddMenus() {
+    const popup = document.getElementById('pointAddMenuGlobal');
+    if (popup) popup.style.display = 'none';
+    document.querySelectorAll('.point-add-menu-wrap.open').forEach(w => w.classList.remove('open'));
+    _menuWrap = null;
+  }
+
+  document.addEventListener('click', () => closeAddMenus());
+
+  async function setPointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    if (!player || !playerReady) {
+      alert('Video player is not ready');
+      return;
+    }
+
+    const currentTime = Math.floor(player.getCurrentTime());
+    
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ timestamp_start: currentTime })
+      });
+      
+      if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = currentTime;
+        }
+
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.add('has-timestamp');
+        pointCard.setAttribute('data-timestamp', currentTime);
+        pointCard.onclick = () => seekToPointTimestamp(currentTime);
+        
+        // Replace the whole menu wrap with the timestamp display
+        const mins = Math.floor(currentTime / 60);
+        const secs = currentTime % 60;
+        const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
+        const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
+        const wrap = element.closest('.point-add-menu-wrap');
+        const target = wrap || element;
+        target.outerHTML = `<div class="point-timestamp" title="Click to seek to this point">${deleteBtn}${timestampText}</div>`;
+      } else {
+        const error = await response.json();
+        alert('Error setting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error setting timestamp:', error);
+      alert('Error setting timestamp. Please try again.');
+    }
+  }
+
+  async function deletePointTimestamp(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    try {
+      const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body: JSON.stringify({ timestamp_start: null })
+      });
+      
+      if (response.ok) {
+        if (window.player_sheet_data && Array.isArray(window.player_sheet_data.points)) {
+          const point = window.player_sheet_data.points.find(p => p.id === pointId);
+          if (point) point.timestamp_start = null;
+        }
+
+        // Update the UI
+        const pointCard = element.closest('.point-item');
+        pointCard.classList.remove('has-timestamp');
+        pointCard.removeAttribute('data-timestamp');
+        pointCard.onclick = null;
+        
+        // Replace timestamp and delete button with add-menu (only for admins)
+        if (isAdmin) {
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) timestamp.outerHTML = _addMenuHTML(pointId);
+        } else {
+          const timestamp = pointCard.querySelector('.point-timestamp');
+          if (timestamp) timestamp.remove();
+        }
+      } else {
+        const error = await response.json();
+        alert('Error deleting timestamp: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting timestamp:', error);
+      alert('Error deleting timestamp. Please try again.');
+    }
+  }
+
+  async function _patchNotFilmed(pointId, newValue) {
+    return fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+      body: JSON.stringify({ not_filmed: newValue })
+    });
+  }
+
+  function _applyNotFilmedSheet(pointIndex, newValue) {
+    const mainTable = document.querySelector('.player-sheet-table:not(.ps-pinned-table)');
+    if (mainTable) {
+      const thEl = mainTable.querySelector(`thead th[data-point-index="${pointIndex}"]`);
+      if (thEl) {
+        const colIndex = Array.from(thEl.parentElement.children).indexOf(thEl) + 1;
+        thEl.classList.toggle('not-filmed', newValue);
+        thEl.classList.toggle('clickable', !newValue && thEl.hasAttribute('data-timestamp'));
+        if (newValue) { thEl.removeAttribute('onclick'); thEl.removeAttribute('data-timestamp'); }
+        mainTable.querySelectorAll(`tbody tr td:nth-child(${colIndex})`).forEach(td => {
+          td.classList.toggle('not-filmed', newValue);
+          td.classList.toggle('clickable', !newValue && td.hasAttribute('data-timestamp'));
+          if (newValue) { td.removeAttribute('onclick'); td.removeAttribute('data-timestamp'); }
+        });
+      }
+    }
+    const pinnedTable = document.querySelector('.ps-pinned-table');
+    if (pinnedTable) {
+      pinnedTable.querySelectorAll(`thead th[data-point-index="${pointIndex}"]`).forEach(th => {
+        th.classList.toggle('not-filmed', newValue);
+      });
+    }
+  }
+
+  async function markAsNotFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, true);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) { p.not_filmed = true; p.timestamp_start = null; }
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.add('not-filmed');
+      pointCard.classList.remove('has-timestamp');
+      pointCard.removeAttribute('data-timestamp');
+      pointCard.onclick = null;
+      // Remove add-menu wrap (CSS also hides it, but remove from DOM for cleanliness)
+      pointCard.querySelector('.point-add-menu-wrap')?.remove();
+      // Add badge with ✕ delete button to header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header && !header.querySelector('.not-filmed-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'not-filmed-badge';
+        badge.innerHTML = `<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed(${pointId}, this)" title="Reset to unset">✕</span>NO FILM`;
+        header.insertBefore(badge, header.querySelector('.my-point-badge')?.nextSibling || null);
+      }
+      _applyNotFilmedSheet(pointIndex, true);
+    } catch (err) {
+      console.error('markAsNotFilmed error:', err);
+      alert('Error updating point. Please try again.');
+    }
+  }
+
+  async function markAsFilmed(pointId, element) {
+    {% if not current_user or not current_user.is_admin %}return;{% endif %}
+    const pointCard = element.closest('.point-item');
+    try {
+      const res = await _patchNotFilmed(pointId, false);
+      if (!res.ok) { const e = await res.json(); alert('Error: ' + (e.error || 'Unknown')); return; }
+      if (window.player_sheet_data?.points) {
+        const p = window.player_sheet_data.points.find(p => p.id === pointId);
+        if (p) p.not_filmed = false;
+      }
+      const pointIndex = parseInt(pointCard.getAttribute('data-point-index'));
+      pointCard.classList.remove('not-filmed');
+      // Remove badge (element may be the ✕ inside the badge, or the badge itself)
+      const badge = element.closest('.not-filmed-badge') || element;
+      badge.remove();
+      // Insert add-menu wrap before the point-item-header
+      const header = pointCard.querySelector('.point-item-header');
+      if (header) header.insertAdjacentHTML('beforebegin', _addMenuHTML(pointId));
+      _applyNotFilmedSheet(pointIndex, false);
+    } catch (err) {
+      console.error('markAsFilmed error:', err);
+      alert('Error updating point. Please try again.');
+    }
+  }
+
+  // Point field editing
+  function editPointField(pointId, fieldName, element) {
+    {% if not current_user or not current_user.is_admin %}
+    return; // Only admins can edit
+    {% endif %}
+
+    const currentValue = element.classList.contains('empty') ? '' : element.textContent.trim();
+    const parent = element.parentElement;
+    
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'point-detail-input';
+    input.value = currentValue;
+    input.autocomplete = 'off';
+    
+    // Create custom dropdown
+    const dropdown = document.createElement('div');
+    dropdown.className = 'point-detail-dropdown';
+    
+    // Function to position dropdown below input
+    const positionDropdown = () => {
+      const rect = input.getBoundingClientRect();
+      dropdown.style.top = `${rect.bottom + 2}px`;
+      dropdown.style.left = `${rect.left}px`;
+      dropdown.style.width = `${Math.max(150, rect.width)}px`;
+    };
+    
+    // Function to update dropdown content
+    const updateDropdown = (filterText = '') => {
+      dropdown.innerHTML = '';
+      const values = existingValues[fieldName] ? Array.from(existingValues[fieldName]) : [];
+      const filtered = filterText ? 
+        values.filter(v => v.toLowerCase().includes(filterText.toLowerCase())) : 
+        values;
+      
+      if (filtered.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'point-detail-dropdown-empty';
+        emptyDiv.textContent = 'Type to add new value';
+        //emptyDiv.textContent = filterText ? 'No matches - type to add new' : 'Type to add new value';
+        dropdown.appendChild(emptyDiv);
+      } else {
+        filtered.forEach(value => {
+          const item = document.createElement('div');
+          item.className = 'point-detail-dropdown-item';
+          item.textContent = value;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = value;
+            saveEdit();
+          });
+          dropdown.appendChild(item);
+        });
+      }
+    };
+    
+    // Replace element with input and add dropdown to body
+    parent.replaceChild(input, element);
+    document.body.appendChild(dropdown);
+    updateDropdown();
+    positionDropdown();
+    input.focus();
+    
+    // Prevent click propagation on input
+    input.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Reposition dropdown on scroll
+    const scrollContainer = document.querySelector('.point-info-scroll');
+    const handleScroll = () => positionDropdown();
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+    }
+    
+    // Cleanup function
+    const cleanupDropdown = () => {
+      dropdown.remove();
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+    
+    // Handle save on blur or Enter
+    const saveEdit = async () => {
+      const newValue = input.value.trim();
+      
+      try {
+        const response = await fetch(`/film/api/games/{{ game.id }}/points/${pointId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+          body: JSON.stringify({ [fieldName]: newValue || null })
+        });
+        
+        if (response.ok) {
+          // Add new value to existing values set
+          if (newValue && existingValues[fieldName]) {
+            existingValues[fieldName].add(newValue);
+          }
+          
+          // Restore the display element
+          const displayDiv = document.createElement('div');
+          displayDiv.className = 'point-detail-value' + (newValue ? '' : ' empty');
+          displayDiv.textContent = newValue || 'Add...';
+          displayDiv.onclick = (e) => {
+            e.stopPropagation();
+            editPointField(pointId, fieldName, displayDiv);
+          };
+          parent.replaceChild(displayDiv, input);
+          cleanupDropdown();
+        } else {
+          const error = await response.json();
+          alert('Error updating point: ' + (error.error || 'Unknown error'));
+          parent.replaceChild(element, input);
+          cleanupDropdown();
+        }
+      } catch (error) {
+        console.error('Error updating point:', error);
+        alert('Error updating point. Please try again.');
+        parent.replaceChild(element, input);
+        cleanupDropdown();
+      }
+    };
+    
+    // Update dropdown as user types
+    input.addEventListener('input', (e) => {
+      updateDropdown(e.target.value);
+    });
+    
+    input.addEventListener('blur', () => {
+      saveEdit();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveEdit();
+      } else if (e.key === 'Escape') {
+        parent.replaceChild(element, input);
+        cleanupDropdown();
+      }
+    });
+  }
+
