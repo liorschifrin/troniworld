@@ -97,6 +97,9 @@
     {% if game.youtube_id %}
     // Auto-load the video
     loadVideo('{{ game.youtube_id }}');
+    {% else %}
+    // Retry a link that was submitted before the API finished loading
+    if (currentVideoId) loadVideo(currentVideoId);
     {% endif %}
   };
 
@@ -129,7 +132,7 @@
         playerVars: { rel: 0, modestbranding: 1 },
         events: {
           onError: (event) => {
-            showPlayerError(YT_ERROR_TEXT[event.data] || 'This video could not be played.', videoId);
+            showPlayerError(YT_ERROR_TEXT[event.data] || 'This video could not be played.', currentVideoId);
           },
           onReady: () => {
             clearPlayerError();
@@ -516,6 +519,9 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     // Roster-edit cells use the arrow keys to move between cells
     const inGrid = !!(active && active.closest && active.closest('td[data-player]'));
+    // Other keys that belong to the page's controls share this handler (one place decides who gets a key)
+    if (inGrid && psHandleGridArrow(e)) return;
+    if (e.key === 'Escape' && closeAddMenuOnEscape(e)) return;
 
     let handled = true;
     switch (e.key) {

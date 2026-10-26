@@ -40,7 +40,7 @@
   }
 
   function psEditableCells() {
-    return [...document.querySelectorAll('.player-sheet-table:not(.ps-pinned-table) td[data-player]:not(.not-filmed)')];
+    return [...document.querySelectorAll('.player-sheet-table:not(.ps-pinned-table) td[data-player]')];
   }
 
   const PS_STATE_TEXT = { none: 'not on the point', normal: 'on the point', off: 'subbed off', on: 'subbed on' };
@@ -56,11 +56,12 @@
     return th ? th.textContent.trim() : '';
   }
 
-  // Arrow keys move between editable cells (rows = players, columns = points)
-  document.addEventListener('keydown', (e) => {
-    if (!playerSheetEditMode || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  // Arrow keys move between editable cells (rows = players, columns = points). Called from the page's single
+  // keyboard handler in _js_video.html; returns true when the key was used.
+  function psHandleGridArrow(e) {
+    if (!playerSheetEditMode || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return false;
     const current = document.activeElement;
-    if (!current || !current.matches || !current.matches('td[data-player]')) return;
+    if (!current || !current.matches || !current.matches('td[data-player]')) return false;
     const cells = psEditableCells();
     const row = cells.filter(c => c.parentElement === current.parentElement);
     const col = cells.filter(c => c.cellIndex === current.cellIndex);
@@ -68,11 +69,13 @@
     const target = e.key === 'ArrowLeft' ? move(row, -1) : e.key === 'ArrowRight' ? move(row, 1)
       : e.key === 'ArrowUp' ? move(col, -1) : move(col, 1);
     e.preventDefault();
-    if (!target) return;
-    current.tabIndex = -1;
-    target.tabIndex = 0;
-    target.focus();
-  });
+    if (target) {
+      current.tabIndex = -1;
+      target.tabIndex = 0;
+      target.focus();
+    }
+    return true;
+  }
 
   function exitPlayerSheetEdit() {
     playerSheetEditMode = false;

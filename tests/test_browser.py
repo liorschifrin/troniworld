@@ -5,6 +5,7 @@ Flask's test client through ``browser_support.AppBridge`` (in-memory synthetic d
 and YouTube is a local stub, so a failure here is a defect in the page and not in a service. Desktop runs use a
 1280x800 Chromium; mobile runs use 390x844 with touch and mobile emulation. No other browser is covered.
 """
+import os
 import re
 
 import pytest
@@ -28,6 +29,8 @@ def chromium():
         try:
             browser = playwright.chromium.launch()
         except Exception as error:  # Chromium is not installed
+            if os.environ.get('CI'):  # a CI job that installed Chromium must not pass by skipping
+                raise
             pytest.skip(f'Chromium is not available ({str(error).splitlines()[0]})')
         yield browser
         browser.close()
@@ -558,3 +561,18 @@ def test_admin_add_time_menu_by_keyboard(site, data, db):
     sync_api.expect(page.get_by_role('menu')).to_be_hidden()
     assert page.evaluate('document.activeElement.getAttribute("aria-label")') == 'Set time for P4'
     assert opener.get_attribute('aria-expanded') == 'false'
+
+
+def test_roster_edit_reaches_not_filmed_cells_by_keyboard(site, data, db):
+    from flask_app.models import Point
+    point = Point(game_id=data['game'].id, point_index=4, not_filmed=True, tron_o=True, tron_point=True)
+    db.session.add(point)
+    db.session.commit()
+    s = site('admin')
+    page = s.open(game_path(data))
+    page.get_by_role('button', name=re.compile('Edit Roster')).click()
+    cell = page.locator('td[data-player="Synthetic Alpha"][data-point-id="%d"]' % point.id)
+    assert cell.get_attribute('role') == 'button'
+    cell.focus()
+    page.keyboard.press('Enter')
+    sync_api.expect(cell).to_have_attribute('aria-pressed', 'true')

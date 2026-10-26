@@ -77,7 +77,7 @@ If you change of the below information, or add significantly to the page, update
 
 - `tests/test_browser.py` (marker `browser`, opt-in) drives the real pages in Chromium with Playwright (`playwright==1.64.1`, dev-only, in `requirements-dev.txt`). Setup: `python -m playwright install chromium`; run `python -m pytest -m browser`. Without `-m browser` the tests are skipped; without Chromium they skip with a reason.
 - `tests/browser_support.py` serves every request through Flask's test client (no socket, no server) and replaces the YouTube IFrame API with a local stub (`window.__yt.calls` records the commands). Other hosts are refused. Supported matrix: desktop Chromium 1280x800 and Chromium with mobile emulation at 390x844; nothing else is claimed.
-- The player has ONE keyboard handler (`_js_video.html`); do not add another `document` `keydown` shortcut listener (two used to run for `k`/`j`/`l`/`f`). New clickable non-button elements need `role="button"`, `tabindex="0"` and an `aria-label`; the generic Enter/Space handler in `_js_bootstrap.html` activates them. Toggles need `aria-pressed` or `aria-expanded` and the code that flips them must update it.
+- The player has ONE keyboard handler (`_js_video.html`, it also dispatches roster-grid arrows and the add-time menu Escape to functions in the sheet and points partials); do not add another `document` `keydown` listener for player keys (two used to run for `k`/`j`/`l`/`f`). The only other listeners are the Enter/Space activation of `role="button"` elements in `_js_bootstrap.html` and the Escape handling of the nav menu and notification dropdown in `film_base.html`. New clickable non-button elements need `role="button"`, `tabindex="0"` and an `aria-label`; the generic Enter/Space handler in `_js_bootstrap.html` activates them. Toggles need `aria-pressed` or `aria-expanded` and the code that flips them must update it.
 - Details and the manual/automated split: `docs/orchestration/tasks/T12.md`.
 
 ## Active work: game_player.html
@@ -188,7 +188,7 @@ Primary files: `flask_app/templates/film_room/pages/game_player.html` (shell) an
 - Toggling (`togglePlayerSheetCell(td)`): original innerHTML is cached in `td.dataset.origContent`. Active cells show `<span class="ps-check">✓</span>` with `.ps-cell-on` styling (lime); removed cells become empty with `.ps-cell-off` styling (red tint). Re-clicking reverts to original state and removes the pending change.
 - Changes are tracked in `psChanges` map (`"pointId::playerName"` → bool). `savePlayerSheetChanges()` POSTs `{changes:[{point_id, player_name, in_point}]}` to `POST /film/api/games/<game_id>/update_player_sheet`, then reloads the page on success.
 - Cancel (`exitPlayerSheetEdit()`) reverts all visual changes and restores the edit button.
-- Not-filmed cells remain unresponsive in edit mode (`pointer-events: none` from existing CSS).
+- Not-filmed cells are toggleable in edit mode (`pointer-events: auto !important` in the edit-mode CSS overrides the dimmed style); T12 gives them the same keyboard access as other cells.
 - Backend: `update_player_sheet` in `film_routes.py` — validates every change first, requires each point in the URL game and each player to be an existing `Player` named in `player_order_data['players']`, `game.roster`, or the game's points, then appends/removes the player from `point.players` atomically (adding also appends to `game.roster`).
 
 ### Mark game as watched

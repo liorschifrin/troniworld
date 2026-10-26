@@ -49,14 +49,16 @@
     _menuWrap = null;
   }
 
-  // Escape closes the add-time menu and hands focus back to the button that opened it
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !_menuWrap) return;
+  // Escape closes the add-time menu and hands focus back to the button that opened it. Called from the page's
+  // single keyboard handler in _js_video.html; returns true when the key was used.
+  function closeAddMenuOnEscape(e) {
+    if (!_menuWrap) return false;
     const opener = _menuWrap.querySelector('.point-timestamp-add');
     closeAddMenus();
     if (opener) opener.focus();
     e.preventDefault();
-  });
+    return true;
+  }
 
   document.addEventListener('click', () => closeAddMenus());
 
