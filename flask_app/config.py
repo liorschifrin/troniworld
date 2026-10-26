@@ -11,6 +11,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
+
 PLACEHOLDER_SECRETS = {
     'changeme', 'change-me', 'secret', 'dev', 'development', 'test', 'default',
     'your-secret-key', 'replace-me', 'synthetic-test-session-key',
@@ -35,12 +38,14 @@ def _inside(path, parent):
 
 
 def _database_file(uri):
-    """Return the file part of a sqlite URI, or None for in-memory / other engines."""
-    prefix = 'sqlite:///'
-    if not uri.startswith(prefix):
+    """Return the file of a SQLite URL (any driver), or None for in-memory / other engines."""
+    try:
+        url = make_url(uri)
+    except ArgumentError:
         return None
-    name = uri[len(prefix):].split('?', 1)[0]
-    return None if name in ('', ':memory:') else name
+    if not url.drivername.startswith('sqlite') or url.database in (None, '', ':memory:'):
+        return None
+    return url.database
 
 
 def apply_config(app, environ=os.environ):
@@ -62,7 +67,7 @@ def apply_config(app, environ=os.environ):
     database_file = _database_file(uri)
     if not uri:
         problems.append('DATABASE_URI must be set')
-    elif uri.startswith('sqlite') and database_file is None:
+    elif uri.lower().startswith('sqlite') and database_file is None:
         problems.append('DATABASE_URI must not be an in-memory SQLite database')
     elif database_file is not None:
         # A relative path resolves against the instance folder, inside the code tree.

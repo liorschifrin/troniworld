@@ -75,13 +75,23 @@ def test_production_secret_comes_from_the_environment(tmp_path, tree):
     ({'DATABASE_URI': None}, 'DATABASE_URI must be set'),
     ({'DATABASE_URI': 'sqlite:///:memory:'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite://'}, 'in-memory'),
+    ({'DATABASE_URI': 'sqlite+pysqlite:///:memory:'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite:///relative.db'}, 'absolute'),
+    ({'DATABASE_URI': 'sqlite+pysqlite:///relative.db'}, 'absolute'),
     ({'UPLOAD_DIR': None}, 'UPLOAD_DIR must be set'),
     ({'UPLOAD_DIR': 'relative/uploads'}, 'absolute'),
 ])
 def test_production_refuses_unsafe_or_missing_settings(tmp_path, tree, overrides, fragment):
     with pytest.raises(ConfigError, match=fragment):
         apply_config(tree, production_env(tmp_path, **overrides))
+
+
+def test_production_accepts_an_explicit_sqlite_driver_url(tmp_path, tree):
+    apply_config(tree, production_env(tmp_path, DATABASE_URI=f'sqlite+pysqlite:///{tmp_path}/data/app.db'))
+    assert tree.config['SESSION_COOKIE_SECURE'] is True
+    root = Path(tree.root_path).parent
+    with pytest.raises(ConfigError, match='outside the code tree'):
+        apply_config(tree, production_env(tmp_path, DATABASE_URI=f'sqlite+pysqlite:///{root}/app.db'))
 
 
 def test_production_refuses_data_inside_the_code_tree(tmp_path, tree):
