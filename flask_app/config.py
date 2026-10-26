@@ -43,7 +43,8 @@ def _database_file(uri):
         url = make_url(uri)
     except ArgumentError:
         return None
-    if not url.drivername.startswith('sqlite') or url.database in (None, '', ':memory:'):
+    if (not url.drivername.startswith('sqlite') or url.database in (None, '', ':memory:')
+            or url.query.get('mode') == 'memory'):
         return None
     return url.database
 

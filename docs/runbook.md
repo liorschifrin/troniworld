@@ -121,12 +121,34 @@ Then start the service and run the smoke checks (section 9). If the restored sta
 
 Upgrade (with the service stopped or in maintenance, after a section 6 backup, using the new release's code):
 
-1. Back up (section 6) and note `flask --app app db current` (the "before" stamp).
-2. **First production deploy of this configuration only:** existing installations keep article images in `flask_app/static/uploads` inside the old tree, and production serves `/static/uploads/<name>` only from `UPLOAD_DIR`. With the service stopped, copy them across and verify before switching releases: (set `OLD_RELEASE=/absolute/path/to/old-release` and `UPLOAD_DIR=/absolute/path/to/data/uploads` in your shell first; the service environment is not inherited) `mkdir -p "$UPLOAD_DIR" && cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$UPLOAD_DIR"/`, then compare file counts and checksums (`find ... | wc -l`, `sha256sum`). Until this is done every stored image URL returns 404. Move the SQLite file out of `instance/` into `data/` the same way (back it up first).
+1. Back up (section 6; on the very first deploy use section 8.1 instead) and note `flask --app app db current` (the "before" stamp).
+2. **First production deploy of this configuration only:** follow section 8.1 now, before anything below, instead of step 1's backup.
 3. Unpack the new release beside the old one; install its pinned requirements in its own venv; run `pip check`.
 4. `flask --app app db upgrade` with the production environment. Supported from `f65e956efdb9` or later; it is transactional on SQLite and rolls back on a foreign-key violation (T07). Do not apply `--sql` output to SQLite. A brand-new empty database uses `flask --app app bootstrap-db` instead.
 5. Switch `current` to the new release and restart the service.
 6. Run the smoke checks (section 9).
+
+### 8.1 First deployment from the old layout (database in `instance/`, images in the old tree)
+
+Existing installations keep the database under `instance/` and article images in `flask_app/static/uploads` inside the old tree, and production serves `/static/uploads/<name>` only from `UPLOAD_DIR`; until the images are copied across every stored image URL returns 404. With the service stopped, set the paths in your shell (the service environment is not inherited):
+
+```bash
+set -euo pipefail; umask 077
+OLD_RELEASE=/absolute/path/to/old-release         # placeholder
+OLD_DB=/absolute/path/to/old/instance/app.db      # the file the old DATABASE_URI resolved to
+UPLOAD_DIR=/srv/troniworld/data/uploads; NEW_DB=/srv/troniworld/data/app.db
+OLD_BACKUP=/srv/troniworld/backups/pre-migration; mkdir -p "$(dirname "$OLD_BACKUP")"; mkdir "$OLD_BACKUP"
+[ -s "$OLD_DB" ]
+sqlite3 -readonly "$OLD_DB" ".backup $OLD_BACKUP/app.db"                 # backup of the OLD locations first
+cp -a "$OLD_RELEASE/flask_app/static/uploads" "$OLD_BACKUP/uploads"
+mkdir -p "$UPLOAD_DIR"
+cp "$OLD_BACKUP/app.db" "$NEW_DB"                                         # the migrated copy; the old file stays as it is
+cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$UPLOAD_DIR"/
+sqlite3 "$NEW_DB" "PRAGMA integrity_check;"                               # ok
+diff <(cd "$OLD_BACKUP/uploads" && find . -type f -exec sha256sum {} + | sort -k2) <(cd "$UPLOAD_DIR" && find . -type f -exec sha256sum {} + | sort -k2)
+```
+
+Then continue at step 3 below (the new database is upgraded, not the old one). Keep the old release and database untouched until the smoke checks pass.
 
 Rollback (decide quickly; each step is reversible until data is written under the new version):
 

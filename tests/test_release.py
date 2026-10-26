@@ -76,6 +76,7 @@ def test_production_secret_comes_from_the_environment(tmp_path, tree):
     ({'DATABASE_URI': 'sqlite:///:memory:'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite://'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite+pysqlite:///:memory:'}, 'in-memory'),
+    ({'DATABASE_URI': 'sqlite:////tmp/x.db?mode=memory&uri=true'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite:///relative.db'}, 'absolute'),
     ({'DATABASE_URI': 'sqlite+pysqlite:///relative.db'}, 'absolute'),
     ({'UPLOAD_DIR': None}, 'UPLOAD_DIR must be set'),
