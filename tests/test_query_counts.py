@@ -14,7 +14,7 @@ from sqlalchemy import event
 
 SIZES = {'small': dict(games=2, points=4, replies=2), 'large': dict(games=6, points=12, replies=5)}
 
-# scenario -> {size: statements}. Measured with: python -m pytest tests/test_query_counts.py -s -k report
+# scenario -> {size: statements}. Measured with: python -m pytest tests/test_query_counts.py -q -s
 BEFORE = {
     'game_page': {'small': 10, 'large': 18},
     'comments_api': {'small': 11, 'large': 23},

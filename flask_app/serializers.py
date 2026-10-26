@@ -24,7 +24,7 @@ def iso_utc(dt):
 
 
 def stored_private_to(raw):
-    """Decode a ``Comment.private_to`` column: None when public, [] when malformed.
+    """Decode a ``Comment.private_to`` column: None when public, [] when malformed or not a list.
 
     Audience decisions use ``visibility.private_recipients``; this only shapes the
     list sent to the client.
@@ -32,9 +32,10 @@ def stored_private_to(raw):
     if not raw:
         return None
     try:
-        return json.loads(raw)
-    except (ValueError, TypeError):
+        value = json.loads(raw)
+    except (ValueError, TypeError, RecursionError):
         return []
+    return value if isinstance(value, list) else []
 
 
 def comment_summary(comment, private_to):

@@ -38,6 +38,7 @@ def test_private_to_decoding_fails_closed_for_the_client():
     assert s.stored_private_to('') is None
     assert s.stored_private_to('["x","y"]') == ['x', 'y']
     assert s.stored_private_to('not json') == []
+    assert all(s.stored_private_to(raw) == [] for raw in ('"alice"', '5', '{"a": 1}', 'null'))
 
 
 def test_iso_and_est_formatting_of_missing_dates():
