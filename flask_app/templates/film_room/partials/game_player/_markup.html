@@ -16,7 +16,7 @@
     class="watched-toggle-btn{% if is_watched %} is-watched{% endif %}"
     onclick="toggleWatched()"
     aria-pressed="{% if is_watched %}true{% else %}false{% endif %}"
-    aria-label="Watched"
+    aria-label="Mark watched"
   >{% if is_watched %}✓ Watched{% else %}○ Mark Watched{% endif %}</button>
   {% if current_user and current_user.is_admin %}
   <a href="{{ url_for('edit_game', game_id=game.id) }}" class="edit-btn">✎ Edit</a>
@@ -281,7 +281,7 @@
           </div>
           {% elif current_user and current_user.is_admin %}
           <div class="point-add-menu-wrap" data-point-id="{{ point.id }}">
-            <div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="Set time for P{{ point.point_index }}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
+            <div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="+ Time for P{{ point.point_index }}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
           </div>
           {% endif %}
           {% endif %}

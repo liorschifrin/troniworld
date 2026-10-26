@@ -15,7 +15,7 @@
 
   function _addMenuHTML(pointId) {
     return `<div class="point-add-menu-wrap" data-point-id="${pointId}">` +
-      `<div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="Set time for P${_pointNumber(pointId)}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
+      `<div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="+ Time for P${_pointNumber(pointId)}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
     `</div>`;
   }
 

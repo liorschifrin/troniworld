@@ -550,7 +550,7 @@ def test_admin_add_time_menu_by_keyboard(site, data, db):
     db.session.commit()
     s = site('admin')
     page = s.open(game_path(data))
-    opener = page.get_by_role('button', name='Set time for P4')
+    opener = page.get_by_role('button', name='+ Time for P4')
     assert opener.get_attribute('aria-expanded') == 'false'
     opener.focus()
     page.keyboard.press('Enter')
@@ -559,7 +559,7 @@ def test_admin_add_time_menu_by_keyboard(site, data, db):
     assert page.evaluate('document.activeElement.id') == 'pamSetTime'
     page.keyboard.press('Escape')
     sync_api.expect(page.get_by_role('menu')).to_be_hidden()
-    assert page.evaluate('document.activeElement.getAttribute("aria-label")') == 'Set time for P4'
+    assert page.evaluate('document.activeElement.getAttribute("aria-label")') == '+ Time for P4'
     assert opener.get_attribute('aria-expanded') == 'false'
 
 
@@ -576,3 +576,19 @@ def test_roster_edit_reaches_not_filmed_cells_by_keyboard(site, data, db):
     cell.focus()
     page.keyboard.press('Enter')
     sync_api.expect(cell).to_have_attribute('aria-pressed', 'true')
+
+
+def test_admin_point_controls_that_show_on_hover_are_reachable_by_keyboard(site, data, db):
+    from flask_app.models import Point
+    point = Point(game_id=data['game'].id, point_index=4, not_filmed=True, tron_o=True, tron_point=True)
+    db.session.add(point)
+    db.session.commit()
+    s = site('admin')
+    page = s.open(game_path(data))
+    for label in ('Delete timestamp of P1', 'Reset P4 to unset'):
+        control = page.get_by_role('button', name=label)
+        control.focus()
+        assert page.evaluate('document.activeElement.getAttribute("aria-label")') == label
+        assert control.bounding_box()['width'] > 8  # revealed by focus, not clipped to 1px
+    page.keyboard.press('Enter')
+    sync_api.expect(page.locator('.point-item[data-point-index="4"]')).not_to_have_class(re.compile('not-filmed'))

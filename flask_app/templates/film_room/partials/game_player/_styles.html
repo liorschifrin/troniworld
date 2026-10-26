@@ -2334,3 +2334,32 @@
       min-width: 36px;
     }
   }
+
+  /* T12: the admin delete/reset controls were display:none until hover, which keeps them out of the tab order.
+     Keep them in the layout flow as a 1px clipped box until hovered or focused. */
+  .point-timestamp-delete,
+  .not-filmed-delete {
+    display: inline-block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border-width: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    opacity: 0;
+  }
+  .point-timestamp:hover .point-timestamp-delete,
+  .point-timestamp-delete:focus,
+  .not-filmed-badge:hover .not-filmed-delete,
+  .not-filmed-delete:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0 3px;
+    border-width: 1px;
+    overflow: visible;
+    clip: auto;
+    opacity: 1;
+  }
