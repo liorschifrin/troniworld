@@ -56,6 +56,15 @@
 - **After each finished task, suggest the next task with a few options** (user 2026-10-25): list the dependency-ready items, their risks and open questions, and recommend one. Do not start any suggested task without explicit selection.
 - **Manager state stays on `orchestration/sequential-manager`.** That branch is pushed for backup and is never merged to `main`. PR #9 (records-only) was closed on 2026-10-25 in favor of this rule.
 
+## Overnight run (user 2026-10-26)
+
+- Scope: T08a → T09 → T10 → T11 → T12 → T13, one linear stack. Each PR base is the previous task branch; retarget to main after each approved merge, bottom first. T08b stays out (Q2 open).
+- Defaults accepted: archive with reserved username (T08a); tabs count watch time only in the visible focused tab, once per tab per session (T09); reimport hides deleted points rather than deleting them, and stale previews are refused by version marker (T10); one module extraction plus query counts, no pagination (T11); desktop Chromium plus one mobile viewport with Playwright as a dev-only dependency (T12); generic WSGI+SQLite runbook, Q5 items listed, no host or license choice and no deploy (T13).
+- Models: Claude Sonnet 5.5 medium for implementation. Codex is back on: cross-provider review uses gpt-5.6-terra medium. Opus only if a review finds a serious unresolved security/data issue.
+- Every PR: local `coderabbit review --agent --base origin/main` run to completion before push (not killed early), then gates, then fresh-thread review; hosted CodeRabbit is the second pass.
+- Limits: on usage or rate limit, record the checkpoint and resume on the next scheduled wakeup from the same branch and thread. 401 means ask the user to re-authenticate, no silent failover.
+- T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
+
 ## Current phase
 
 - User approval (2026-10-25): all defaults for T05 s2–s3, T07, T08 (split: T08a now, T08b waits for Q2), T09, T10. Nothing merges to `main` without approval; every PR must be ready for merge when the user returns.
