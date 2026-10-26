@@ -99,6 +99,14 @@ def test_production_refuses_data_inside_the_code_tree(tmp_path, tree):
         apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(link / 'uploads')))
 
 
+def test_production_refuses_an_upload_folder_that_would_publish_the_database(tmp_path, tree):
+    data = tmp_path / 'data'
+    for upload_dir in (data, tmp_path):
+        with pytest.raises(ConfigError, match='must not contain the database'):
+            apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(upload_dir)))
+    apply_config(tree, production_env(tmp_path, UPLOAD_DIR=str(data / 'uploads')))  # a subdirectory is fine
+
+
 def test_non_production_keeps_development_behaviour(tmp_path, tree):
     tree.secret_key = None
     apply_config(tree, {})

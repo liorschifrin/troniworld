@@ -76,6 +76,9 @@ def apply_config(app, environ=os.environ):
         problems.append('UPLOAD_DIR must be an absolute path')
     elif _inside(upload_dir, os.path.dirname(app.root_path)):
         problems.append('UPLOAD_DIR must live outside the code tree')
+    elif database_file is not None and _inside(database_file, upload_dir):
+        # The upload folder is public at /static/uploads/, so it must not hold the database.
+        problems.append('UPLOAD_DIR must not contain the database file')
     if problems:
         raise ConfigError('Production configuration refused: ' + '; '.join(problems))
 
