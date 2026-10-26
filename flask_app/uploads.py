@@ -9,7 +9,7 @@ import os
 import tempfile
 import uuid
 
-from flask import abort, jsonify, request
+from flask import abort, current_app, jsonify, request, send_from_directory
 from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
@@ -100,6 +100,13 @@ def init_app(app):
         if request.endpoint in FORM_ENDPOINTS | {'static', None} and request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return error
         return jsonify(error='Request is larger than the 25 MB limit'), 413
+
+    @app.route(UPLOAD_URL_PREFIX + '<path:filename>')
+    def uploaded_file(filename):
+        # Serves UPLOAD_FOLDER at the public upload URL, so the folder may live
+        # outside flask_app/static (T13). When it is the default folder this is
+        # the same file the static view would send.
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
     @app.after_request
     def nosniff_uploads(response):

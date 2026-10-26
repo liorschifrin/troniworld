@@ -80,6 +80,12 @@ If you change of the below information, or add significantly to the page, update
 - The player has ONE keyboard handler (`_js_video.html`, it also dispatches roster-grid arrows and the add-time menu Escape to functions in the sheet and points partials); do not add another `document` `keydown` listener for player keys (two used to run for `k`/`j`/`l`/`f`). The only other listeners are the Enter/Space activation of `role="button"` elements in `_js_bootstrap.html` and the Escape handling of the nav menu and notification dropdown in `film_base.html`. New clickable non-button elements need `role="button"`, `tabindex="0"` and an `aria-label`; the generic Enter/Space handler in `_js_bootstrap.html` activates them. Toggles need `aria-pressed` or `aria-expanded` and the code that flips them must update it.
 - Details and the manual/automated split: `docs/orchestration/tasks/T12.md`.
 
+## Production runbook (T13, 2026-10-26)
+
+- `docs/runbook.md` is the release/recovery runbook (generic WSGI + SQLite + local uploads). Host, WSGI server, license, team size, recovery objectives and media publication are OPEN (Q5); do not pick them or deploy without the owner. Use placeholders only.
+- `flask_app/config.py` `apply_config(app)`: with `APP_ENV=production` it turns debug/reload off, sets Secure/HttpOnly/SameSite=Lax cookies and raises `ConfigError` at import unless `SECRET_KEY` (32+ chars, not a placeholder), an absolute non-memory `DATABASE_URI` and `UPLOAD_DIR` are set and outside the code tree. `UPLOAD_DIR` also overrides the upload folder in development. `UPLOAD_FOLDER` is served at `/static/uploads/<name>` by the `uploaded_file` route in `uploads.py`.
+- `tests/test_release.py` (config, upload location, backup/restore, smoke, rollback rehearsals on temp data). Keep the runbook's env var table and smoke headings (a test checks them).
+
 ## Active work: game_player.html
 
 Primary files: `flask_app/templates/film_room/pages/game_player.html` (shell) and the partials in `flask_app/templates/film_room/partials/game_player/` (~5,500 lines in total). Line references below predate the split.
