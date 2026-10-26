@@ -67,9 +67,15 @@ If you change of the below information, or add significantly to the page, update
 - Points a reimport omits are hidden (`Point.hidden_by_import`, migration `n9o0p1q2r3s4`, additive), not deleted. Read points through `Game.visible_points`; never use `game.points` for display or statistics. Restore via `POST .../points/<id>/restore_hidden` or by importing a CSV that contains the point index. Invalid columns are errors, not skipped.
 - New write routes `apply_game_csv` and `restore_hidden_point` are in the CSRF form inventory (16 POST forms). Tests: `tests/test_csv_import.py`.
 
+## Focused modules and query counts (T11, 2026-10-26)
+
+- `flask_app/serializers.py` (comment JSON shapes, `fmt_dt_est`, `iso_utc`, `stored_private_to`), `flask_app/game_stats.py` (tallies and bulk loaders for `/film/data` and `/film/my-games`) and `flask_app/player_sheet.py` (player-sheet context and label option lists for `view_game`) hold logic that used to be inline in `film_routes.py`. They contain no new visibility rules: audience checks stay in `flask_app/visibility.py`, and every point read skips `hidden_by_import` rows.
+- `game_player.html` is a shell that includes partials from `templates/film_room/partials/game_player/` (`_styles`, `_markup`, `_js_state`, `_js_mentions`, `_js_player_sheet`, `_js_watch_time`, `_js_video`, `_js_comments`, `_js_points`, `_js_bootstrap`, `_js_scoreboard`). The `_js_*` partials form one inline script in that order; keep that order and do not add a second declaration of a top-level name. Pure helpers live in `static/js/game_player/{format,scoreboard}.js` (loaded first). Tests that read the player source use `tests/template_source.py` (`player_script_source()`).
+- `tests/test_query_counts.py` pins statements per request (SQLAlchemy `before_cursor_execute`) for the game page, comments API, games list, team data and My Games, small and large synthetic datasets; the `CEILING` table must not rise. Lower it when you reduce a count. Pagination of long lists is deferred (it would change the contract).
+
 ## Active work: game_player.html
 
-Primary file: `flask_app/templates/film_room/pages/game_player.html` (~4930 lines)
+Primary files: `flask_app/templates/film_room/pages/game_player.html` (shell) and the partials in `flask_app/templates/film_room/partials/game_player/` (~5,500 lines in total). Line references below predate the split.
 
 ## Template layout (as of reorganization)
 - `flask_app/templates/articles/` — articles section: base.html, index.html, post.html, new_post.html, edit_post.html, login_articles.html, register.html, editor.html

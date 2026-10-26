@@ -194,13 +194,13 @@ State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T11 — Focused modules and efficient reads
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** D; T01, T03, T04, T09. P2.
 - **Scope/read:** film routes, player template, duplicate serializers. Extract services/policies and focused frontend modules; profile and batch repeated queries; paginate long lists.
 - **Acceptance:** [ ] existing contract tests pass; [ ] browser controls/comments/roster behavior preserved; [ ] representative query counts recorded before/after; [ ] each extraction independently reviewable; [ ] no duplicate business-rule implementations added.
 - **Decision notes:** retain Flask/Jinja. Evaluate useful `claude-rewrite` work by diff and tests rather than merging a branch wholesale. Keep unrelated refactors out of security fixes.
-- **Evidence/checkpoint:** not implemented. Next: identify one stable module boundary after policy consolidation. Rollback: small behavior-preserving commits.
+- **Evidence/checkpoint:** active (2026-10-26, PR stacked on T10): serializers, game stats and player sheet modules extracted; `game_player.html` split into 11 partials plus two pure static modules; statements per request, game page 10/18 → 7/7, comment thread 11/23 → 5/5, team data 23/27 → 7/7, My Games 14/82 → 5/5, games list unchanged at 3 (small/large data). Record: `docs/orchestration/tasks/T11.md`. Deferred: pagination (changes the user-visible contract), analytics dashboard per-user queries, JS modules that touch page state, a browser-level check. Rollback: small behavior-preserving commits, one per extraction.
 
 ### T12 — Accessible and responsive interaction coverage
 

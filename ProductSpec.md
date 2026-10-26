@@ -41,6 +41,9 @@ Core modules:
 - `flask_app/uploads.py`: image content validation, size limits, the 413 handler, and the `nosniff` header for served uploads (T05 slice 3).
 - `flask_app/routes.py`: public articles, authentication, editor uploads, article comment APIs and notifications.
 - `flask_app/film_routes.py`: film pages, admin operations, imports, statistics, comments, notifications, watch tracking.
+- `flask_app/serializers.py`: shared comment JSON shapes, `private_to` decoding, EST/ISO date formatting (T11; response keys unchanged).
+- `flask_app/game_stats.py`: offense/defense tallies and bulk point/roster loaders for team data and My Games (T11). Reads only `hidden_by_import = False` points.
+- `flask_app/player_sheet.py`: player-sheet context and point-label option lists for the game page (T11). Option lists come from games the viewer may see.
 - `migrations/`: Alembic history. Current head is `n9o0p1q2r3s4` (adds `points.hidden_by_import`, T10; after `m8n9o0p1q2r3` watch events, T09, and `l7m8n9o0p1q2` `user.archived_at`, T08a). `env.py` turns SQLite foreign keys off while migrating and checks `PRAGMA foreign_key_check` afterwards (T07). `flask_app/bootstrap.py` provides `flask bootstrap-db` for empty databases.
 
 Frontend:
@@ -48,12 +51,13 @@ Frontend:
 - `templates/articles/base.html`: shared article navigation, notification UI, layout.
 - `templates/articles/{index,post,new_post,edit_post,editor,login_articles,register}.html`: public reading, admin editing, authentication.
 - `templates/film_room/film_base.html`: shared film layout, responsive navigation, notification polling.
-- `templates/film_room/pages/`: games list, game player, personal games, team data, admin analytics, themed login.
+- `templates/film_room/pages/`: games list, game player, personal games, team data, admin analytics, themed login. `game_player.html` is a 33-line shell that includes eleven partials from `templates/film_room/partials/game_player/` (`_styles`, `_markup`, and nine `_js_*` sections) in a fixed order; they are concatenated into the same inline `<script>`, so globals and load order are unchanged (T11).
+- `static/js/game_player/`: `format.js` (text/time helpers) and `scoreboard.js` (score arithmetic), pure classic scripts loaded before the inline player script (T11).
 - `templates/film_room/forms/`: new/edit game, new tournament, CSV upload, user management.
 - `static/css/`: shared article/header/icon CSS; much film CSS remains inline.
 - `static/images/`: branding; `static/uploads/`: publicly served article uploads.
 
-At this baseline, the game player is roughly 5,464 lines and film routes roughly 1,966 lines. These counts identify concentration of responsibilities, not permanent interfaces. No frontend package manager/build process is required.
+At the audit baseline, the game player was roughly 5,464 lines and film routes roughly 1,966 lines; after T11 the player shell is 33 lines (largest partial: 2,286 lines of CSS, then 865 lines of comment script) and `film_routes.py` is about 1,650 lines. These counts identify concentration of responsibilities, not permanent interfaces. No frontend package manager/build process is required.
 
 Local-only directories such as `venv/`, `instance/`, caches, and `.env` are environment/runtime state, not distributable source. Local `tests/` may contain ignored leftovers from another branch; `git ls-files tests` is the authority for what a fresh clone receives. Do not read or publish secrets or team database contents merely to inventory a workspace.
 
@@ -214,7 +218,7 @@ The 2026-10-24 audit used synthetic records and in-memory SQLite with Flask's te
 - `flask db upgrade` on SQLite with foreign keys enabled deleted rows from child tables when a migration rebuilt `user` or `games` (fixed in `migrations/env.py` by T07).
 - Thirteen major page reads returned 200; twenty HTML templates compiled.
 
-Source inspection also found login-form/password logging, private comment logging, unsafe timestamp interpolation into inline JavaScript, no application-level CSRF protection (T05 slice 1 adds a per-session token check), unsanitized article HTML rendered with `safe`, inconsistent visibility rules, unbounded client watch increments, query-per-user/comment patterns, and no tracked CI/tests on the original audit baseline. Browser execution of the injection path, real YouTube controls, deployment security, dependency vulnerability scanning, accessibility, and load behavior were not tested. Temporary diagnostic scripts were not committed. T01 now supplies a tracked pytest harness and secret-free CI using Python 3.12, synthetic users, fresh in-memory schemas, pre-import environment overrides, and temporary filesystem storage. The global application architecture is unchanged. Passing permission/isolation/visibility/input/handler checks and the single strict T09 beacon expected failure are separated in CI; T04 converts its two original defects to ordinary passing regressions. Node 22 runs isolated JavaScript rendering functions for handler tests; no browser/server is started; see [tests/README.md](tests/README.md) for the precise coverage boundary. Migration replay, deletion integrity, and browser behavior remain outside this initial suite.
+Source inspection also found login-form/password logging, private comment logging, unsafe timestamp interpolation into inline JavaScript, no application-level CSRF protection (T05 slice 1 adds a per-session token check), unsanitized article HTML rendered with `safe`, inconsistent visibility rules, unbounded client watch increments, query-per-user/comment patterns (T11 batched the game page, comment thread, team data and My Games reads; the analytics dashboard still queries per user), and no tracked CI/tests on the original audit baseline. Browser execution of the injection path, real YouTube controls, deployment security, dependency vulnerability scanning, accessibility, and load behavior were not tested. Temporary diagnostic scripts were not committed. T01 now supplies a tracked pytest harness and secret-free CI using Python 3.12, synthetic users, fresh in-memory schemas, pre-import environment overrides, and temporary filesystem storage. The global application architecture is unchanged. Passing permission/isolation/visibility/input/handler checks and the single strict T09 beacon expected failure are separated in CI; T04 converts its two original defects to ordinary passing regressions. Node 22 runs isolated JavaScript rendering functions for handler tests; no browser/server is started; see [tests/README.md](tests/README.md) for the precise coverage boundary. Migration replay, deletion integrity, and browser behavior remain outside this initial suite.
 
 Release priorities and acceptance criteria live in the roadmap. Do not silently reinterpret these observations as fixes already made.
 
