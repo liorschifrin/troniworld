@@ -102,7 +102,8 @@ const expandedThreads = new Set(), activeReplyInputId = 7;
 def test_autocomplete_username_is_data(renderer):
     setup = '''
 const opponentName = '';
-const inputEl = {getBoundingClientRect: () => ({}), closest: () => null, parentElement: null};
+const inputEl = {getBoundingClientRect: () => ({}), closest: () => null, parentElement: null,
+  setAttribute: () => {}, removeAttribute: () => {}};
 const window = {getSelection: () => null};
 const dropdown = {innerHTML: '', style: {}, querySelector: () => null};
 const mentionDropdownEl = dropdown, privateUserDropdownEl = dropdown;

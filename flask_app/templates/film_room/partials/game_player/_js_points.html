@@ -8,9 +8,14 @@
     }
   }
 
+  function _pointNumber(pointId) {
+    const card = document.querySelector(`.point-item[data-point-id="${pointId}"]`);
+    return card ? card.getAttribute('data-point-index') : '';
+  }
+
   function _addMenuHTML(pointId) {
     return `<div class="point-add-menu-wrap" data-point-id="${pointId}">` +
-      `<div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
+      `<div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="+ Time for P${_pointNumber(pointId)}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>` +
     `</div>`;
   }
 
@@ -31,6 +36,8 @@
       popup.style.right   = (window.innerWidth  - rect.right) + 'px';
       popup.style.display = 'block';
       wrap.classList.add('open');
+      btnEl.setAttribute('aria-expanded', 'true');
+      document.getElementById('pamSetTime').focus();
     }
   }
 
@@ -38,7 +45,19 @@
     const popup = document.getElementById('pointAddMenuGlobal');
     if (popup) popup.style.display = 'none';
     document.querySelectorAll('.point-add-menu-wrap.open').forEach(w => w.classList.remove('open'));
+    document.querySelectorAll('.point-timestamp-add[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
     _menuWrap = null;
+  }
+
+  // Escape closes the add-time menu and hands focus back to the button that opened it. Called from the page's
+  // single keyboard handler in _js_video.html; returns true when the key was used.
+  function closeAddMenuOnEscape(e) {
+    if (!_menuWrap) return false;
+    const opener = _menuWrap.querySelector('.point-timestamp-add');
+    closeAddMenus();
+    if (opener) opener.focus();
+    e.preventDefault();
+    return true;
   }
 
   document.addEventListener('click', () => closeAddMenus());
@@ -77,7 +96,7 @@
         // Replace the whole menu wrap with the timestamp display
         const mins = Math.floor(currentTime / 60);
         const secs = currentTime % 60;
-        const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
+        const deleteBtn = isAdmin ? `<span class="point-timestamp-delete" role="button" tabindex="0" aria-label="Delete timestamp of P${_pointNumber(pointId)}" onclick="event.stopPropagation(); deletePointTimestamp(${pointId}, this)" title="Delete timestamp">✕</span>` : '';
         const timestampText = `${mins}:${String(secs).padStart(2, '0')}`;
         const wrap = element.closest('.point-add-menu-wrap');
         const target = wrap || element;
@@ -188,7 +207,7 @@
       if (header && !header.querySelector('.not-filmed-badge')) {
         const badge = document.createElement('span');
         badge.className = 'not-filmed-badge';
-        badge.innerHTML = `<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed(${pointId}, this)" title="Reset to unset">✕</span>NO FILM`;
+        badge.innerHTML = `<span class="not-filmed-delete" role="button" tabindex="0" aria-label="Reset P${_pointNumber(pointId)} to unset" onclick="event.stopPropagation(); markAsFilmed(${pointId}, this)" title="Reset to unset">✕</span>NO FILM`;
         header.insertBefore(badge, header.querySelector('.my-point-badge')?.nextSibling || null);
       }
       _applyNotFilmedSheet(pointIndex, true);

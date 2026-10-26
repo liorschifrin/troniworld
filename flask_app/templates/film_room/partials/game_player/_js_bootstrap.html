@@ -65,64 +65,43 @@
     }
   });
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', e => {
-    const active = document.activeElement;
-    const tagNamesToIgnore = ['INPUT', 'TEXTAREA'];
-    if (tagNamesToIgnore.includes(active.tagName)) return;
-    if (active.isContentEditable) return;
-    // Let browser/OS handle any modifier combos (Cmd+F, Cmd+Arrow, Ctrl+C, etc.)
+  // Elements that are clickable but not native buttons (timestamps, admin point controls, roster cells) carry
+  // role="button" and tabindex; Enter and Space activate them like a button.
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || (e.key !== 'Enter' && e.key !== ' ')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    
-    // Prevent default for keys we're handling
-    const keysToPrevent = [' ', 'ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', ',', '.', 'k', 'K', 'f', 'F'];
-    if (keysToPrevent.includes(e.key)) {
-      e.preventDefault();
-    }
-
-    // Play/Pause: Space or K
-    if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
-      togglePlayPause();
-    }
-    
-    // Seek 5 seconds: Arrow keys
-    else if (e.key === 'ArrowLeft') {
-      seekRelative(-5);
-    }
-    else if (e.key === 'ArrowRight') {
-      seekRelative(5);
-    }
-    
-    // Seek 10 seconds: J/L
-    else if (e.key === 'j' || e.key === 'J') {
-      seekRelative(-10);
-    }
-    else if (e.key === 'l' || e.key === 'L') {
-      seekRelative(10);
-    }
-    
-    // Frame by frame (approx 1/30 second): Comma/Period
-    else if (e.key === ',') {
-      seekRelative(-1/30);
-    }
-    else if (e.key === '.') {
-      seekRelative(1/30);
-    }
-    
-    // Fullscreen: F
-    else if (e.key === 'f' || e.key === 'F') {
-      if (player) {
-        const iframe = player.getIframe();
-        if (!document.fullscreenElement) {
-          iframe.requestFullscreen().catch(err => {
-            console.log('Error attempting to enable fullscreen:', err);
-          });
-        } else {
-          document.exitFullscreen();
-        }
-      }
-    }
+    const el = e.target;
+    if (!el || !el.matches || !el.matches('[role="button"], [role="menuitem"]') || el.tagName === 'BUTTON') return;
+    e.preventDefault();
+    el.click();
   });
+
+  // Point numbers are the keyboard handle for a point card's seek-on-click; keep them in step with the
+  // card's timestamp, which the admin tools add and remove while the page is open.
+  function syncPointCardA11y() {
+    document.querySelectorAll('.point-item').forEach(card => {
+      const num = card.querySelector('.point-number');
+      if (!num) return;
+      const ts = Number(card.getAttribute('data-timestamp'));
+      if (card.hasAttribute('data-timestamp') && Number.isFinite(ts)) {
+        num.setAttribute('role', 'button');
+        num.tabIndex = 0;
+        num.setAttribute('aria-label', `Jump to P${card.getAttribute('data-point-index')} at ${formatTime(ts)}`);
+      } else {
+        num.removeAttribute('role');
+        num.removeAttribute('tabindex');
+        num.removeAttribute('aria-label');
+      }
+    });
+  }
+  (function() {
+    const scroller = document.querySelector('.point-info-scroll');
+    if (!scroller) return;
+    syncPointCardA11y();
+    new MutationObserver(syncPointCardA11y).observe(scroller, {
+      subtree: true, attributes: true, attributeFilter: ['data-timestamp']
+    });
+  })();
 
   // Bind mention engine to the main comment input, then register submit shortcut
   const _commentInputEl = document.getElementById('commentInput');

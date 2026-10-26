@@ -15,6 +15,8 @@
     id="watchedToggleBtn"
     class="watched-toggle-btn{% if is_watched %} is-watched{% endif %}"
     onclick="toggleWatched()"
+    aria-pressed="{% if is_watched %}true{% else %}false{% endif %}"
+    aria-label="Mark watched"
   >{% if is_watched %}✓ Watched{% else %}○ Mark Watched{% endif %}</button>
   {% if current_user and current_user.is_admin %}
   <a href="{{ url_for('edit_game', game_id=game.id) }}" class="edit-btn">✎ Edit</a>
@@ -36,12 +38,12 @@
 {% if player_sheet_data %}
 <div class="player-sheet-section">
   <div class="player-sheet-toggle" onclick="togglePlayerSheet()">
-    <h3>📋 View Player Sheet</h3>
+    <h3><button type="button" class="ps-toggle-btn" id="psToggleBtn" aria-expanded="false" aria-controls="playerSheetContent">📋 View Player Sheet</button></h3>
     <div style="display:flex;align-items:center;gap:10px;">
       {% if current_user and current_user.is_admin %}
       <button id="psEditBtn" class="ps-edit-btn" onclick="event.stopPropagation(); enterPlayerSheetEdit()">✎ Edit Roster</button>
       {% endif %}
-      <span class="toggle-icon" id="toggleIcon">▼</span>
+      <span class="toggle-icon" id="toggleIcon" aria-hidden="true">▼</span>
     </div>
   </div>
   <div class="player-sheet-content" id="playerSheetContent">
@@ -160,7 +162,7 @@
   <div class="main">
     {% if not game.youtube_id %}
     <div class="url-bar">
-      <input type="text" id="videoUrl" placeholder="No video loaded for this game yet..." value="">
+      <input type="text" id="videoUrl" placeholder="No video loaded for this game yet..." value="" aria-label="YouTube video link">
       <button onclick="loadVideo()">Load Video</button>
     </div>
     {% endif %}
@@ -189,6 +191,7 @@
         <div class="player-timestamp" id="playerTimestamp">0:00</div>
       </div>
       <div class="player-wrap">
+        <div class="player-error" id="playerError" role="alert" hidden></div>
         {% if not game.youtube_id %}
         <div class="player-placeholder" id="placeholder">
           <div class="disc-icon"></div>
@@ -208,53 +211,53 @@
     <!-- Video Quick Controls -->
     <div class="video-controls" id="videoControls">
       <div class="vc-left">
-        <button class="vc-btn vc-icon-mobile" id="vcMuteBtn" onclick="toggleMute()" title="Mute / Unmute">
-          <span class="vc-icon" id="vcMuteIcon"><svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="m19 6c1.5 1.5 2 4 2 6s-.5 4.5-2 6m-3-9.00002c.5.5 1 1.50002 1 3.00002s-.5 2.5-1 3m-13-4.5v3c0 1.1046.5 2 2.5 2.5s3.5 5 6.5 5c2 0 2-18 0-18-3 0-4.5 4.5-6.5 5s-2.5 1.39543-2.5 2.5z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></span>
-          <span class="vc-label" id="vcMuteLabel">Mute</span>
-          <span class="vc-shortcut">(m)</span>
+        <button class="vc-btn vc-icon-mobile" id="vcMuteBtn" onclick="toggleMute()" title="Mute / Unmute" aria-label="Mute" aria-pressed="false" aria-keyshortcuts="m">
+          <span class="vc-icon" aria-hidden="true" id="vcMuteIcon"><svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="m19 6c1.5 1.5 2 4 2 6s-.5 4.5-2 6m-3-9.00002c.5.5 1 1.50002 1 3.00002s-.5 2.5-1 3m-13-4.5v3c0 1.1046.5 2 2.5 2.5s3.5 5 6.5 5c2 0 2-18 0-18-3 0-4.5 4.5-6.5 5s-2.5 1.39543-2.5 2.5z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></span>
+          <span class="vc-label" id="vcMuteLabel" aria-hidden="true">Mute</span>
+          <span class="vc-shortcut" aria-hidden="true">(m)</span>
         </button>
-        <button class="vc-btn vc-icon-mobile" id="vcFullscreenBtn" onclick="vcFullscreen()" title="Fullscreen">
-          <span class="vc-icon">⛶</span>
+        <button class="vc-btn vc-icon-mobile" id="vcFullscreenBtn" onclick="vcFullscreen()" title="Fullscreen" aria-label="Fullscreen" aria-keyshortcuts="f">
+          <span class="vc-icon" aria-hidden="true">⛶</span>
           <span class="vc-label">⛶ Fullscreen</span>
-          <span class="vc-shortcut">(f)</span>
+          <span class="vc-shortcut" aria-hidden="true">(f)</span>
         </button>
-        <button class="vc-btn vc-icon-mobile" id="vcTheaterBtn" onclick="toggleTheaterMode()" title="Theater mode">
-          <span class="vc-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        <button class="vc-btn vc-icon-mobile" id="vcTheaterBtn" onclick="toggleTheaterMode()" title="Theater mode" aria-label="Theater mode" aria-pressed="false" aria-keyshortcuts="t">
+          <span class="vc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 9h20" stroke="currentColor" stroke-width="1.5"/></svg></span>
           <span class="vc-label">Theater</span>
         </button>
       </div>
       <div class="vc-center">
-        <button class="vc-btn" onclick="seekRelative(-10)" title="Seek backward 10 seconds">
+        <button class="vc-btn" onclick="seekRelative(-10)" title="Seek backward 10 seconds" aria-label="Back 10 seconds" aria-keyshortcuts="j">
           <span class="vc-label">−10s</span>
-          <span class="vc-shortcut">(j)</span>
+          <span class="vc-shortcut" aria-hidden="true">(j)</span>
         </button>
-        <button class="vc-btn" onclick="seekRelative(-3)" title="Seek backward 3 seconds">
+        <button class="vc-btn" onclick="seekRelative(-3)" title="Seek backward 3 seconds" aria-label="Back 3 seconds">
           <span class="vc-label">−3s</span>
         </button>
-        <button class="vc-btn vc-always-icon" onclick="togglePlayPause()" title="Play / Pause">
-          <span class="vc-icon" id="vcPlayPauseIcon"><svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        <button class="vc-btn vc-always-icon" id="vcPlayPauseBtn" onclick="togglePlayPause()" title="Play / Pause" aria-label="Play" aria-keyshortcuts="k">
+          <span class="vc-icon" aria-hidden="true" id="vcPlayPauseIcon"><svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z" stroke="currentColor" stroke-width="1.5"/></svg></span>
           <span class="vc-label" id="vcPlayPauseLabel">Play</span>
-          <span class="vc-shortcut">(k)</span>
+          <span class="vc-shortcut" aria-hidden="true">(k)</span>
         </button>
-        <button class="vc-btn" onclick="seekRelative(3)" title="Seek forward 3 seconds">
+        <button class="vc-btn" onclick="seekRelative(3)" title="Seek forward 3 seconds" aria-label="Forward 3 seconds">
           <span class="vc-label">+3s</span>
         </button>
-        <button class="vc-btn" onclick="seekRelative(10)" title="Seek forward 10 seconds">
+        <button class="vc-btn" onclick="seekRelative(10)" title="Seek forward 10 seconds" aria-label="Forward 10 seconds" aria-keyshortcuts="l">
           <span class="vc-label">+10s</span>
-          <span class="vc-shortcut">(l)</span>
+          <span class="vc-shortcut" aria-hidden="true">(l)</span>
         </button>
       </div>
       <div class="vc-speed-row" id="vcSpeedRow">
-        <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed">
+        <button class="vc-btn vc-speed" data-rate="0.5" data-speed-group onclick="setPlaybackSpeed(0.5)" title="0.5× speed" aria-label="Speed 0.5×" aria-pressed="false">
           <span class="vc-label">0.5×</span>
-          <span class="vc-shortcut">(&lt;)</span>
+          <span class="vc-shortcut" aria-hidden="true">(&lt;)</span>
         </button>
-        <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed">
+        <button class="vc-btn vc-speed vc-active" data-rate="1" data-speed-group onclick="setPlaybackSpeed(1)" title="1× speed" aria-label="Speed 1×" aria-pressed="true">
           <span class="vc-label">1×</span>
         </button>
-        <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed">
+        <button class="vc-btn vc-speed" data-rate="2" data-speed-group onclick="setPlaybackSpeed(2)" title="2× speed" aria-label="Speed 2×" aria-pressed="false">
           <span class="vc-label">2×</span>
-          <span class="vc-shortcut">(&gt;)</span>
+          <span class="vc-shortcut" aria-hidden="true">(&gt;)</span>
         </button>
       </div>
     </div>
@@ -272,18 +275,18 @@
           {% if point.timestamp_start is video_timestamp %}
           <div class="point-timestamp" title="Click to seek to this point">
             {% if current_user and current_user.is_admin %}
-            <span class="point-timestamp-delete" onclick="event.stopPropagation(); deletePointTimestamp({{ point.id }}, this)" title="Delete timestamp">✕</span>
+            <span class="point-timestamp-delete" role="button" tabindex="0" aria-label="Delete timestamp of P{{ point.point_index }}" onclick="event.stopPropagation(); deletePointTimestamp({{ point.id }}, this)" title="Delete timestamp">✕</span>
             {% endif %}
             {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}
           </div>
           {% elif current_user and current_user.is_admin %}
           <div class="point-add-menu-wrap" data-point-id="{{ point.id }}">
-            <div class="point-timestamp-add" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
+            <div class="point-timestamp-add" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-label="+ Time for P{{ point.point_index }}" onclick="event.stopPropagation(); toggleAddMenu(this)">+ Time</div>
           </div>
           {% endif %}
           {% endif %}
           <div class="point-item-header">
-            <span class="point-number">P{{ point.point_index }}</span>
+            <span class="point-number"{% if not point.not_filmed and point.timestamp_start is video_timestamp %} role="button" tabindex="0" aria-label="Jump to P{{ point.point_index }} at {{ (point.timestamp_start // 60)|int }}:{{ '%02d'|format(point.timestamp_start % 60) }}"{% endif %}>P{{ point.point_index }}</span>
             <span class="point-od-badge {% if point.tron_o %}offense{% else %}defense{% endif %}">
               {% if point.tron_o %}O{% else %}D{% endif %}
             </span>
@@ -294,7 +297,7 @@
             <span class="my-point-badge">YOU</span>
             {% endif %}
             {% if point.not_filmed %}
-            <span class="not-filmed-badge">{% if current_user and current_user.is_admin %}<span class="not-filmed-delete" onclick="event.stopPropagation(); markAsFilmed({{ point.id }}, this)" title="Reset to unset">✕</span>{% endif %}NO FILM</span>
+            <span class="not-filmed-badge">{% if current_user and current_user.is_admin %}<span class="not-filmed-delete" role="button" tabindex="0" aria-label="Reset P{{ point.point_index }} to unset" onclick="event.stopPropagation(); markAsFilmed({{ point.id }}, this)" title="Reset to unset">✕</span>{% endif %}NO FILM</span>
             {% endif %}
           </div>
         </div>
@@ -309,23 +312,23 @@
       <div class="panel-header">
         <h2>Comments</h2>
         <span class="count-badge" id="commentCountBadge">0</span>
-        <button class="add-comment-btn" id="addCommentBtn" onclick="toggleCommentInput()">+ Comment</button>
+        <button class="add-comment-btn" id="addCommentBtn" onclick="toggleCommentInput()" aria-expanded="false" aria-controls="commentInputWrap">+ Comment</button>
       </div>
       <div class="comments-area">
         <div class="comment-input-wrap" id="commentInputWrap">
-          <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true"></div>
+          <div class="comment-input" id="commentInput" contenteditable="true" data-placeholder="Share your thoughts about this game..." data-empty="true" role="textbox" aria-multiline="true" aria-label="Add a comment"></div>
           <div class="comment-controls">
-            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private">🔒 Private</button>
+            <button class="privacy-toggle-btn" id="privacyToggleBtn" onclick="togglePrivacy()" title="Make private" aria-pressed="false" aria-controls="privateToWrap">🔒 Private</button>
             <button class="comment-btn" onclick="addComment()">Post Comment</button>
             <button class="mention-at-btn"
               onmousedown="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
               ontouchstart="event.preventDefault(); insertMentionAt(document.getElementById('commentInput'))"
-              title="Mention a user">@</button>
+              title="Mention a user" aria-label="Mention a user">@</button>
           </div>
           <div class="private-to-wrap" id="privateToWrap">
             <div class="private-to-label">Also visible to:</div>
             <div class="private-to-chips" id="privateToChips">
-              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…" />
+              <input type="text" class="private-to-input" id="privateToInput" placeholder="Search users…" aria-label="Users who can also see this comment" />
             </div>
           </div>
         </div>

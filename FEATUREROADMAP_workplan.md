@@ -204,13 +204,13 @@ State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dro
 
 ### T12 — Accessible and responsive interaction coverage
 
-State: [x] proposed [ ] ready [ ] active [ ] paused [ ] blocked [ ] done [ ] dropped
+State: [ ] proposed [ ] ready [x] active [ ] paused [ ] blocked [ ] done [ ] dropped
 
 - **Stage/dependencies:** D; T01, T04; run alongside later UI work. P1.
 - **Scope/read:** player controls, comments/mentions, roster edit, notifications, dialogs, mobile navigation. Define supported browser/device expectations.
 - **Acceptance:** [ ] keyboard/focus flow tested; [ ] shortcuts do not hijack editable text; [ ] buttons and feedback have accessible names/states; [ ] mobile layouts tested; [ ] critical workflows have browser coverage; [ ] YouTube unavailability handled visibly.
 - **Decision notes:** server-render checks do not validate accessibility or JavaScript. Use synthetic games; distinguish automated checks from manual browser observations.
-- **Evidence/checkpoint:** not implemented. Next: choose a minimal browser matrix and test one complete review/comment flow. Rollback: retain working keyboard paths while iterating styles.
+- **Evidence/checkpoint:** active (2026-10-26, PR stacked on T11): matrix chosen (desktop Chromium plus a 390x844 mobile emulation, Playwright dev-only, synthetic games, local YouTube stub); 39 opt-in browser tests cover open game, play/pause, post comment, mark notification read, keyboard and focus flow, shortcuts versus editable text, accessible names/states, YouTube failure states and the mobile layout; accessibility fixes made where they failed. Automated checks and manual observations are separated in `docs/orchestration/tasks/T12.md`. Rollback: revert the template commits; keyboard paths for mouse-only controls were added, none removed.
 
 ### T13 — Production release and recovery runbook
 
