@@ -27,3 +27,7 @@ jobs:
       - name: Explicit known defects (strict expected failures)
         # Exit code 5 means no test is marked known_failure (none are left after T09).
         run: python -m pytest -m known_failure || [ $? -eq 5 ]
+      - name: Browser tests (Chromium, synthetic pages, no network)
+        run: |
+          python -m playwright install --with-deps chromium
+          python -m pytest -m browser

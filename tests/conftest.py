@@ -135,6 +135,16 @@ def leadership(client_for):
     return client_for('leadership')
 
 
+def pytest_collection_modifyitems(config, items):
+    # Browser tests need Chromium (python -m playwright install chromium); they run only when asked for with -m.
+    if 'browser' in (config.option.markexpr or ''):
+        return
+    skip = pytest.mark.skip(reason='browser tests are opt-in: python -m pytest -m browser')
+    for item in items:
+        if 'browser' in item.keywords:
+            item.add_marker(skip)
+
+
 def pytest_sessionfinish(session, exitstatus):
     with application.app_context():
         database.session.remove()
