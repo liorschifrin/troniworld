@@ -107,7 +107,7 @@ mkdir -p /srv/troniworld/data
 cp "$BACKUP/app.db" /srv/troniworld/data/app.db
 cp -a "$BACKUP/uploads" /srv/troniworld/data/uploads    # on an existing uploads/ this would nest uploads/uploads: move the old one aside first
 [ -e "$BACKUP/uploads.sha256" ]                           # a missing manifest must stop the restore
-[ ! -s "$BACKUP/uploads.sha256" ] || (cd /srv/troniworld/data/uploads && sha256sum -c "$BACKUP/uploads.sha256")
+if [ -s "$BACKUP/uploads.sha256" ]; then (cd /srv/troniworld/data/uploads && sha256sum -c "$BACKUP/uploads.sha256"); else [ -z "$(find "$BACKUP/uploads" -type f -print -quit)" ]; fi   # an empty manifest is valid only for a backup with no files
 chown -R "$SERVICE_USER" /srv/troniworld/data           # the service must own data/ (SQLite creates journal files beside app.db)
 chmod 700 /srv/troniworld/data; chmod 600 /srv/troniworld/data/app.db
 sudo -u "$SERVICE_USER" test -w /srv/troniworld/data/app.db -a -w /srv/troniworld/data/uploads   # access check as the service user
@@ -145,10 +145,15 @@ mkdir -p "$UPLOAD_DIR"
 cp "$OLD_BACKUP/app.db" "$NEW_DB"                                         # the migrated copy; the old file stays as it is
 cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$UPLOAD_DIR"/
 sqlite3 "$NEW_DB" "PRAGMA integrity_check;"                               # ok
-diff <(cd "$OLD_BACKUP/uploads" && find . -type f -exec sha256sum {} + | sort -k2) <(cd "$UPLOAD_DIR" && find . -type f -exec sha256sum {} + | sort -k2)
+(cd "$OLD_BACKUP/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # the manifest rollback path B needs
+if [ -s "$OLD_BACKUP/uploads.sha256" ]; then (cd "$UPLOAD_DIR" && sha256sum -c "$OLD_BACKUP/uploads.sha256"); fi
+sqlite3 -readonly "$OLD_DB" "SELECT version_num FROM alembic_version;"     # this is BEFORE_STAMP: write it down for rollback path A
+SERVICE_USER=troniworld                                                    # placeholder service account
+chown -R "$SERVICE_USER" /srv/troniworld/data; chmod 700 /srv/troniworld/data; chmod 600 "$NEW_DB"
+sudo -u "$SERVICE_USER" test -w "$NEW_DB" -a -w "$UPLOAD_DIR"              # access check as the service user
 ```
 
-Then continue at step 3 below (the new database is upgraded, not the old one). Keep the old release and database untouched until the smoke checks pass.
+The old backup in `$OLD_BACKUP` has the same layout as a section 6 backup (`app.db`, `uploads/`, `uploads.sha256`), so rollback path B can use it. Then continue at step 3 below (the new database is upgraded, not the old one). Keep the old release and database untouched until the smoke checks pass.
 
 Rollback (decide quickly; each step is reversible until data is written under the new version):
 
