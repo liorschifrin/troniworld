@@ -72,6 +72,8 @@
 - T11 implementer `mcp:436c8959-7b25-49d6-9413-f994acc7f8b2` launched on `task/t11-modules`, stacked on `origin/task/t10-csv-preview`.
 - T11 PR #20 at `f6acdff`: Codex review APPROVED (no findings). PR marked ready.
 - T12 implementer `mcp:d5a6af10-81ac-4e78-af3a-851566957048` launched on `task/t12-browser`, stacked on `origin/task/t11-modules`.
+- T11 PR #20 `f6acdff` approved by Codex; ready. T12 PR #21 `d43666` (1213 pass, 39 browser pass in Chromium); Codex APPROVE (nit fixed); ready.
+- T13 implementer `mcp:81a2e809-ca1b-428c-b52f-e623c1fac784` launched on `task/t13-runbook`, stacked on `origin/task/t12-browser`. Q5 stays OPEN.
 - Failover (user 2026-10-26, overrides the earlier 401 rule): if one provider runs out (usage, quota, rate limit) or stops working (including 401/token expired), switch to the other provider at the same tier and continue from the last checkpoint on the same branch. Record the switch, the reason and the time here. Do not start unselected tasks because of a switch.
 - Limits: record the checkpoint before switching; resume on the next scheduled wakeup.
 - T08a: implementer `mcp:a2980cdc-1ba9-44b8-a545-8ea7abb373d3` (claude-sonnet-5-5 medium), branch `task/t08a-deletion`, launched 2026-10-26.
