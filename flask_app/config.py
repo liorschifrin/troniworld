@@ -60,8 +60,12 @@ def apply_config(app, environ=os.environ):
         return app
 
     problems = []
+    for name in ('FILM_USER_PASSWORD', 'FILM_ADMIN_PASSWORD'):
+        if not environ.get(name, '').strip():
+            problems.append(f'{name} must be set')
     secret = environ.get('SECRET_KEY', '')
-    if len(secret) < MIN_SECRET_LENGTH or secret.strip().lower() in PLACEHOLDER_SECRETS:
+    stripped = secret.strip()
+    if len(stripped) < MIN_SECRET_LENGTH or stripped.lower() in PLACEHOLDER_SECRETS:
         problems.append(f'SECRET_KEY must be set in the environment to a random value of at least '
                         f'{MIN_SECRET_LENGTH} characters (not a placeholder)')
     uri = environ.get('DATABASE_URI', '').strip()

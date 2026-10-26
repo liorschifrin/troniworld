@@ -30,6 +30,8 @@ def production_env(tmp_path, **overrides):
         'SECRET_KEY': SECRET,
         'DATABASE_URI': f'sqlite:///{tmp_path}/data/app.db',
         'UPLOAD_DIR': str(tmp_path / 'data' / 'uploads'),
+        'FILM_USER_PASSWORD': 'synthetic-member-password',
+        'FILM_ADMIN_PASSWORD': 'synthetic-admin-password',
     }
     env.update(overrides)
     return {k: v for k, v in env.items() if v is not None}
@@ -72,6 +74,10 @@ def test_production_secret_comes_from_the_environment(tmp_path, tree):
     ({'SECRET_KEY': 'short'}, 'SECRET_KEY'),
     ({'SECRET_KEY': 'synthetic-test-session-key'}, 'SECRET_KEY'),
     ({'SECRET_KEY': 'changeme'}, 'SECRET_KEY'),
+    ({'SECRET_KEY': ' ' * 40}, 'SECRET_KEY'),
+    ({'SECRET_KEY': 'a' + ' ' * 40}, 'SECRET_KEY'),
+    ({'FILM_USER_PASSWORD': None}, 'FILM_USER_PASSWORD must be set'),
+    ({'FILM_ADMIN_PASSWORD': ' '}, 'FILM_ADMIN_PASSWORD must be set'),
     ({'DATABASE_URI': None}, 'DATABASE_URI must be set'),
     ({'DATABASE_URI': 'sqlite:///:memory:'}, 'in-memory'),
     ({'DATABASE_URI': 'sqlite://'}, 'in-memory'),
