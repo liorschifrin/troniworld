@@ -111,7 +111,8 @@ def test_non_production_keeps_development_behaviour(tmp_path, tree):
     tree.secret_key = None
     apply_config(tree, {})
     assert tree.config['UPLOAD_FOLDER'] == os.path.join(tree.root_path, 'static', 'uploads')
-    assert tree.secret_key is None and 'SESSION_COOKIE_SECURE' not in tree.config or tree.config['SESSION_COOKIE_SECURE'] is False
+    assert tree.secret_key is None
+    assert tree.config.get('SESSION_COOKIE_SECURE', False) is False
     assert not release_config.is_production({'APP_ENV': 'staging'})
     assert release_config.is_production({'APP_ENV': ' Production '})
 

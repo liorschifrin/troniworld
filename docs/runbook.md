@@ -106,6 +106,7 @@ BACKUP="/srv/troniworld/backups/$STAMP"; SERVICE_USER=troniworld    # placeholde
 mkdir -p /srv/troniworld/data
 cp "$BACKUP/app.db" /srv/troniworld/data/app.db
 cp -a "$BACKUP/uploads" /srv/troniworld/data/uploads    # on an existing uploads/ this would nest uploads/uploads: move the old one aside first
+[ -e "$BACKUP/uploads.sha256" ]                           # a missing manifest must stop the restore
 [ ! -s "$BACKUP/uploads.sha256" ] || (cd /srv/troniworld/data/uploads && sha256sum -c "$BACKUP/uploads.sha256")
 chown -R "$SERVICE_USER" /srv/troniworld/data           # the service must own data/ (SQLite creates journal files beside app.db)
 chmod 700 /srv/troniworld/data; chmod 600 /srv/troniworld/data/app.db
@@ -128,7 +129,7 @@ Upgrade (with the service stopped or in maintenance, after a section 6 backup, u
 
 Rollback (decide quickly; each step is reversible until data is written under the new version):
 
-- **A. Nothing written since the upgrade (or the loss is acceptable): previous artifact plus compatible schema.** Stop the service; from the new release run `flask --app app db downgrade <before-stamp>`; point `current` at the previous release; start. Only valid while every downgrade in between is possible: a downgrade refuses (and leaves the data alone) when it would discard data, for example `m8n9o0p1q2r3` while watch-event rows exist, `l7m8n9o0p1q2` while a user is archived, `n9o0p1q2r3s4` while points are hidden by import.
+- **A. Nothing written since the upgrade (or the loss is acceptable): previous artifact plus compatible schema.** Stop the service; from the new release run `flask --app app db downgrade "$BEFORE_STAMP"` (the stamp noted in upgrade step 1, saved as `BEFORE_STAMP=<stamp>`); point `current` at the previous release; start. Only valid while every downgrade in between is possible: a downgrade refuses (and leaves the data alone) when it would discard data, for example `m8n9o0p1q2r3` while watch-event rows exist, `l7m8n9o0p1q2` while a user is archived, `n9o0p1q2r3s4` while points are hidden by import.
 - **B. Anything else: restore the snapshot.** Stop the service; move the live `data/app.db` (and `data/uploads` if you restore it) aside (`mv data/app.db data/app.db.rolled-back`; copying a directory onto an existing one would nest `uploads/uploads`), then restore the pre-upgrade `app.db` (and, if uploads changed meanwhile, the uploads copy; extra newer upload files are harmless) as in section 7; point `current` at the previous release; start. Data written after the backup is lost (including comments and watch time); the size of that loss depends on the time between backup and rollback.
 - After either path, check `flask --app app db current` equals the before stamp, then run the smoke checks.
 
