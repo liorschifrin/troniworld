@@ -106,7 +106,7 @@ BACKUP="/srv/troniworld/backups/$STAMP"; SERVICE_USER=troniworld    # placeholde
 mkdir -p /srv/troniworld/data
 # Never restore over a live database or uploads directory: move them aside first (as in rollback path B).
 for target in /srv/troniworld/data/app.db /srv/troniworld/data/uploads; do
-  [ ! -e "$target" ] || { echo "refusing: $target exists; move it aside first" >&2; exit 1; }
+  if [ -e "$target" ] || [ -L "$target" ]; then echo "refusing: $target exists (or is a symlink, even a dangling one); move it aside first" >&2; exit 1; fi
 done
 cp "$BACKUP/app.db" /srv/troniworld/data/app.db
 cp -a "$BACKUP/uploads" /srv/troniworld/data/uploads    # on an existing uploads/ this would nest uploads/uploads: move the old one aside first

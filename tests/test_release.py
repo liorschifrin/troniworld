@@ -271,6 +271,59 @@ def test_symlinks_in_the_upload_folder_are_not_served(app, client_for, tmp_path)
         assert client.get('/static/uploads/' + bad).status_code == 404, bad
 
 
+def test_a_component_swapped_for_a_symlink_after_the_look_is_refused(app, client_for, tmp_path, monkeypatch):
+    from flask_app import uploads
+    folder = Path(app.config['UPLOAD_FOLDER'])
+    secret = tmp_path / 'private-file'
+    secret.write_bytes(b'synthetic private bytes')
+    (folder / 'sub').mkdir()
+    (folder / 'sub' / 'pic.png').write_bytes(synthetic_image())
+    real_open = uploads._open_at
+    swapped = []
+
+    def swapping_open(name, flags, dir_fd):
+        # The attacker wins the race: just before the component is opened it becomes a symlink.
+        if name == 'pic.png' and not swapped:
+            swapped.append(name)
+            (folder / 'sub' / 'pic.png').unlink()
+            (folder / 'sub' / 'pic.png').symlink_to(secret)
+        return real_open(name, flags, dir_fd)
+
+    monkeypatch.setattr(uploads, '_open_at', swapping_open)
+    response = client_for().get('/static/uploads/sub/pic.png')
+    assert swapped and response.status_code == 404
+    assert b'synthetic private' not in response.get_data()
+    swapped.clear()
+    # The same for a directory component swapped for a symlink to a directory.
+    (folder / 'dir').mkdir()
+    (folder / 'dir' / 'x.png').write_bytes(synthetic_image())
+
+    def swapping_dir(name, flags, dir_fd):
+        if name == 'dir' and not swapped:
+            swapped.append(name)
+            (folder / 'dir' / 'x.png').unlink()
+            (folder / 'dir').rmdir()
+            (folder / 'dir').symlink_to(tmp_path, target_is_directory=True)
+            (tmp_path / 'x.png').write_bytes(b'synthetic outside')
+        return real_open(name, flags, dir_fd)
+
+    monkeypatch.setattr(uploads, '_open_at', swapping_dir)
+    assert client_for().get('/static/uploads/dir/x.png').status_code == 404
+
+
+def test_other_unsafe_upload_paths_are_refused_and_headers_are_kept(app, client_for):
+    folder = Path(app.config['UPLOAD_FOLDER'])
+    (folder / 'ok.png').write_bytes(synthetic_image())
+    client = client_for()
+    for bad in ('/etc/passwd', 'a//b.png', './ok.png', 'ok.png/', 'ok.png/.', 'sub\\..\\ok.png', 'ok.png%00.txt'):
+        assert client.get('/static/uploads/' + bad).status_code == 404, bad
+    ok = client.get('/static/uploads/ok.png')
+    assert ok.status_code == 200 and ok.mimetype == 'image/png'
+    assert ok.headers['X-Content-Type-Options'] == 'nosniff'
+    assert ok.headers['Content-Length'] == str(len(synthetic_image()))
+    assert client.head('/static/uploads/ok.png').status_code == 200
+
+
 # --- 3. backup and restore rehearsal ----------------------------------------------
 
 def sha256(path):
@@ -324,6 +377,28 @@ def test_restore_rehearsal_brings_back_the_database_and_the_uploads(tmp_path):
     restored_files = {p.name: sha256(p) for p in sorted((restored / 'uploads').iterdir())}
     assert restored_files == manifest and set(restored_files) == set(images)
     assert all((restored / 'uploads' / n).read_bytes() == d for n, d in images.items())
+
+
+def test_the_documented_restore_guard_refuses_a_dangling_symlink(tmp_path):
+    runbook = (ROOT / 'docs' / 'runbook.md').read_text()
+    start = runbook.index('for target in /srv/troniworld/data/app.db')
+    guard = runbook[start:runbook.index('\ndone\n', start) + len('\ndone')]
+    guard = guard.replace('/srv/troniworld/data', str(tmp_path / 'data'))
+
+    def run():
+        return subprocess.run(['bash', '-c', 'set -euo pipefail\n' + guard], capture_output=True, text=True)
+
+    (tmp_path / 'data').mkdir()
+    assert run().returncode == 0                                   # clean target: allowed
+    (tmp_path / 'data' / 'app.db').symlink_to(tmp_path / 'nowhere')  # dangling symlink
+    refused = run()
+    assert refused.returncode != 0 and 'refusing' in refused.stderr
+    (tmp_path / 'data' / 'app.db').unlink()
+    (tmp_path / 'data' / 'uploads').symlink_to(tmp_path / 'nowhere', target_is_directory=True)
+    assert run().returncode != 0
+    (tmp_path / 'data' / 'uploads').unlink()
+    (tmp_path / 'data' / 'app.db').write_bytes(b'live')            # an existing live file
+    assert run().returncode != 0
 
 
 # --- 4. staging smoke and permission checks (automated part) ----------------------

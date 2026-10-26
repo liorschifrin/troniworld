@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 import os
 import json
 
-# Load environment variables
+# Load environment variables, then validate APP_ENV before anything is configured.
 load_dotenv()
+from .config import app_mode
+app_mode()  # raises ConfigError unless APP_ENV is exactly "production" or "development"
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Initialize Flask application

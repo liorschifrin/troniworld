@@ -5,13 +5,15 @@ GIF, or WebP, and it is at most MAX_IMAGE_BYTES. The bytes are written to a
 temporary file in the upload folder and renamed into place only after
 validation. The image is never re-encoded.
 """
+import mimetypes
 import os
+import stat
 import tempfile
 import uuid
 
-from flask import abort, current_app, jsonify, request, send_from_directory
+from flask import abort, current_app, jsonify, request
 from PIL import Image, UnidentifiedImageError
-from werkzeug.security import safe_join
+from werkzeug.utils import send_file
 from werkzeug.utils import secure_filename
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -85,15 +87,50 @@ def save_image(file_storage, folder):
             os.unlink(temp_path)
 
 
-def _plain_file_inside(root, target):
-    """True for a regular file under root reached without following any symlink."""
-    current = root
-    for part in os.path.relpath(target, root).split(os.sep):
-        current = os.path.join(current, part)
-        if os.path.islink(current):
-            return False
-    return (os.path.isfile(target)
-            and os.path.commonpath([root, os.path.realpath(target)]) == root)
+def _open_at(name, flags, dir_fd):
+    return os.open(name, flags, dir_fd=dir_fd)
+
+
+def open_plain_file(root, filename):
+    """Open ``filename`` under ``root`` without ever following a symlink.
+
+    Each component is opened relative to the directory descriptor of its parent
+    with O_NOFOLLOW, so a component swapped for a symlink after any earlier look
+    is refused by the kernel rather than raced. Returns (file object, fstat) for
+    a regular file, or None for anything else (missing, symlink, directory,
+    traversal, absolute path).
+    """
+    parts = filename.split('/')
+    if any(part in ('', '.', '..') or '\0' in part or '\\' in part for part in parts):
+        return None
+    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0)
+    try:
+        directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | getattr(os, 'O_CLOEXEC', 0))
+    except OSError:
+        return None
+    try:
+        for part in parts[:-1]:
+            try:
+                child = _open_at(part, flags | os.O_DIRECTORY, directory)
+            except OSError:
+                return None
+            os.close(directory)
+            directory = child
+        try:
+            descriptor = _open_at(parts[-1], flags | getattr(os, 'O_NONBLOCK', 0), directory)
+        except OSError:
+            return None
+    finally:
+        os.close(directory)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            os.close(descriptor)
+            return None
+        return os.fdopen(descriptor, 'rb'), info
+    except BaseException:
+        os.close(descriptor)
+        raise
 
 
 def init_app(app):
@@ -119,10 +156,19 @@ def init_app(app):
         # outside flask_app/static (T13). When it is the default folder this is
         # the same file the static view would send.
         root = os.path.realpath(current_app.config['UPLOAD_FOLDER'])
-        target = safe_join(root, filename)
-        if target is None or not _plain_file_inside(root, target):
+        opened = open_plain_file(root, filename)
+        if opened is None:
             abort(404)
-        return send_from_directory(root, filename)
+        handle, info = opened
+        name = filename.rsplit('/', 1)[-1]
+        # Served from the descriptor that was checked, so nothing can be swapped in between.
+        response = send_file(handle, request.environ, mimetype=mimetypes.guess_type(name)[0] or 'application/octet-stream',
+                         download_name=name, conditional=True, last_modified=info.st_mtime,
+                         etag=f'{info.st_mtime_ns:x}-{info.st_size:x}',
+                         max_age=current_app.get_send_file_max_age(name))
+        if response.status_code == 200:
+            response.content_length = info.st_size
+        return response
 
     @app.after_request
     def nosniff_uploads(response):
