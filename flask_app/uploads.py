@@ -11,6 +11,7 @@ import uuid
 
 from flask import abort, current_app, jsonify, request, send_from_directory
 from PIL import Image, UnidentifiedImageError
+from werkzeug.security import safe_join
 from werkzeug.utils import secure_filename
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -84,6 +85,17 @@ def save_image(file_storage, folder):
             os.unlink(temp_path)
 
 
+def _plain_file_inside(root, target):
+    """True for a regular file under root reached without following any symlink."""
+    current = root
+    for part in os.path.relpath(target, root).split(os.sep):
+        current = os.path.join(current, part)
+        if os.path.islink(current):
+            return False
+    return (os.path.isfile(target)
+            and os.path.commonpath([root, os.path.realpath(target)]) == root)
+
+
 def init_app(app):
     app.config['MAX_CONTENT_LENGTH'] = MAX_REQUEST_BYTES
 
@@ -106,7 +118,11 @@ def init_app(app):
         # Serves UPLOAD_FOLDER at the public upload URL, so the folder may live
         # outside flask_app/static (T13). When it is the default folder this is
         # the same file the static view would send.
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+        root = os.path.realpath(current_app.config['UPLOAD_FOLDER'])
+        target = safe_join(root, filename)
+        if target is None or not _plain_file_inside(root, target):
+            abort(404)
+        return send_from_directory(root, filename)
 
     @app.after_request
     def nosniff_uploads(response):

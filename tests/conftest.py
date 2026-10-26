@@ -19,6 +19,7 @@ os.environ.update(
     FILM_USER_PASSWORD='synthetic-member-password',
     FILM_ADMIN_PASSWORD='synthetic-admin-password',
     PYTHON_DOTENV_DISABLED='1',
+    APP_ENV='development',
 )
 _original_init = Flask.__init__
 _original_makedirs = os.makedirs

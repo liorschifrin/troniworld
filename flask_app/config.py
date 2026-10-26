@@ -25,8 +25,22 @@ class ConfigError(RuntimeError):
     """The production profile was requested with missing or unsafe settings."""
 
 
+def app_mode(environ=os.environ):
+    """Return 'production' or 'development'. Fails closed: APP_ENV must be set and exact.
+
+    A missing, empty or misspelled value (prod, Productionn) raises instead of
+    silently falling back to the development defaults.
+    """
+    value = environ.get('APP_ENV')
+    if value in ('production', 'development'):
+        return value
+    shown = 'not set' if value is None else repr(value)
+    raise ConfigError(f'APP_ENV is {shown}; set it to exactly "production" or "development" '
+                      '(there is no default, so a typo cannot select the development profile)')
+
+
 def is_production(environ=os.environ):
-    return environ.get('APP_ENV', '').strip().lower() == 'production'
+    return app_mode(environ) == 'production'
 
 
 def default_upload_folder(app):
@@ -51,12 +65,13 @@ def _database_file(uri):
 
 def apply_config(app, environ=os.environ):
     """Apply environment configuration to ``app``; raise ConfigError if production is unsafe."""
+    production = is_production(environ)  # raises ConfigError before anything is configured
     upload_dir = environ.get('UPLOAD_DIR', '').strip()
     if upload_dir:
         app.config['UPLOAD_FOLDER'] = os.path.abspath(upload_dir)
     else:
         app.config['UPLOAD_FOLDER'] = default_upload_folder(app)
-    if not is_production(environ):
+    if not production:
         return app
 
     problems = []

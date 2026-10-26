@@ -131,12 +131,41 @@ def test_production_refuses_an_upload_folder_that_would_publish_the_database(tmp
 
 def test_non_production_keeps_development_behaviour(tmp_path, tree):
     tree.secret_key = None
-    apply_config(tree, {})
+    apply_config(tree, {'APP_ENV': 'development'})
     assert tree.config['UPLOAD_FOLDER'] == os.path.join(tree.root_path, 'static', 'uploads')
     assert tree.secret_key is None
     assert tree.config.get('SESSION_COOKIE_SECURE', False) is False
-    assert not release_config.is_production({'APP_ENV': 'staging'})
-    assert release_config.is_production({'APP_ENV': ' Production '})
+    assert not release_config.is_production({'APP_ENV': 'development'})
+    assert release_config.is_production({'APP_ENV': 'production'})
+
+
+@pytest.mark.parametrize('value', [None, '', ' ', 'prod', 'Productionn', 'Production', ' production', 'production ',
+                                   'staging', 'dev', 'Development', 'true'])
+def test_a_missing_or_misspelled_app_env_refuses_to_configure(tmp_path, tree, value):
+    environ = production_env(tmp_path, APP_ENV=value)
+    with pytest.raises(ConfigError, match='APP_ENV'):
+        apply_config(tree, environ)
+    with pytest.raises(ConfigError, match='APP_ENV'):
+        release_config.is_production(environ)
+    assert 'UPLOAD_FOLDER' not in tree.config  # nothing was configured
+
+
+def test_the_real_app_module_refuses_to_start_with_a_missing_or_misspelled_app_env(tmp_path):
+    for value in (None, 'prod', 'Productionn', ''):
+        env = production_env(tmp_path, APP_ENV=value)
+        result = subprocess.run([sys.executable, '-I', '-c', PRINT_CONFIG, str(ROOT)], env=clean_env(**env),
+                                capture_output=True, text=True, timeout=120, cwd=tmp_path)
+        assert result.returncode != 0 and 'APP_ENV' in result.stderr, value
+
+
+def test_development_still_works_when_named_explicitly(tmp_path):
+    env = {'APP_ENV': 'development', 'SECRET_KEY': 'x', 'DATABASE_URI': 'sqlite:///:memory:'}
+    result = subprocess.run([sys.executable, '-I', '-c', PRINT_CONFIG, str(ROOT)],
+                            env=clean_env(UPLOAD_DIR=str(tmp_path / 'dev-uploads'), **env),
+                            capture_output=True, text=True, timeout=120, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    loaded = json.loads(result.stdout.strip().splitlines()[-1])
+    assert loaded['TEMPLATES_AUTO_RELOAD'] is True and loaded['SESSION_COOKIE_SECURE'] is False
 
 
 def clean_env(**extra):
@@ -149,7 +178,7 @@ def clean_env(**extra):
 
 PRINT_CONFIG = (
     "import json, sys; sys.path.insert(0, sys.argv[1]); from flask_app import app; "
-    "print(json.dumps({k: app.config[k] for k in ('DEBUG','SESSION_COOKIE_SECURE','SESSION_COOKIE_HTTPONLY',"
+    "print(json.dumps({k: app.config.get(k) for k in ('DEBUG','SESSION_COOKIE_SECURE','SESSION_COOKIE_HTTPONLY',"
     "'SESSION_COOKIE_SAMESITE','UPLOAD_FOLDER','TEMPLATES_AUTO_RELOAD')} | {'secret': app.secret_key}))"
 )
 
@@ -192,7 +221,7 @@ def test_the_upload_path_is_configurable_and_not_in_static_code_paths(tmp_path, 
     assert not folder.resolve().is_relative_to(code)
     assert not folder.resolve().is_relative_to(code / 'static')
     # Without UPLOAD_DIR the development default is still the old location.
-    apply_config(tree, {})
+    apply_config(tree, {'APP_ENV': 'development'})
     assert tree.config['UPLOAD_FOLDER'].endswith(os.path.join('flask_app', 'static', 'uploads'))
 
 
@@ -215,6 +244,31 @@ def test_uploads_in_a_configured_folder_are_saved_and_served_at_the_public_url(a
     assert served.headers['X-Content-Type-Options'] == 'nosniff'
     assert client_for().get('/static/uploads/../app.db').status_code == 404
     assert client_for().get('/static/uploads/missing.png').status_code == 404
+
+
+def test_symlinks_in_the_upload_folder_are_not_served(app, client_for, tmp_path):
+    folder = Path(app.config['UPLOAD_FOLDER'])
+    secret = tmp_path / 'private' / 'app.db'
+    secret.parent.mkdir()
+    secret.write_bytes(b'synthetic private database bytes')
+    (folder / 'inside.png').write_bytes(synthetic_image())
+    (folder / 'to-outside.png').symlink_to(secret)
+    (folder / 'to-inside.png').symlink_to(folder / 'inside.png')
+    (folder / 'dir-link').symlink_to(secret.parent, target_is_directory=True)
+    (folder / 'real-dir').mkdir()
+    (folder / 'real-dir' / 'nested.png').write_bytes(synthetic_image())
+    client = client_for()
+    assert client.get('/static/uploads/to-outside.png').status_code == 404
+    assert client.get('/static/uploads/to-inside.png').status_code == 404
+    assert client.get('/static/uploads/dir-link/app.db').status_code == 404
+    assert b'synthetic private' not in client.get('/static/uploads/dir-link/app.db').get_data()
+    ok = client.get('/static/uploads/inside.png')
+    assert ok.status_code == 200 and ok.get_data() == synthetic_image()
+    assert ok.headers['X-Content-Type-Options'] == 'nosniff'
+    assert client.get('/static/uploads/real-dir/nested.png').status_code == 200
+    assert client.get('/static/uploads/real-dir').status_code == 404  # a directory
+    for bad in ('../private/app.db', '..%2Fprivate%2Fapp.db', '%2e%2e/private/app.db', 'real-dir/../../private/app.db'):
+        assert client.get('/static/uploads/' + bad).status_code == 404, bad
 
 
 # --- 3. backup and restore rehearsal ----------------------------------------------
@@ -329,7 +383,7 @@ START_CHECK = (
 
 
 def start_app_against(database, tmp_path):
-    env = clean_env(DATABASE_URI=f'sqlite:///{database}', SECRET_KEY='synthetic-rollback-key',
+    env = clean_env(APP_ENV='development', DATABASE_URI=f'sqlite:///{database}', SECRET_KEY='synthetic-rollback-key',
                     UPLOAD_DIR=str(tmp_path / 'rollback-uploads'))
     result = subprocess.run([sys.executable, '-I', '-c', START_CHECK, str(ROOT)], env=env,
                             capture_output=True, text=True, timeout=120, cwd=tmp_path)

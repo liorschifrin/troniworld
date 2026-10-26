@@ -50,6 +50,7 @@ cd troniworld
 
 Create a .env file with
 ```
+APP_ENV="development"
 SECRET_KEY=""
 DATABASE_URI="sqlite:///app.db"
 ```
@@ -72,7 +73,7 @@ This creates every table from the current models and stamps the Alembic head, so
 ```bash
 python app.py
 ```
-This is the development server (debug on). For a production deployment, backups, restore and rollback see [docs/runbook.md](docs/runbook.md); set `APP_ENV=production` and `UPLOAD_DIR` there.
+This is the development server (debug on). For a production deployment, backups, restore and rollback see [docs/runbook.md](docs/runbook.md); set `APP_ENV=production` and `UPLOAD_DIR` there. `APP_ENV` has no default: the app refuses to start unless it is exactly `development` or `production`.
 
 #### Updating an existing DB
 Back up the database file first. With `DATABASE_URI="sqlite:///app.db"` Flask-SQLAlchemy keeps the file in the app's instance folder, `instance/app.db` under the repository root, not `./app.db`. To find the exact file, run `python -c "from flask_app import app, db; ctx = app.app_context(); ctx.push(); print(db.engine.url.database)"` with the same environment as the app (a relative `sqlite:///` path is resolved against the instance folder; `sqlite:////absolute/path.db` is used as is). Then, with the app stopped:

@@ -42,13 +42,13 @@ Set these in the service environment (the `env` file above). Values are placehol
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `APP_ENV` | yes | `production` switches on the production profile. Any other value keeps development behaviour. |
+| `APP_ENV` | yes | Exactly `production` or `development`; **there is no default**. Anything else (unset, empty, `prod`, `Production`, a typo) makes the app refuse to start, so a mistake cannot silently select the insecure development profile. `production` switches on the profile below; `development` keeps the old defaults and is for developer machines only. |
 | `SECRET_KEY` | yes | Signs session cookies and CSRF tokens. At least 32 random characters, not a placeholder. Example generator (run on the host, store the output only in the env file): `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
 | `DATABASE_URI` | yes | `sqlite:////srv/troniworld/data/app.db` (four slashes = absolute path). Must be absolute, not in-memory, and outside the code tree. |
 | `UPLOAD_DIR` | yes | Absolute directory outside the code tree, not containing it, not containing the database file, and holding nothing but uploads (everything in it is public at `/static/uploads/`; keep the environment file and backups elsewhere), for example `/srv/troniworld/data/uploads`. Created at start if missing. |
 | `FILM_USER_PASSWORD`, `FILM_ADMIN_PASSWORD` | yes | The shared login passwords (known limitation until T06). Compared case-insensitively. Treat as secrets. |
 
-What `APP_ENV=production` does (`flask_app/config.py`, tested in `tests/test_release.py`): `DEBUG` and `TESTING` off; template auto-reload off; one-hour static cache instead of none; `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY` and `SESSION_COOKIE_SAMESITE=Lax` set; HTTPS URL scheme; and **startup is refused** (`ConfigError`, process exits) when `SECRET_KEY` is missing, shorter than 32 characters after trimming whitespace, or a known placeholder, when either film password is missing, when `DATABASE_URI` is missing, in-memory, relative, or inside the code tree, or when `UPLOAD_DIR` is missing, relative, inside the code tree, an ancestor of it, or a directory that contains the database file. Development (no `APP_ENV`) is unchanged, including the upload folder `flask_app/static/uploads`.
+What `APP_ENV=production` does (`flask_app/config.py`, tested in `tests/test_release.py`): `DEBUG` and `TESTING` off; template auto-reload off; one-hour static cache instead of none; `SESSION_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY` and `SESSION_COOKIE_SAMESITE=Lax` set; HTTPS URL scheme; and **startup is refused** (`ConfigError`, process exits) when `SECRET_KEY` is missing, shorter than 32 characters after trimming whitespace, or a known placeholder, when either film password is missing, when `DATABASE_URI` is missing, in-memory, relative, or inside the code tree, or when `UPLOAD_DIR` is missing, relative, inside the code tree, an ancestor of it, or a directory that contains the database file. Development (`APP_ENV=development`) is unchanged, including the upload folder `flask_app/static/uploads`.
 
 The app also calls `load_dotenv()`; on a host prefer real environment variables and do not leave a `.env` file in the code tree. Existing environment variables win over `.env`.
 
@@ -104,6 +104,10 @@ set -euo pipefail; umask 077
 STAMP=20261026T120000Z                                  # placeholder: the selected backup
 BACKUP="/srv/troniworld/backups/$STAMP"; SERVICE_USER=troniworld    # placeholder service account
 mkdir -p /srv/troniworld/data
+# Never restore over a live database or uploads directory: move them aside first (as in rollback path B).
+for target in /srv/troniworld/data/app.db /srv/troniworld/data/uploads; do
+  [ ! -e "$target" ] || { echo "refusing: $target exists; move it aside first" >&2; exit 1; }
+done
 cp "$BACKUP/app.db" /srv/troniworld/data/app.db
 cp -a "$BACKUP/uploads" /srv/troniworld/data/uploads    # on an existing uploads/ this would nest uploads/uploads: move the old one aside first
 [ -e "$BACKUP/uploads.sha256" ]                           # a missing manifest must stop the restore
