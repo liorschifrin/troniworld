@@ -188,11 +188,15 @@ def test_archived_user_cannot_have_roles_toggled(admin, db, history):
 
 
 def test_admin_page_labels_archived_users(admin, db, history):
-    assert 'Archived' not in admin.get('/admin/users').text.replace('Archive</button>', '')
+    def row(page):
+        start = page.index('<span class="user-name">ordinary</span>')
+        return page[start:page.index('</tr>', start)]
+
+    assert 'user-archived-tag' not in row(admin.get('/admin/users').text)
     archive(admin, history)
-    page = admin.get('/admin/users').text
-    assert 'user-archived-tag' in page and 'ordinary' in page
-    assert 'value="archive"' not in page.split('ordinary', 1)[1].split('</tr>', 1)[0]
+    archived = row(admin.get('/admin/users').text)
+    assert '<span class="user-archived-tag"' in archived and '>Archived</span>' in archived
+    assert 'value="archive"' not in archived
 
 
 def test_archived_user_gets_no_new_everyone_notification(admin, db, history, records, leadership):
