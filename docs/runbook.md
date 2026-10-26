@@ -32,7 +32,7 @@ The WSGI entry point is `app:app` (`app.py` imports the global `flask_app.app`).
 | Host | a VPS or VM, an on-premises machine, a platform service with a persistent volume | The host must give the service a persistent local disk for `data/`. A host with an ephemeral filesystem is not suitable for SQLite plus local uploads. |
 | Concurrency | one process with threads, or a few workers | SQLite allows one writer at a time and the CSV import relies on that write lock (ProductSpec T10). Keep the worker count small; load behaviour was never measured. |
 | Process manager | systemd unit, supervisor, container restart policy | Must restart the service and capture stdout/stderr. |
-| Static files | served by the app (default) or by the proxy | `/static/` and `/static/uploads/` are public. Responses under `/static/uploads/` carry `X-Content-Type-Options: nosniff`. A proxy that serves `/static/` from the release directory bypasses the app's upload route, so uploads in `UPLOAD_DIR` would return 404: map `/static/uploads/` separately to `UPLOAD_DIR` (or route that path to the app) and keep the `X-Content-Type-Options: nosniff` header on it. |
+| Static files | served by the app (default) or by the proxy | `/static/` and `/static/uploads/` are public. Responses under `/static/uploads/` carry `X-Content-Type-Options: nosniff`. A proxy that maps `/static/uploads/` straight to `UPLOAD_DIR` also bypasses the app's refusal of symlinks, so it must not follow them (nginx `disable_symlinks on`, Apache `Options -FollowSymLinks`) and `UPLOAD_DIR` must hold regular files only. A proxy that serves `/static/` from the release directory bypasses the app's upload route, so uploads in `UPLOAD_DIR` would return 404: map `/static/uploads/` separately to `UPLOAD_DIR` (or route that path to the app) and keep the `X-Content-Type-Options: nosniff` header on it. |
 
 Every page sets a session cookie and `Vary: Cookie`, so shared caches will not cache public pages (ProductSpec, CSRF section).
 
@@ -83,7 +83,7 @@ DB_PATH=/srv/troniworld/data/app.db      # the file named in DATABASE_URI
 STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/srv/troniworld/backups/$STAMP; mkdir -p "$(dirname "$DEST")"; mkdir "$DEST"   # fails if the stamp exists
 [ -s "$DB_PATH" ]                                       # a missing source must fail, not become an empty database
 sqlite3 -readonly "$DB_PATH" ".backup $DEST/app.db"
-cp -a /srv/troniworld/data/uploads "$DEST/uploads"     # uploads write a temp file and rename it: copy off-peak, or from a filesystem snapshot
+mkdir "$DEST/uploads"; cp -a /srv/troniworld/data/uploads/. "$DEST/uploads"/     # the trailing /. copies the files even if uploads is a symlink; uploads write a temp file and rename it: copy off-peak, or from a filesystem snapshot
 chmod -R go-rwx "$DEST"                                 # backups hold private comments
 (cd "$DEST/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # empty file if there are no uploads
 [ "$(sqlite3 "$DEST/app.db" "PRAGMA integrity_check;")" = ok ]   # any other output fails the backup
@@ -145,11 +145,11 @@ UPLOAD_DIR=/srv/troniworld/data/uploads; NEW_DB=/srv/troniworld/data/app.db
 OLD_BACKUP=/srv/troniworld/backups/pre-migration; mkdir -p "$(dirname "$OLD_BACKUP")"; mkdir "$OLD_BACKUP"
 [ -s "$OLD_DB" ]
 sqlite3 -readonly "$OLD_DB" ".backup $OLD_BACKUP/app.db"                 # backup of the OLD locations first
-cp -a "$OLD_RELEASE/flask_app/static/uploads" "$OLD_BACKUP/uploads"
+mkdir "$OLD_BACKUP/uploads"; cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$OLD_BACKUP/uploads"/   # files, not a symlink
 mkdir -p "$UPLOAD_DIR"
 cp "$OLD_BACKUP/app.db" "$NEW_DB"                                         # the migrated copy; the old file stays as it is
 cp -a "$OLD_RELEASE"/flask_app/static/uploads/. "$UPLOAD_DIR"/
-sqlite3 "$NEW_DB" "PRAGMA integrity_check;"                               # ok
+[ "$(sqlite3 -readonly "$NEW_DB" "PRAGMA integrity_check;")" = ok ]
 (cd "$OLD_BACKUP/uploads" && find . -type f -exec sha256sum {} + > ../uploads.sha256)   # the manifest rollback path B needs
 if [ -s "$OLD_BACKUP/uploads.sha256" ]; then (cd "$UPLOAD_DIR" && sha256sum -c "$OLD_BACKUP/uploads.sha256"); fi
 sqlite3 -readonly "$OLD_DB" "SELECT version_num FROM alembic_version;"     # this is BEFORE_STAMP: write it down for rollback path A
