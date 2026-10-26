@@ -126,8 +126,8 @@ Then start the service and run the smoke checks (section 9). If the restored sta
 
 Upgrade (with the service stopped or in maintenance, after a section 6 backup, using the new release's code):
 
-1. Back up (section 6; on the very first deploy use section 8.1 instead) and note `flask --app app db current` (the "before" stamp).
-2. **First production deploy of this configuration only:** follow section 8.1 now, before anything below, instead of step 1's backup.
+1. Back up and note the stamp. **On the very first deploy of this configuration, do section 8.1 instead (it takes the backup of the old locations, migrates, and records the stamp), then go to step 3.** Otherwise back up per section 6 and note `flask --app app db current` (the "before" stamp).
+2. (Only the first deploy: already done in step 1 via section 8.1. Later deploys skip this step.)
 3. Unpack the new release beside the old one; install its pinned requirements in its own venv; run `pip check`.
 4. `flask --app app db upgrade` with the production environment. Supported from `f65e956efdb9` or later; it is transactional on SQLite and rolls back on a foreign-key violation (T07). Do not apply `--sql` output to SQLite. A brand-new empty database uses `flask --app app bootstrap-db` instead.
 5. Switch `current` to the new release and restart the service.
